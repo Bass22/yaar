@@ -2,14 +2,14 @@
 
 > Lis ce fichier avant toute contribution. En cas de doute, applique la **boussole** (§2).
 >
-> Sources de vérité, à la racine du dépôt :
-> - `Cahier des charges — Pilotage avicole.md` — **le quoi** : modules, écrans, règles métier, UX.
-> - `Architecture technique — Pilotage avicole.md` — **le comment** : stack, couches, hors-ligne, tenancy, lots.
-> - `journal-gardien.html`, `bureau-admin.html` — **maquettes interactives validées**, références de design.
+> Sources de vérité :
+> - `docs/cahier-des-charges.md` — **le quoi** : modules, écrans, règles métier, UX.
+> - `docs/architecture.md` — **le comment** : stack, couches, hors-ligne, tenancy, lots.
+> - `journal-gardien.html`, `bureau-admin.html` (à la racine) — **maquettes interactives validées**, références de design.
 >
 > Une règle métier absente de ces documents s'y ajoute **avant** d'être codée.
 
-**État du dépôt (nov. 2026)** : avant le lot 1. Il n'existe que les specs et les maquettes ; l'arborescence du §3 est une cible. Vérifie qu'un dossier, un script ou une dépendance existe avant de t'appuyer dessus. « Yaar » est un nom de travail, non déposé : il ne s'écrit qu'à un endroit par application (manifest, constante), jamais en dur dans les écrans.
+**État du dépôt** : le socle se construit tranche par tranche ; `backlog.md` dit ce qui est livré (✅). L'arborescence du §3 est une cible : vérifie qu'un dossier, un script ou une dépendance existe avant de t'appuyer dessus. « Yaar » est un nom de travail, non déposé : il ne s'écrit qu'à un endroit par application (manifest, titre de page), jamais en dur dans les écrans.
 
 ## 1. Le produit
 
@@ -32,34 +32,39 @@ Clean Architecture et DDD **autant que nécessaire** : l'esprit, pas la cérémo
 
 ```
 apps/web/                Angular — SPA + PWA (vues gardien et admin)
-apps/api/                NestJS — un module par domaine : auth, tenants, users, sites, campagnes,
-                         journal (le cœur), commandes, tiers, couts, ventes, pesees, referentiels,
-                         notifications, medias, parametres, audit
-packages/domain/         cœur métier pur, deux points d'entrée : journal (terrain) et argent
+apps/api/                NestJS — un module par domaine : auth, tenants, users, sites, campaigns,
+                         journal (le cœur), orders, counterparties, costs, sales, weighings,
+                         reference-data, notifications, media, settings, audit
+packages/domain/         cœur métier pur, deux points d'entrée : journal (terrain) et finance
 packages/shared/         types et DTO des événements, contrats d'API
-packages/design-cahier/  design system « cahier » : tokens, pictos SVG, tampons
+packages/design-system/  design system « cahier » : tokens, pictos SVG, tampons
+packages/kit/            briques communes aux produits de la maison (Money, Result…), reprises
+                         de build-track et extractibles plus tard dans un dépôt à part
 analytics/dbt/           Python + dbt sur réplique Postgres — hors chemin applicatif
 audio/                   scripts des phrases + clips par langue (wo/, fr/)
 infra/                   docker-compose, Caddy
-docs/
+docs/                    cahier des charges, architecture
 ```
 
 Règle de dépendance — les flèches pointent vers l'intérieur :
 
 ```
-packages/domain   → rien (ni NestJS, ni Prisma, ni Angular, ni IO)
+packages/kit      → rien (ni le reste du workspace, ni framework)
+packages/domain   → kit (ni NestJS, ni Prisma, ni Angular, ni IO)
 packages/shared   → rien (types purs)
-application       → domain            (cas d'usage + ports : dépôts, fichiers, push, horloge)
-infrastructure    → application, domain   (Prisma, volume ou S3, web-push)
-web — routes gardien → domain/journal, shared, design-cahier      (jamais domain/argent)
-web — routes admin   → domain/journal, domain/argent, shared, design-cahier
+application       → domain, kit       (cas d'usage + ports : dépôts, fichiers, push, horloge)
+infrastructure    → application, domain, kit   (Prisma, volume ou S3, web-push)
+web — routes gardien → domain/journal, kit, shared, design-system   (jamais domain/finance)
+web — routes admin   → domain/journal, domain/finance, kit, shared, design-system
 ```
 
 **Une règle métier s'écrit une seule fois, dans `packages/domain`** — `apps/web` n'en réimplémente aucune. Mais tout le domaine ne va pas partout :
 
 - **`domain/journal`** (validation d'une déclaration, vivants, moyenne de pesée, écart de quantité, anti-doublon) est partagé : le téléphone valide hors-ligne avec le même code que le serveur.
-- **`domain/argent`** (facturable, dette, grand livre, coût par poulet) n'entre jamais dans les routes gardien, ce qu'une règle de lint Nx garantit. Côté admin, il ne sert qu'à prévisualiser une saisie en cours ; tout chiffre enregistré vient de l'API.
+- **`domain/finance`** (facturable, dette, grand livre, coût par poulet) n'entre jamais dans les routes gardien, ce qu'une règle de lint garantit. Côté admin, il ne sert qu'à prévisualiser une saisie en cours ; tout chiffre enregistré vient de l'API.
 - Le domaine est **isomorphe** (aucune API propre à Node) et le serveur **revalide toujours** : le calcul du client sert à l'affichage et au hors-ligne, il ne fait jamais foi.
+
+**Reprendre avant d'écrire.** Avant de coder une brique générique (montants, résultat typé, horloge, garde tenant et RLS, dépôt de fichiers par empreinte, formatage FCFA, Caddy et compose), cherche-la dans le dépôt voisin `../build-track` (ERP Travaux) et reprends-la avec ses tests. Elle va dans `packages/kit` si un autre produit l'utiliserait telle quelle : aucun vocabulaire avicole, aucun import du reste du workspace, provenance notée dans `packages/kit/README.md`. Ce qui dépend du métier ou d'un framework s'adapte sur place. Avant de reprendre du code d'infrastructure, vérifie que ses dépendances passent `npm audit`.
 
 ## 4. Règles non négociables
 
@@ -69,7 +74,7 @@ web — routes admin   → domain/journal, domain/argent, shared, design-cahier
 4. **Need-to-know.** Le téléphone du gardien ne reçoit et ne stocke aucune donnée financière (coûts, prix, ventes, soldes). Le filtrage se fait **côté serveur selon le rôle**, pas en masquant à l'écran.
 5. **Tenant partout.** `tenant_id` sur chaque table et chaque requête : garde NestJS + couche d'accès + RLS PostgreSQL. Le tenant vient de la session, jamais du client.
 6. **Fail-closed.** Dans le doute, l'état par défaut est le plus restrictif : accès refusé, route protégée, entrée inconnue rejetée. L'autorisation (rôle, portée par site, mode strict) se vérifie à l'ingestion, côté serveur ; le client n'est jamais l'autorité.
-7. **Jamais de flottant pour l'argent.** Montant = value object sur entier FCFA + code devise ; devise jamais codée en dur. Poids en grammes entiers, quantités en unités entières (le gardien ne manipule pas de fractions).
+7. **Jamais de flottant pour l'argent.** `Money` = value object sur entier dans la plus petite unité + code devise ; devise jamais codée en dur. Poids en grammes entiers, quantités en unités entières (le gardien ne manipule pas de fractions).
 8. **Les états sont des projections.** Soldes, vivants, engagé, coût/poulet se **recalculent** depuis le journal et les écritures ; aucune vue d'écran n'existe seulement en SQL serveur. Règles d'argent : coût reconnu **à la réception** ; `facturable = min(reçu, qté) × PU` ; `dette = payé − facturable` ; le budget est un plan, jamais une dette.
 9. **Les écarts sont signés, jamais bridés** : un manque est négatif, un bonus est positif.
 10. **Absent n'est pas zéro, et zéro se déclare.** « Rien perdu hier » est un événement explicite ; une valeur non renseignée reste absente, jamais `0`.
@@ -88,26 +93,38 @@ Rien à construire en V1, mais ne pas fermer :
 
 ## 6. Langue et langage ubiquitaire
 
-**Le métier en français, la technique en anglais** (architecture §4). Les termes du métier s'écrivent comme au cahier des charges, sans accents dans les identifiants ; le vocabulaire technique reste anglais (`CommandeRepository`, `JournalController`, `outbox`, `sync`). On ne traduit jamais un terme métier (`Order`, `Batch`, `Flock` sont des fautes) et on n'invente pas de synonyme. Commentaires rares, en anglais ; textes affichés et narration des tests en français.
+**Règle stricte, celle de l'ERP Travaux** (décision du 2026-11-05 ; elle remplace sur ce point `docs/architecture.md` §4) :
 
-| Métier | Sens | Code |
-|---|---|---|
-| Élevage (tenant) | Client du SaaS | `Tenant`, `tenant_id` |
-| Site | Poulailler | `Site` |
-| Campagne (« bande » à l'oral) | Un cycle d'élevage | `Campagne` |
-| Événement / déclaration | Fait signé du journal | `Evenement`, `Declaration` |
-| Contre-déclaration | Correction tracée après envoi | `ContreDeclaration` |
-| Titulaire | Gardien référent d'un site | `titulaire` |
-| Commande, ligne, réception | Bon multi-lignes, livraisons partielles | `Commande`, `LigneCommande`, `Reception` |
-| Écart (manque / bonus) | Reçu − commandé, signé | `Ecart` |
-| Facturable, dette, règlement | Voir §4 règle 8 | `facturable`, `Dette`, `Reglement` |
-| Tiers | Fournisseur, client, collaborateur | `Tiers` |
-| Coût, engagé, échéance, budget | Écritures et plan de l'admin | `Cout`, `engage`, `Echeance`, `Budget` |
-| Pesée, souche | Poids réels vs courbe cible | `Pesee`, `Souche` |
-| Vivants | Effectif courant | `vivants` |
-| Clôture | Fin de campagne, restes, bilan | `cloture` |
+- **Anglais obligatoire** pour tout identifiant : classes, types, fonctions, variables, fichiers, dossiers, modules, classes CSS, clés de test.
+- **Français réservé** aux documents Markdown, aux textes destinés à l'utilisateur (libellés, messages, aria-labels, phrases audio) et à la narration des tests (`describe`, `it`, `// Given / When / Then`, builders métier).
+- Commentaires de code en anglais, et rares.
+- **Franglais interdit** : `CommandeService`, `calculerDette`, `argent/montant.ts` sont des fautes — écrire `PurchaseOrderService`, `computeDebt`, `finance/…`. La table fait foi : pas de synonyme.
 
-Rôles : `admin` (gérant), `collaborateur` (gardien), `investisseur` (V2, lecture seule).
+| Métier | Code |
+|---|---|
+| Élevage (tenant) ; site (poulailler) | `Tenant`, `tenant_id` ; `Site` |
+| Campagne, bande | `Campaign` |
+| Gardien ; titulaire du site | `Caretaker` ; `primaryCaretaker` |
+| Événement du journal ; déclaration ; contre-déclaration | `JournalEvent` ; `Declaration` ; `CounterDeclaration` |
+| Date métier ; date de saisie | `businessDate` ; `recordedAt` |
+| Mort, perte ; sac ouvert ; « rien perdu » | `Death`, `Loss` ; `BagOpened` ; `NoLoss` |
+| Vivants | `liveCount` |
+| Tâche ; protocole sanitaire | `Task` ; `HealthProtocol` |
+| Commande ; ligne de commande | `PurchaseOrder` ; `OrderLine` |
+| Réception ; PV de réception | `Delivery` ; `DeliveryNote` |
+| Écart (manque / bonus) | `Variance` (`shortfall` / `bonus`) |
+| Facturable ; paiement d'une commande | `billable` ; `Payment` |
+| Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
+| Tiers ; grand livre des tiers | `Counterparty` ; `Ledger` |
+| Montant ; différence signée | `Money` ; `SignedMoney` |
+| Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
+| Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
+| Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
+| Vente ; prêt de poulets | `Sale` ; `BirdLoan` |
+| Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |
+| Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
+
+Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture seule). Un terme absent de la table s'y ajoute avant d'être codé.
 
 ## 7. Méthode — TDD, tests = spécifications
 
@@ -115,30 +132,36 @@ Rôles : `admin` (gérant), `collaborateur` (gardien), `investisseur` (V2, lectu
 - Cycle strict 🔴 → 🟢 → 🔵, une règle à la fois. Une règle sans test n'existe pas ; si la règle change, le test change avant le code.
 - `describe` / `it` en **français métier**, corps en Given / When / Then, builders métier (`uneCommandeAnnoncee()`), référence à la spec en tête (`// Spec: Cahier des charges — Commandes`).
 - Le gros du volume vit dans `packages/domain` (pur, sans mock, property-based sur les invariants d'argent et d'idempotence). Cas d'usage : ports en stub mémoire. Infrastructure : PostgreSQL réel (RLS, tenant). E2E : quelques parcours dorés, hors-ligne compris, avec les montants attendus **calculés à la main en commentaire**.
-- Outils repris de l'ERP Travaux (Jest ou Vitest, fast-check, Testcontainers, Playwright) — à figer au lot 1.
+- Outils : **Vitest** pour le web et les packages, **Jest** pour l'API (décision du 2026-11-05). fast-check, Testcontainers et Playwright s'ajouteront avec la première tranche qui en a besoin.
 
 ## 8. Conventions de code
 
 - **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Erreurs métier typées (résultat typé), exceptions réservées aux pannes d'infrastructure.
 - **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` (l'heure vient d'un port horloge). Un état invalide n'est pas représentable.
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé.
-- **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-cahier`, aucune couleur en dur.
+- **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
 - **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL dans ce qui est livré, et aucun code tiers recopié sans licence permissive vérifiée.
+- **Dépendances : le strict nécessaire, et sûres.** Un paquet ne s'installe que pour un besoin de la tranche en cours, jamais « pour plus tard » ; ce que la plateforme ou une dépendance déjà présente sait faire ne justifie pas un paquet de plus. Avant d'ajouter : paquet officiel et maintenu, licence permissive, moteur Node compatible, puis `npm audit` — aucune vulnérabilité haute ou critique, et zéro dans les dépendances d'exécution (`npm audit --omit=dev`). Une sous-dépendance vulnérable se corrige par `overrides` dans `package.json` quand une version corrigée existe. Les scripts d'installation sont bloqués par `.npmrc` (`ignore-scripts=true`) : n'en autorise aucun sans le demander. Les paquets qui ne servent qu'à générer du code (plugins et schematics Nx, Angular, NestJS) ne restent pas installés.
+- **Versions : la stable recommandée, pas la dernière.** On prend la version stable maintenue que le Node en place supporte officiellement ; à défaut, celle de build-track. Ni bêta, ni option expérimentale, ni majeure que l'outillage ne suit pas encore. En place : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Vitest 4, Jest 29, ESLint 9, Nx 24. Une montée de version est une tranche à part.
 
 ## 9. Commandes
 
-Cible, à remplacer par les vrais scripts dès que le socle (lot 1) existe :
+Prérequis : Node 22.12 ou plus. Le verrou `package-lock.json` fait foi : installe toujours avec `npm ci`. npm 10 sait installer depuis le verrou et y ajouter un paquet, mais plante s'il doit le recréer de zéro (défaut de résolution autour de `vitest` 4.1) ; dans ce cas : `npx npm@11 install --package-lock-only`.
 
 ```bash
-npx nx test domain                    # le cœur : rapide, sans Docker
+npm ci                                # installer depuis le verrou
+npm test                              # structure du workspace + tests de tous les projets
+npm run lint                          # ESLint, `any` refusé
+npm run typecheck                     # tsc strict
+npm run build                         # web (dist/apps/web) et API (apps/api/dist)
+npx nx test domain                    # un seul projet : web, api, domain, shared, design-system, kit
 npx nx affected -t lint test build    # ce que la modification touche
-npx nx serve api                      # NestJS
-npx nx serve web                      # Angular
-docker compose -f infra/docker-compose.yml up
+npx nx serve web                      # Angular, en développement
+npx nx serve api                      # NestJS, après build (PORT, défaut 3000)
 ```
 
-Ouvrir une maquette : `open journal-gardien.html` (aucun build).
+Il n'y a pas de générateur installé : un nouveau projet se crée en copiant un `project.json` voisin. Ouvrir une maquette : `open journal-gardien.html` (aucun build).
 
 ## 10. Skills du projet (`.claude/skills/`)
 

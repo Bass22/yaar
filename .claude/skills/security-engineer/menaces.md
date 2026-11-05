@@ -35,7 +35,7 @@
 
 - Les réponses servies au rôle collaborateur ont leurs propres types, sans champ financier, et un test les parcourt pour le prouver (prix, montants, soldes, budget, ventes, tiers).
 - La carte livraison porte la quantité attendue, jamais le prix.
-- Le bundle des routes gardien n'embarque pas `domain/argent` : la règle de lint Nx qui interdit cet import est active, et le build le confirme (aucun code d'argent dans les fichiers chargés par la vue gardien, imports transitifs compris).
+- Le bundle des routes gardien n'embarque pas `domain/finance` : la règle de lint qui interdit cet import est active, et le build le confirme (aucun code d'argent dans les fichiers chargés par la vue gardien, imports transitifs compris).
 - Le service worker du gardien ne met en cache que : coquille de l'app, clips audio, référentiels du site, campagne en cours, annonces, demandes de pesée, tâches.
 - À la déconnexion ou à la révocation : purge des caches, de l'outbox déjà synchronisée et du stockage local. Que devient une outbox non synchronisée ? Elle ne doit être ni perdue ni lisible par le compte suivant.
 - Le cache « dernière lecture » de l'admin est lié à la session et daté à l'écran.

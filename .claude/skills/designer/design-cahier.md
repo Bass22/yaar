@@ -1,6 +1,6 @@
 # Design « cahier » — tokens et composants relevés dans les maquettes
 
-Relevé de `journal-gardien.html` et `bureau-admin.html` (nov. 2026). Les maquettes font autorité : si ce fichier et une maquette divergent, la maquette a raison et ce fichier est à corriger. À terme, ces valeurs vivront dans `packages/design-cahier`.
+Relevé de `journal-gardien.html` et `bureau-admin.html` (nov. 2026). Les maquettes font autorité : si ce fichier et une maquette divergent, la maquette a raison et ce fichier est à corriger. À terme, ces valeurs vivront dans `packages/design-system`.
 
 ## Couleurs
 

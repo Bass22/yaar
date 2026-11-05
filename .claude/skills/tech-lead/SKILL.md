@@ -13,8 +13,8 @@ Les règles du projet sont dans `CLAUDE.md` ; elles s'appliquent, ce skill ne le
 
 ## Avant d'écrire du code
 
-1. **Trouve la règle dans la spec.** `Cahier des charges — Pilotage avicole.md` pour le quoi, `Architecture technique — Pilotage avicole.md` pour le comment. Si la règle n'y est pas, écris-la d'abord dans le document, puis code.
-2. **Regarde ce qui existe.** Le dépôt démarre : vérifie qu'un dossier, un script ou une convention existe avant de t'y appuyer, et suis les conventions du code voisin dès qu'il y en a.
+1. **Trouve la règle dans la spec.** `docs/cahier-des-charges.md` pour le quoi, `docs/architecture.md` pour le comment. Si la règle n'y est pas, écris-la d'abord dans le document, puis code.
+2. **Regarde ce qui existe.** Vérifie qu'un dossier, un script ou une convention existe avant de t'y appuyer, et suis les conventions du code voisin. Pour une brique générique (montants, résultat typé, garde tenant, dépôt de fichiers, formatage), cherche d'abord dans `../build-track` : on reprend avec les tests plutôt que de réécrire, et ce qui n'a aucun vocabulaire métier va dans `packages/kit`.
 3. **Repère les décisions ouvertes** (architecture §12, « Points ouverts » du cahier des charges). Si la tâche en dépend, expose les options et ta recommandation au fondateur ; ne tranche pas en passant.
 4. **Dis ce que tu vas faire en trois lignes** quand la tâche dépasse un fichier : où va le code, quel test vient en premier, ce que tu ne fais pas.
 
@@ -23,12 +23,12 @@ Les règles du projet sont dans `CLAUDE.md` ; elles s'appliquent, ce skill ne le
 | Ce que tu écris | Où | Comment |
 |---|---|---|
 | Règle de terrain : validation d'une déclaration, vivants, moyenne de pesée, écart de quantité, anti-doublon | `packages/domain`, entrée `journal` | Fonction pure, testée d'abord, sans IO ni horloge implicite ; partagée avec le téléphone |
-| Règle d'argent : facturable, dette, solde de tiers, engagé, coût par poulet, alerte | `packages/domain`, entrée `argent` | Fonction pure, testée d'abord ; jamais importée par les routes gardien |
+| Règle d'argent : facturable, dette, solde de tiers, engagé, coût par poulet, alerte | `packages/domain`, entrée `finance` | Fonction pure, testée d'abord ; jamais importée par les routes gardien |
 | Orchestration d'une écriture (déclarer, réceptionner, régler, clôturer) | cas d'usage côté `apps/api` | Appelle le domaine à travers des ports |
 | Accès base, fichiers, push | infrastructure | Seule couche qui change entre cloud et on-premise |
 | CRUD de référentiel, lecture d'un tableau de bord | module NestJS, Prisma en direct | Sans cérémonie ; filtre tenant quand même |
 | Ce qui traverse le réseau | `packages/shared` | Déclaré une fois, importé des deux côtés, jamais recopié |
-| Affichage, navigation, état d'écran, outbox | `apps/web` | N'écrit aucune règle : importe `journal` ; `argent` côté admin seulement, pour prévisualiser une saisie en cours |
+| Affichage, navigation, état d'écran, outbox | `apps/web` | N'écrit aucune règle : importe `journal` ; `finance` côté admin seulement, pour prévisualiser une saisie en cours |
 
 Le test qui tranche un doute : *si cette règle change demain, combien d'endroits dois-je modifier ?* Si la réponse est deux, il y a un doublon à supprimer.
 
@@ -39,7 +39,7 @@ Le test qui tranche un doute : *si cette règle change demain, combien d'endroit
 - **Client ou serveur ?** La règle vit dans le domaine. Les règles de terrain s'exécutent des deux côtés : le téléphone valide pour le confort et le hors-ligne. Les règles d'argent s'exécutent côté serveur ; l'admin ne les importe que pour prévisualiser ce qu'il est en train de saisir (total d'une ligne de commande), et tout chiffre enregistré vient de l'API. Dans tous les cas le serveur revalide et fait foi.
 - **Que met-on dans un événement ?** Des faits (les cinq poids), jamais un résultat (la moyenne). Un téléphone resté hors-ligne exécute une ancienne version du domaine ; si le serveur recalcule depuis les faits, ce décalage est sans conséquence.
 - **Une vue en SQL seul ?** Non pour un écran : la vue doit rester dérivable du journal par le code du domaine, sinon la porte du mode 100 % hors-ligne se ferme. L'analytics dbt, hors chemin applicatif, n'est pas concerné.
-- **Une dépendance de plus ?** Regarde ce qu'elle coûte au bundle gardien (budget 200 Ko gzip) et ce qu'elle remplace réellement. PrimeNG est pour le bureau admin, pas pour le cahier.
+- **Une dépendance de plus ?** Seulement pour un besoin de la tranche en cours, jamais « pour plus tard », et seulement si la plateforme ou une dépendance déjà présente ne le fait pas. Vérifie avant d'installer : paquet officiel et maintenu, licence permissive, moteur Node compatible, `npm audit` sans vulnérabilité haute. Regarde ce qu'elle coûte au bundle gardien (budget 200 Ko gzip). Pas de paquet qui ne sert qu'à générer du code. Annonce chaque ajout et sa raison ; PrimeNG est pour le bureau admin, pas pour le cahier.
 - **Une abstraction ?** Au second cas concret, pas avant. Trois lignes dupliquées valent mieux qu'une mauvaise généralisation.
 - **Corriger une donnée ?** Jamais en modifiant un événement : contre-déclaration. Jamais par une migration qui réécrit le journal.
 - **Un identifiant ?** UUID généré par le client, y compris pour ce que crée l'admin.
@@ -48,7 +48,7 @@ Le test qui tranche un doute : *si cette règle change demain, combien d'endroit
 
 Cycle TDD, une règle à la fois : un test en français métier qui échoue pour la bonne raison, le minimum pour le faire passer, puis le nettoyage. Pour un bug : d'abord le test qui le reproduit.
 
-**Domaine.** Isomorphe : aucune API propre à Node, puisque l'entrée `journal` tourne aussi dans le navigateur. Un état invalide n'est pas représentable : les value objects (`Montant`, quantités, poids) valident à la construction et renvoient un résultat typé. Pas d'exception pour un refus métier. Property-based sur les invariants : idempotence de l'ingestion, `dette = payé − facturable`, écart signé, somme des réceptions partielles.
+**Domaine.** Isomorphe : aucune API propre à Node, puisque l'entrée `journal` tourne aussi dans le navigateur. Un état invalide n'est pas représentable : les value objects (`Money`, quantités, poids) valident à la construction et renvoient un résultat typé. Pas d'exception pour un refus métier. Property-based sur les invariants : idempotence de l'ingestion, `dette = payé − facturable`, écart signé, somme des réceptions partielles.
 
 **API.** Contrôleur mince : valider le DTO, appeler le cas d'usage, traduire le résultat. Gardes globales fermées par défaut. Toute requête filtre par tenant ; l'auteur d'un événement vient de la session. L'ingestion par lot accepte les doublons sans erreur.
 
@@ -56,7 +56,7 @@ Cycle TDD, une règle à la fois : un test en français métier qui échoue pour
 
 **Base.** Une migration par changement, relue comme du code. `tenant_id` et politique RLS sur toute nouvelle table. Le journal n'a ni `UPDATE` ni `DELETE`.
 
-Nomme dans le langage du métier (`receptionner`, pas `save` ; `Ecart`, pas `Diff`). Peu de commentaires : un bon nom d'abord, un commentaire seulement pour une contrainte que le code ne peut pas dire.
+Nomme en anglais, avec les termes de la table de `CLAUDE.md` §6 (`recordDelivery`, pas `save` ; `Variance`, pas `Diff`) ; un terme métier absent de la table s'y ajoute d'abord. Peu de commentaires : un bon nom d'abord, un commentaire seulement pour une contrainte que le code ne peut pas dire.
 
 ## Relire du code
 

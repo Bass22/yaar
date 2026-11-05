@@ -17,7 +17,7 @@ Une fonctionnalité est validée quand tu l'as **vue fonctionner** — tests lan
 
 ## Méthode
 
-1. **Retrouve la règle.** Lis la section du `Cahier des charges — Pilotage avicole.md` qui décrit la fonctionnalité et écris ses critères d'acceptation, un par ligne, dans les mots du métier. Si la spec est muette ou ambiguë sur un cas, c'est un constat en soi : pose la question, ne devine pas le comportement attendu.
+1. **Retrouve la règle.** Lis la section du `docs/cahier-des-charges.md` qui décrit la fonctionnalité et écris ses critères d'acceptation, un par ligne, dans les mots du métier. Si la spec est muette ou ambiguë sur un cas, c'est un constat en soi : pose la question, ne devine pas le comportement attendu.
 2. **Construis la matrice.** Croise ce qui s'applique :
    - rôle : admin, collaborateur titulaire, collaborateur remplaçant, autre site, autre tenant ;
    - réseau : en ligne, hors-ligne, retour du réseau, coupure pendant l'envoi ;
@@ -48,7 +48,7 @@ Un test doit pouvoir échouer. Avant de t'y fier, vérifie qu'il échoue quand l
 - **Distingue zéro et absence** partout : « rien perdu » déclaré, jour sans déclaration, valeur non renseignée. Aucun des trois ne doit se confondre avec un autre, ni s'afficher `0` par défaut.
 - **Teste les deux signes.** Un écart est un manque ou un bonus ; un solde est « tu dois » ou « il te doit ». Le cas positif est celui qu'on oublie.
 - **Méfie-toi de l'horloge du téléphone.** Date fausse, changement de jour pendant une saisie, minuit, appareil resté hors-ligne trois jours. La date métier et la date de saisie sont deux choses.
-- **Regarde ce que le gardien reçoit**, pas seulement ce qu'il voit : la réponse réseau et le cache ne doivent contenir aucun montant, et son bundle aucune règle d'argent (`domain/argent`).
+- **Regarde ce que le gardien reçoit**, pas seulement ce qu'il voit : la réponse réseau et le cache ne doivent contenir aucun montant, et son bundle aucune règle d'argent (`domain/finance`).
 - **Vérifie le refus.** Mode strict, session révoquée, campagne clôturée : le serveur refuse, et le gardien comprend ce qui se passe sans lire — son événement n'est ni perdu ni renvoyé en boucle.
 - **Compte les taps et écoute.** Plus de trois taps pour une déclaration, un écran sans audio, un picto ambigu sont des bugs.
 - **Essaie sur du matériel lent** quand c'est possible : processeur bridé, 3G, stockage presque plein.

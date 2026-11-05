@@ -25,7 +25,7 @@ Tirés du cahier des charges et de l'architecture. Parcours ceux du module test�
 - Contre-déclaration d'une contre-déclaration ; correction qui rendrait les vivants négatifs.
 - Morts supérieurs à l'effectif vivant ; compteur de vivants cohérent après correction et après synchro d'un second appareil.
 - Trois taps au plus ; chaque écran parle ; aucun montant affiché ni reçu.
-- Les fichiers chargés par la vue gardien ne contiennent pas le code de `domain/argent` : à vérifier sur le build de production, pas seulement par le lint.
+- Les fichiers chargés par la vue gardien ne contiennent pas le code de `domain/finance` : à vérifier sur le build de production, pas seulement par le lint.
 - Tâches du jour : cochée hors-ligne, cochée par deux personnes, tâche déclenchée par la météo sans réseau.
 
 ## Commandes et réceptions
