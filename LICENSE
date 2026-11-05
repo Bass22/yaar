@@ -1,0 +1,199 @@
+LICENCE PROPRIÉTAIRE — YAAR (PILOTAGE AVICOLE)
+Logiciel propriétaire — Tous droits réservés
+
+Copyright (c) 2026 Bassirou Seye
+Tous droits réservés.
+
+« Yaar » est le nom de travail du projet. La présente licence s'applique au
+projet quel que soit le nom sous lequel il sera exploité.
+
+================================================================================
+AVIS IMPORTANT : LISEZ ATTENTIVEMENT AVANT D'UTILISER CE LOGICIEL
+================================================================================
+
+Le présent accord est un contrat légal entre vous (personne physique ou morale,
+ci-après « l'Utilisateur ») et le titulaire des droits sur le projet Yaar
+(ci-après « le Titulaire des droits ») concernant l'ensemble des éléments
+contenus dans ce dépôt (ci-après collectivement dénommés « le Logiciel »),
+notamment :
+
+- le code source, les fichiers de configuration, les schémas de base de données
+  et les scripts ;
+- le cahier des charges, le document d'architecture, les spécifications, la
+  documentation et les instructions destinées aux outils de développement ;
+- les maquettes interactives et le design signé « cahier » : identité visuelle,
+  tokens, mises en page, pictogrammes, illustrations, tampons, emblème et icône ;
+- les scripts des phrases et les enregistrements audio de l'interface ;
+- les référentiels, gabarits, jeux de données et modèles d'analyse élaborés pour
+  le projet.
+
+En accédant à ce dépôt, en téléchargeant, copiant ou utilisant tout ou partie
+du Logiciel, l'Utilisateur accepte les termes de la présente licence. S'il ne
+les accepte pas, il doit immédiatement cesser tout accès et utilisation.
+
+--------------------------------------------------------------------------------
+1. DROITS ACCORDÉS
+--------------------------------------------------------------------------------
+
+Le Titulaire des droits n'accorde aucune licence d'utilisation, de reproduction,
+de modification, de distribution ni de sous-licence sur le Logiciel, sauf accord
+écrit explicite et préalable signé par le Titulaire des droits.
+
+La simple lecture du code source dans le cadre d'un audit de sécurité mandaté
+par écrit par le Titulaire des droits constitue la seule utilisation tolérée sans
+accord préalable.
+
+L'utilisation du service en ligne par les éleveurs clients n'est pas régie par
+la présente licence mais par des conditions générales distinctes. Les données
+saisies par un client dans le service restent la propriété de ce client.
+
+--------------------------------------------------------------------------------
+2. INTERDICTIONS EXPRESSES
+--------------------------------------------------------------------------------
+
+Sont strictement interdits, sans accord écrit préalable du Titulaire des droits :
+
+a) REPRODUCTION ET DISTRIBUTION
+   - Copier, reproduire, dupliquer ou archiver tout ou partie du Logiciel, sous
+     quelque forme que ce soit (code source, code compilé ou minifié, binaire,
+     documentation, maquette, image, enregistrement).
+   - Distribuer, publier, diffuser, partager ou mettre à disposition le Logiciel
+     à des tiers, à titre gratuit ou onéreux.
+   - Inclure tout ou partie du Logiciel dans un autre projet, produit ou service.
+
+b) MODIFICATION ET ŒUVRES DÉRIVÉES
+   - Modifier, adapter, traduire, décompiler, désassembler, procéder à de
+     l'ingénierie inverse (reverse engineering) sur tout ou partie du Logiciel,
+     y compris sur l'application telle qu'elle est servie au navigateur.
+   - Créer des œuvres dérivées fondées sur le Logiciel.
+
+c) IMITATION DU DESIGN ET DES CONTENUS
+   - Reproduire ou imiter le design « cahier », ses pictogrammes, tampons,
+     illustrations, mises en page et parcours, dans un produit ou un service
+     tiers, même sans reprise du code source.
+   - Réutiliser les scripts de phrases et les enregistrements audio.
+
+d) UTILISATION COMMERCIALE
+   - Utiliser le Logiciel, en tout ou en partie, à des fins commerciales sans
+     licence commerciale écrite accordée par le Titulaire des droits.
+
+e) ENTRAÎNEMENT DE MODÈLES D'INTELLIGENCE ARTIFICIELLE (IA)
+   - Utiliser le Logiciel, le code source, la documentation, les spécifications,
+     les images, les enregistrements ou tout élément de ce dépôt — directement
+     ou indirectement — comme données d'entraînement, de fine-tuning, de
+     pré-entraînement, d'alignement ou d'évaluation de tout modèle de machine
+     learning ou d'intelligence artificielle, quel que soit le fournisseur, la
+     plateforme ou l'organisation.
+   - Indexer, scraper ou collecter le contenu de ce dépôt à des fins
+     d'alimentation de corpus d'entraînement IA, qu'il s'agisse de systèmes
+     commerciaux, de recherche académique ou de projets open source.
+   - Incorporer tout ou partie du Logiciel dans un jeu de données (dataset)
+     destiné à l'entraînement de modèles.
+   - Cette interdiction s'applique aux personnes physiques, aux entreprises, aux
+     institutions académiques, aux fournisseurs de cloud, et à tout système
+     automatisé agissant pour leur compte.
+
+f) SOUS-LICENCE ET CESSION
+   - Concéder en sous-licence, vendre, louer, prêter ou céder à des tiers tout
+     droit portant sur le Logiciel.
+
+--------------------------------------------------------------------------------
+3. CONFIDENTIALITÉ
+--------------------------------------------------------------------------------
+
+Le Logiciel contient des informations confidentielles et des secrets commerciaux
+appartenant au Titulaire des droits. L'Utilisateur s'engage à :
+
+- Traiter le Logiciel avec le même degré de confidentialité qu'il accorderait
+  à ses propres informations confidentielles les plus sensibles, et au minimum
+  avec une diligence raisonnable.
+- Ne pas divulguer à des tiers le contenu, la structure ou le fonctionnement
+  du Logiciel sans accord écrit préalable du Titulaire des droits.
+- Prendre toutes les mesures techniques et organisationnelles raisonnables pour
+  empêcher l'accès non autorisé au Logiciel.
+
+Ces engagements survivent à la fin de tout accès au Logiciel.
+
+--------------------------------------------------------------------------------
+4. PROPRIÉTÉ INTELLECTUELLE
+--------------------------------------------------------------------------------
+
+Le Logiciel est et demeure la propriété exclusive du Titulaire des droits. Il
+est protégé par le droit d'auteur, notamment par la législation sénégalaise sur
+le droit d'auteur et les droits voisins, par l'Accord de Bangui instituant
+l'Organisation Africaine de la Propriété Intellectuelle (OAPI) et par les
+conventions internationales applicables. La présente licence ne transfère aucun
+droit de propriété intellectuelle à l'Utilisateur. Tous les droits non
+expressément accordés sont réservés.
+
+Les noms, marques, logos, emblèmes et slogans associés au projet, qu'ils soient
+déposés ou non, sont la propriété du Titulaire des droits et ne peuvent être
+utilisés sans son accord écrit.
+
+--------------------------------------------------------------------------------
+5. CONTRIBUTIONS
+--------------------------------------------------------------------------------
+
+Aucune contribution au Logiciel n'est acceptée en dehors d'un contrat écrit
+conclu avec le Titulaire des droits et prévoyant la cession à son profit des
+droits sur cette contribution. L'accès au dépôt accordé à un salarié, un
+prestataire ou un partenaire ne lui confère aucun droit sur le Logiciel au-delà
+de ce que ce contrat prévoit.
+
+--------------------------------------------------------------------------------
+6. COMPOSANTS TIERS
+--------------------------------------------------------------------------------
+
+Le Logiciel s'appuie sur des composants tiers (bibliothèques logicielles,
+polices de caractères, tables de référence publiées par des tiers) qui restent
+soumis à leurs propres licences. La présente licence ne s'applique pas à ces
+composants et ne restreint pas les droits que leurs licences accordent ; elle
+s'applique à tout le reste, y compris à la manière dont ces composants sont
+assemblés.
+
+--------------------------------------------------------------------------------
+7. EXCLUSION DE GARANTIE
+--------------------------------------------------------------------------------
+
+LE LOGICIEL EST FOURNI « EN L'ÉTAT », SANS GARANTIE D'AUCUNE SORTE, EXPRESSE OU
+IMPLICITE, NOTAMMENT SANS GARANTIE DE QUALITÉ MARCHANDE, D'ADÉQUATION À UN USAGE
+PARTICULIER OU D'ABSENCE DE CONTREFAÇON.
+
+--------------------------------------------------------------------------------
+8. LIMITATION DE RESPONSABILITÉ
+--------------------------------------------------------------------------------
+
+EN AUCUN CAS LE TITULAIRE DES DROITS NE SAURAIT ÊTRE TENU RESPONSABLE DE TOUT
+DOMMAGE DIRECT, INDIRECT, ACCESSOIRE, SPÉCIAL, EXEMPLAIRE OU CONSÉCUTIF RÉSULTANT
+DE L'UTILISATION OU DE L'IMPOSSIBILITÉ D'UTILISER LE LOGICIEL, MÊME S'IL A ÉTÉ
+AVISÉ DE LA POSSIBILITÉ DE TELS DOMMAGES.
+
+--------------------------------------------------------------------------------
+9. RÉSILIATION
+--------------------------------------------------------------------------------
+
+Tout manquement aux conditions de la présente licence entraîne la résiliation
+automatique et immédiate de tout droit d'accès accordé, sans préavis.
+L'Utilisateur doit alors détruire toute copie du Logiciel en sa possession. Le
+Titulaire des droits se réserve le droit d'exercer tout recours légal disponible,
+y compris la demande de dommages et intérêts, en cas de violation.
+
+--------------------------------------------------------------------------------
+10. DROIT APPLICABLE ET JURIDICTION
+--------------------------------------------------------------------------------
+
+La présente licence est régie par le droit sénégalais. En cas de litige, les
+parties s'efforceront de résoudre le différend à l'amiable. À défaut, le litige
+sera soumis aux tribunaux compétents de Dakar, Sénégal.
+
+--------------------------------------------------------------------------------
+11. CONTACT
+--------------------------------------------------------------------------------
+
+Pour toute demande de licence, d'autorisation ou de partenariat :
+  Bassirou Seye
+  seyebassirou1997@gmail.com
+
+================================================================================
+© 2026 Bassirou Seye. Tous droits réservés.
+================================================================================

@@ -111,6 +111,7 @@ Rôles : `admin` (gérant), `collaborateur` (gardien), `investisseur` (V2, lectu
 
 ## 7. Méthode — TDD, tests = spécifications
 
+- Le travail suit `backlog.md` : une tranche (`C.4`) = une demande de revue = un seul sujet, de taille S ou M. Une tranche qui déborde se scinde avant la revue ; pas de refactor opportuniste dedans.
 - Cycle strict 🔴 → 🟢 → 🔵, une règle à la fois. Une règle sans test n'existe pas ; si la règle change, le test change avant le code.
 - `describe` / `it` en **français métier**, corps en Given / When / Then, builders métier (`uneCommandeAnnoncee()`), référence à la spec en tête (`// Spec: Cahier des charges — Commandes`).
 - Le gros du volume vit dans `packages/domain` (pur, sans mock, property-based sur les invariants d'argent et d'idempotence). Cas d'usage : ports en stub mémoire. Infrastructure : PostgreSQL réel (RLS, tenant). E2E : quelques parcours dorés, hors-ligne compris, avec les montants attendus **calculés à la main en commentaire**.
@@ -123,6 +124,7 @@ Rôles : `admin` (gérant), `collaborateur` (gardien), `investisseur` (V2, lectu
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-cahier`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
+- **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL dans ce qui est livré, et aucun code tiers recopié sans licence permissive vérifiée.
 
 ## 9. Commandes
 
