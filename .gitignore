@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out-tsc/
+tmp/
+*.tsbuildinfo
+.angular/
+
+# Nx
+.nx/cache/
+.nx/workspace-data/
+
+# Tests / coverage / perf budget
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets / environment (JWT, DB, VAPID keys)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+vapid*.json
+
+# Local runtime data (media volume, database dumps, backups)
+/medias/
+/data/
+*.dump
+*.sql.gz
+/backups/
+
+# Prisma
+*.db
+*.db-journal
+
+# Analytics (Python + dbt)
+analytics/dbt/target/
+analytics/dbt/dbt_packages/
+analytics/dbt/logs/
+analytics/dbt/profiles.yml
+analytics/dbt/.user.yml
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Claude Code — personal files only; CLAUDE.md and .claude/skills/ are committed
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Editors / OS
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.html
