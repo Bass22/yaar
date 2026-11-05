@@ -5,6 +5,7 @@
   "prefix": "app",
   "sourceRoot": "apps/web/src",
   "tags": ["scope:web"],
+  "implicitDependencies": ["domain", "shared", "design-system", "kit"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",

@@ -136,13 +136,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] PostgreSQL n'est joignable que depuis le réseau interne du compose, et par l'API seule : Caddy n'a aucun chemin vers la base
 - [x] Les images tournent sans privilèges ni outils de build (API sous l'utilisateur `node`, web = Caddy et fichiers statiques)
 
-### A.4 — La CI ne laisse passer que du vert · **S**
-> Spec : `CLAUDE.md` §9 · Zone : configuration CI
+### A.4 — La CI ne laisse passer que du vert · **S** ✅
+> Spec : `CLAUDE.md` §9 · Zone : `.github/workflows/ci.yml`, `tools/{ci,licenses}.spec.mjs`, `tools/licenses.mjs`, `implicitDependencies` des `project.json`
 > Dépend de : A.1, A.2 · Revue : ce qui déclenche quoi.
+> Livré le 2026-11-05 : GitHub Actions, aucune dépendance ajoutée (le contrôle des licences lit le verrou, 40 lignes). Actions officielles épinglées par empreinte, droits en lecture seule, aucun secret. **Le pipeline n'a pas encore tourné sur GitHub** : ses étapes ont été rejouées en local ; la première poussée fera foi.
 
-- [ ] Une modification déclenche lint, tests et build des seuls projets touchés
-- [ ] Un changement dans `packages/domain` ou `packages/shared` déclenche le web et l'API
-- [ ] Une dépendance sous licence GPL ou AGPL fait échouer la CI
+- [x] Une modification déclenche lint, tests, typage et build des seuls projets touchés
+- [x] Un changement dans `packages/domain` ou `packages/shared` déclenche le web et l'API ; dans le kit, le domaine aussi
+- [x] Un changement de règle commune (`tsconfig.base.json`, ESLint, `nx.json`, verrou) déclenche tous les projets
+- [x] Sans base de comparaison fiable (première poussée, historique réécrit), la CI vérifie tout
+- [x] Une dépendance sous licence GPL ou AGPL, ou sans licence connue, fait échouer la CI, même indirecte ou de développement
+- [x] Les règles du workspace (structure, frontières, conteneurs) et l'audit des dépendances tournent à chaque fois
 
 ### A.5 — ⚙ Le kit maison existe et ne dépend de rien · **S** ✅
 > Spec : Archi §10 « Mutualisation avec l'ERP Travaux » ; `CLAUDE.md` §3 · Zone : `packages/kit/`, `tools/workspace.spec.mjs`

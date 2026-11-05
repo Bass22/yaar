@@ -4,6 +4,7 @@
   "projectType": "library",
   "sourceRoot": "packages/domain/src",
   "tags": ["scope:domain"],
+  "implicitDependencies": ["kit"],
   "targets": {
     "test": {
       "executor": "nx:run-commands",

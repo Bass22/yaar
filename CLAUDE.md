@@ -143,7 +143,7 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
-- **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL dans ce qui est livré, et aucun code tiers recopié sans licence permissive vérifiée.
+- **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL, ni sans licence connue (`tools/licenses.mjs` le vérifie sur tout le verrou), et aucun code tiers recopié sans licence permissive vérifiée.
 - **Dépendances : le strict nécessaire, et sûres.** Un paquet ne s'installe que pour un besoin de la tranche en cours, jamais « pour plus tard » ; ce que la plateforme ou une dépendance déjà présente sait faire ne justifie pas un paquet de plus. Avant d'ajouter : paquet officiel et maintenu, licence permissive, moteur Node compatible, puis `npm audit` — aucune vulnérabilité haute ou critique, et zéro dans les dépendances d'exécution (`npm audit --omit=dev`). Une sous-dépendance vulnérable se corrige par `overrides` dans `package.json` quand une version corrigée existe. Les scripts d'installation sont bloqués par `.npmrc` (`ignore-scripts=true`) : n'en autorise aucun sans le demander. Les paquets qui ne servent qu'à générer du code (plugins et schematics Nx, Angular, NestJS) ne restent pas installés.
 - **Versions : la stable recommandée, pas la dernière.** On prend la version stable maintenue que le Node en place supporte officiellement ; à défaut, celle de build-track. Ni bêta, ni option expérimentale, ni majeure que l'outillage ne suit pas encore. En place : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Vitest 4, Jest 29, ESLint 9, Nx 24. Une montée de version est une tranche à part.
 
@@ -165,7 +165,7 @@ cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD
 docker compose -f infra/docker-compose.yml up --build   # la pile : http://localhost:8080
 ```
 
-Il n'y a pas de générateur installé : un nouveau projet se crée en copiant un `project.json` voisin. Ouvrir une maquette : `open journal-gardien.html` (aucun build).
+Il n'y a pas de générateur installé : un nouveau projet se crée en copiant un `project.json` voisin, et déclare dans `implicitDependencies` les projets dont il dépend d'après le §3. La CI (`.github/workflows/ci.yml`) rejoue les règles du workspace et l'audit à chaque poussée, puis `nx affected` sur ce que la modification touche. Ouvrir une maquette : `open journal-gardien.html` (aucun build).
 
 ## 10. Skills du projet (`.claude/skills/`)
 

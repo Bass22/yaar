@@ -1,0 +1,75 @@
+# CI de Yaar : une modification ne passe que si tout ce qu'elle touche est vert.
+#
+# Ce qui déclenche quoi :
+#   - les règles du workspace (structure, frontières, conteneurs, licences) et l'audit des
+#     dépendances tournent à chaque fois ;
+#   - lint, tests, typage et build ne tournent que pour les projets touchés, et pour ceux
+#     qui en dépendent (un changement du domaine déclenche le web et l'API).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Lecture seule : cette CI ne publie rien et n'a besoin d'aucun secret.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Vérifier ce que la modification touche
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NX_DAEMON: 'false'
+      NX_NO_CLOUD: 'true'
+    steps:
+      # Les actions sont épinglées par empreinte de commit : une étiquette peut être déplacée.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # `nx affected` compare avec le commit précédent : il faut l'historique.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer depuis le verrou
+        run: npm ci
+
+      - name: Règles du workspace (structure, frontières, conteneurs, licences)
+        run: node --test "tools/**/*.spec.mjs"
+
+      - name: Audit — zéro vulnérabilité dans ce qui est livré
+        run: npm audit --omit=dev
+
+      - name: Audit — aucune vulnérabilité haute ou critique dans l'outillage
+        run: npm audit --audit-level=high
+
+      # Pull request : la branche cible. Push : le commit précédent. Si ce commit n'existe
+      # pas dans l'historique (première poussée, historique réécrit), on vérifie tout.
+      - name: Trouver la base de comparaison
+        id: base
+        env:
+          CANDIDATE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if git cat-file -e "${CANDIDATE}^{commit}" 2>/dev/null; then
+            echo "sha=${CANDIDATE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint, tests, typage et build des projets touchés
+        if: steps.base.outputs.sha != ''
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: npx nx affected -t lint test typecheck build --base="$BASE" --head=HEAD
+
+      - name: Lint, tests, typage et build de tous les projets (pas de base fiable)
+        if: steps.base.outputs.sha == ''
+        run: npx nx run-many -t lint test typecheck build
