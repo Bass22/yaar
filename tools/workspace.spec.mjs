@@ -85,7 +85,7 @@ describe('Kit maison', () => {
     const project = readJson(join(kitRoot, 'project.json'));
 
     assert.equal(project.name, 'kit');
-    assert.match(project.targets.test.options.command, /^vitest run --root packages\/kit$/);
+    assert.match(project.targets.test.options.command, /^vitest run --root packages\/kit( |$)/);
     assert.ok(kitSources().some(isSpec), 'le kit a au moins un test');
   });
 
@@ -109,20 +109,6 @@ describe('Kit maison', () => {
     }
   });
 
-  it('le code livré du kit se compile sans les types de Node ni du navigateur', () => {
-    const project = readJson(join(kitRoot, 'project.json'));
-    const shipped = readJson(join(kitRoot, 'tsconfig.lib.json'));
-    const common = readJson(join(kitRoot, 'tsconfig.json'));
-    const base = readJson(join(root, 'tsconfig.base.json'));
-
-    assert.match(project.targets.typecheck.options.command, /tsconfig\.lib\.json/);
-    assert.equal(shipped.extends, './tsconfig.json');
-    assert.ok(shipped.exclude.includes('src/**/*.spec.ts'), 'les tests chargent les types de Node via Vitest');
-    assert.deepEqual(common.compilerOptions.types, []);
-    assert.equal(common.compilerOptions.lib, undefined);
-    assert.deepEqual(base.compilerOptions.lib, ['es2022']);
-  });
-
   it('le README note la provenance de chaque brique reprise', () => {
     // Given
     const readme = readFileSync(join(kitRoot, 'README.md'), 'utf8');
@@ -139,5 +125,49 @@ describe('Kit maison', () => {
       assert.ok(row, `${name} n'a pas de ligne de provenance`);
       assert.match(row, /\b[0-9a-f]{7,40}\b/, `${name} : révision build-track manquante`);
     }
+  });
+});
+
+// Spec: backlog A.2 — les frontières de dépendance ; CLAUDE.md §3
+describe('Points d\'entrée et code isomorphe', () => {
+  const { compilerOptions: base } = readJson(join(root, 'tsconfig.base.json'));
+
+  it('le domaine a deux points d\'entrée, journal et finance', () => {
+    assert.deepEqual(base.paths['@domain/journal'], ['./packages/domain/src/journal/index.ts']);
+    assert.deepEqual(base.paths['@domain/finance'], ['./packages/domain/src/finance/index.ts']);
+    assert.equal(base.paths['@domain'], undefined, 'pas de point d\'entrée qui mêle journal et finance');
+    assert.equal(base.paths['@domain/*'], undefined, 'pas d\'import profond dans le domaine');
+  });
+
+  it('chaque alias du workspace mène à un fichier qui existe', () => {
+    const aliases = Object.entries(base.paths);
+    assert.ok(aliases.length >= 3);
+
+    for (const [alias, targets] of aliases) {
+      assert.equal(targets.length, 1, alias);
+      assert.ok(existsSync(join(root, targets[0])), `${alias} → ${targets[0]}`);
+    }
+  });
+
+  it('Nx suit les imports entre projets, pour le cache et pour `affected`', () => {
+    const nx = readJson(join(root, 'nx.json'));
+
+    assert.equal(nx.pluginsConfig['@nx/js'].analyzeSourceFiles, true);
+  });
+
+  it('le code livré du kit et du domaine se compile sans les types de Node ni du navigateur', () => {
+    for (const name of ['kit', 'domain']) {
+      const projectRoot = join(root, 'packages', name);
+      const project = readJson(join(projectRoot, 'project.json'));
+      const shipped = readJson(join(projectRoot, 'tsconfig.lib.json'));
+      const common = readJson(join(projectRoot, 'tsconfig.json'));
+
+      assert.match(project.targets.typecheck.options.command, /tsconfig\.lib\.json/, name);
+      assert.equal(shipped.extends, './tsconfig.json', name);
+      assert.ok(shipped.exclude.includes('src/**/*.spec.ts'), `${name} : les tests chargent les types de Node via Vitest`);
+      assert.deepEqual(common.compilerOptions.types, [], name);
+      assert.equal(common.compilerOptions.lib, undefined, name);
+    }
+    assert.deepEqual(base.lib, ['es2022']);
   });
 });

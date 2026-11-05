@@ -15,7 +15,11 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": {}
+    "paths": {
+      "@kit": ["./packages/kit/src/index.ts"],
+      "@domain/journal": ["./packages/domain/src/journal/index.ts"],
+      "@domain/finance": ["./packages/domain/src/finance/index.ts"]
+    }
   },
   "exclude": ["node_modules", "tmp", "dist"]
 }

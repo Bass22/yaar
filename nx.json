@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "analytics": false,
+  "pluginsConfig": {
+    "@nx/js": { "analyzeSourceFiles": true }
+  },
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
@@ -18,7 +21,7 @@
     },
     "test": {
       "cache": true,
-      "inputs": ["default", "^production"]
+      "inputs": ["default", "^production", "{workspaceRoot}/tools/vitest.config.mjs"]
     },
     "typecheck": {
       "cache": true,

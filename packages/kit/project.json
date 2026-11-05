@@ -8,7 +8,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "vitest run --root packages/kit"
+        "command": "vitest run --root packages/kit --config ../../tools/vitest.config.mjs"
       }
     },
     "typecheck": {

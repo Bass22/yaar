@@ -65,5 +65,6 @@ CLAUDE.local.md
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
-*.html
+bureau-admin.html
+journal-gardien.html
 .angular

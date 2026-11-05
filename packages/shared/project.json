@@ -8,7 +8,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "vitest run --root packages/shared"
+        "command": "vitest run --root packages/shared --config ../../tools/vitest.config.mjs"
       }
     },
     "typecheck": {

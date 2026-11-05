@@ -12,7 +12,7 @@ Une brique entre dans le kit si un autre produit l'utiliserait **telle quelle**.
 4. **Reprise avec ses tests.** Une brique arrive de build-track avec ses tests, narrés en français.
 5. **Provenance notée.** Chaque fichier de `src/` (hors tests et `index.ts`) a sa ligne dans le tableau ci-dessous, sans quoi `npm test` échoue.
 
-Les règles 2 et 5 sont vérifiées par `tools/workspace.spec.mjs`, la règle 3 par le typage.
+La règle 2 est vérifiée par le lint (`eslint.config.mjs`) et par `tools/workspace.spec.mjs`, la règle 3 par le typage, la règle 5 par `tools/workspace.spec.mjs`.
 
 ## Provenance
 

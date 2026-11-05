@@ -105,15 +105,20 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Tout `package.json` est privé et renvoie à `LICENSE`
 - [x] Les specs rejoignent `docs/` et `CLAUDE.md` (sources de vérité, §9 Commandes) est mis à jour
 
-### A.2 — Les frontières de dépendance sont tenues par le lint · **S**
-> Spec : `CLAUDE.md` §3 · Zone : configuration ESLint, étiquettes Nx
-> Dépend de : A.1, A.5 · Revue : chaque interdiction ci-dessous est prouvée par un import fautif. Ajoute une dépendance : `@nx/eslint-plugin`.
+### A.2 — Les frontières de dépendance sont tenues par le lint · **S** ✅
+> Spec : `CLAUDE.md` §3 · Zone : `eslint.config.mjs`, `tools/boundaries.spec.mjs`, `tsconfig.base.json` (alias), `packages/domain/src/{journal,finance}/`
+> Dépend de : A.1, A.5 · Revue : chaque interdiction ci-dessous est prouvée par un import fautif dans `tools/boundaries.spec.mjs`.
+> Livré le 2026-11-05 : **aucune dépendance ajoutée**. `@nx/eslint-plugin`, prévu ici, embarque `@nx/js` (Babel, générateurs) et ne distingue ni les routes gardien des routes admin, ni les deux entrées du domaine : les frontières sont écrites avec la règle native `no-restricted-imports`. Les étiquettes `scope:*` des `project.json` ne servent donc à aucune règle. Les alias se résolvent dans le typage, Vitest et le build web ; pas encore dans l'API (A.3).
 
-- [ ] `packages/domain` ne peut importer ni NestJS, ni Prisma, ni Angular, ni une API propre à Node
-- [ ] `packages/domain` a deux points d'entrée, `journal` et `finance`
-- [ ] Une route gardien qui importe `domain/finance` fait échouer le lint
-- [ ] `packages/shared` n'importe rien et ne contient aucun code exécutable
-- [ ] `packages/kit` n'importe rien du reste du workspace
+- [x] `packages/domain` ne peut importer ni NestJS, ni Prisma, ni Angular, ni une API propre à Node
+- [x] `packages/domain` a deux points d'entrée, `journal` et `finance` (`@domain/journal`, `@domain/finance`), sans import profond
+- [x] `domain/journal` n'importe jamais `domain/finance`, ni par l'alias ni par un chemin relatif
+- [x] Une route gardien qui importe `domain/finance` fait échouer le lint, import différé compris
+- [x] Hors de `apps/web/src/app/admin/`, rien n'importe `domain/finance` ni le code admin en statique
+- [x] `packages/shared` n'importe rien et ne contient aucun code exécutable
+- [x] `packages/kit` n'importe rien du reste du workspace
+- [x] Un import relatif ne sort pas de son projet : il passe par un alias
+- [x] Un alias se résout dans les tests des packages, et Nx suit ces imports pour le cache et `affected`
 
 ### A.3 — La pile tourne en conteneurs derrière une seule origine · **M**
 > Spec : Archi §9 · Zone : `infra/`
@@ -122,7 +127,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] `docker compose up` démarre Caddy, le web, l'API et PostgreSQL
 - [ ] Caddy sert le web et relaie `/api/v1` vers l'API : une seule origine, CORS jamais activé
 - [ ] L'API répond sur une route de santé publique ; toute autre route est refusée sans session
-- [ ] L'API construite démarre alors qu'elle importe une règle de `packages/domain` (stratégie de build des packages partagés)
+- [ ] L'API testée (Jest) et construite démarre alors qu'elle importe une règle par `@domain/journal` et `@kit` (stratégie de build des packages partagés, résolution des alias)
 - [ ] Les secrets viennent de l'environnement ; `.env.example` ne contient aucune valeur réelle
 - [ ] PostgreSQL n'est joignable que depuis le réseau interne du compose
 
