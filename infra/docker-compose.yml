@@ -1,0 +1,80 @@
+# La pile complète : le web derrière Caddy, l'API, la base — docs/architecture.md §9.
+# Repris de build-track (docker-compose.yml). Ce fichier est celui du développement ; la
+# production lui ajoute une surcouche (domaine, HTTPS, sauvegardes : tranche Z.5).
+#
+#   cp infra/.env.example infra/.env      # puis remplir DB_PASSWORD
+#   docker compose -f infra/docker-compose.yml up --build
+#
+# Une seule porte sur l'extérieur : `web`. Ni l'API ni la base ne publient de port ; elles
+# ne sont jointes que sur les réseaux internes du compose. Publier l'API ouvrirait une
+# seconde origine, sans en-têtes de sécurité, et « CORS jamais activé » deviendrait faux.
+#
+# Deux réseaux : `edge` (Caddy ↔ API) et `data` (API ↔ base). Caddy, seul conteneur exposé,
+# n'a aucun chemin vers la base.
+name: yaar
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yaar
+      POSTGRES_DB: yaar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?définir DB_PASSWORD dans infra/.env avant de démarrer}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U yaar -d yaar']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+    networks:
+      - edge
+      - data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://localhost:3000/api/v1/health')
+          .then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    networks:
+      - edge
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost/ || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  edge:
+  data:
+    # No route to the outside: the database cannot be reached from, or reach, the internet.
+    internal: true
+
+volumes:
+  db-data:

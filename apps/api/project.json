@@ -13,7 +13,7 @@
         "{projectRoot}/dist"
       ],
       "options": {
-        "command": "tsc -p apps/api/tsconfig.app.json"
+        "command": "node apps/api/build.mjs"
       }
     },
     "serve": {

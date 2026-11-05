@@ -1,0 +1,44 @@
+# Caddy sert le web statique et relaie l'API — docs/architecture.md §9.
+# Repris de build-track (frontend/Caddyfile).
+#
+# Une seule origine : l'application et `/api/v1` répondent sur le même hôte. C'est ce qui
+# permet de ne jamais activer CORS (CLAUDE.md §8). L'API n'est jointe que par ici, sur le
+# réseau interne du compose.
+
+# Sans SITE_ADDRESS : `:80`, en clair — développement et réseau local. Avec un nom de
+# domaine, Caddy obtient et renouvelle seul son certificat (surcouche de production, Z.5).
+{$SITE_ADDRESS::80} {
+	root * /srv
+	encode gzip zstd
+
+	# Le conteneur `api` ne publie aucun port : cette ligne est le seul chemin vers lui.
+	handle /api/v1/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		# `default-src 'self'` ferme tout par défaut ; aucune origine externe n'est autorisée
+		# (polices et scripts auto-hébergés). `style-src` tolère 'unsafe-inline' parce
+		# qu'Angular pose des styles de composant en ligne ; `script-src` ne le tolère pas.
+		header {
+			Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+			Referrer-Policy "no-referrer"
+			X-Content-Type-Options "nosniff"
+			-Server
+		}
+
+		# Fichiers au nom haché (`main-4PMYRGTK.js`) : immuables, un an de cache.
+		@hashed path_regexp hashed -[0-9A-Z]{8,}\.(js|css)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# Les fichiers dont le nom ne change pas et qui pilotent tout le reste : jamais mis
+		# en cache, sinon une ancienne version de l'application descendrait indéfiniment.
+		@volatile path / /index.html
+		header @volatile Cache-Control "no-cache"
+
+		# Repli SPA : une route Angular n'est pas un fichier ; sans cette ligne, rafraîchir
+		# la page répond 404.
+		try_files {path} /index.html
+		file_server
+	}
+}

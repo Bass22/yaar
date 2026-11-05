@@ -8,6 +8,7 @@ Nov 1, 2026 · @Bass
 > - **Langue du code** : identifiants, fichiers et dossiers en anglais, comme l'ERP Travaux. Le « langage omniprésent » du §4 reste celui du métier, mais il s'écrit en anglais dans le code (table de correspondance : `CLAUDE.md` §6). Les noms de modules du §4 se lisent comme des noms métier.
 > - **Arborescence (§10)** : `packages/design-cahier` s'appelle `packages/design-system` ; `packages/kit` accueille les briques communes aux produits de la maison, reprises de l'ERP Travaux.
 > - **Domaine partagé (§4)** : `packages/domain` a deux points d'entrée, `journal` (partagé avec le téléphone) et `finance` (jamais dans les routes gardien).
+> - **Conteneurs (§9)** : trois conteneurs et non quatre — Caddy sert lui-même le web statique (image `web`), comme dans l'ERP Travaux. Deux réseaux : `edge` (Caddy ↔ API) et `data` (API ↔ base, sans sortie) ; seul `web` publie un port. Le mot de passe de la base s'appelle `DB_PASSWORD` et il est exigé. Fichiers : `infra/docker-compose.yml`, `infra/caddy/Caddyfile`, `infra/docker/*.Dockerfile`.
 > - **Versions** : stables recommandées — Angular 21 (LTS), NestJS 11, Vitest pour le web et les packages, Jest pour l'API.
 
 Produit de **pilotage d'élevages avicoles** : journal de terrain tenu par le gardien (hors-ligne, pictos, audio) + bureau financier du gérant. Vendu en SaaS multi-tenant à bas prix, FCFA (XOF) par défaut, exigence d'accessibilité maximale (utilisable par une personne ne sachant pas lire) — la même famille d'exigences que l'ERP Travaux, possée un cran plus loin.

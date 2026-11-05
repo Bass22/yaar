@@ -1,0 +1,18 @@
+# The build context is the repository root: without this file the daemon would receive
+# dependencies, build outputs, git history and local secrets.
+node_modules
+**/node_modules
+**/dist
+**/.angular
+.nx
+**/coverage
+.git
+.github
+.claude
+docs
+**/*.md
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/.DS_Store

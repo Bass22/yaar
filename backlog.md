@@ -77,11 +77,13 @@ Avant d'écrire une brique générique, on la reprend de l'ERP Travaux avec ses 
 | Horloge injectée | `workflows/ports/clock.ts`, `infrastructure/clock/` | B.4 | `packages/kit` |
 | Tenant fixé par transaction, RLS | `infrastructure/database/prisma.service.ts`, migration `0002_row_level_security` | D.2 | `apps/api`, à adapter |
 | Hachage argon2 | `infrastructure/auth/argon2-password-hasher.ts` | E.1 | `apps/api` |
-| Garde fermée par défaut, `@Public` | `infrastructure/auth/jwt-auth.guard.ts`, `public.decorator.ts` | E.3 | `apps/api`, à adapter (téléphone + PIN) |
+| Garde fermée par défaut, `@Public` | `infrastructure/auth/jwt-auth.guard.ts`, `public.decorator.ts` | A.3 (`@Public`, refus par défaut) ✅, E.3 (session) | `apps/api`, à adapter (téléphone + PIN) |
 | Journal d'audit en ajout seul | `infrastructure/audit/` | E.6 | `apps/api`, à adapter |
 | Dépôt de fichiers par empreinte, type vérifié sur le contenu | `infrastructure/documents/document-store.ts`, `content-type.ts`, `content-disposition.ts` | M.1 | `apps/api`, à adapter |
-| Route de santé, configuration | `infrastructure/health/`, `config/app-config.ts` | A.3 | `apps/api` |
-| Caddy, Dockerfiles, compose | `frontend/Caddyfile`, `*/Dockerfile`, `docker-compose*.yml`, `.dockerignore` | A.3, Z.5 | `infra/` |
+| Route de santé | `infrastructure/health/health.controller.ts` | A.3 (vivacité) ✅, D.1 (disponibilité, avec la base) | `apps/api` |
+| Configuration validée au démarrage | `infrastructure/config/app-config.ts` | D.1 (première variable exigée : `DATABASE_URL`) | `apps/api` |
+| Build de l'API en un fichier | `backend/scripts/build.mjs` | A.3 ✅ | `apps/api/build.mjs`, sans `esbuild-plugin-tsc` (réécrit en 15 lignes) |
+| Caddy, Dockerfiles, compose | `frontend/Caddyfile`, `*/Dockerfile`, `docker-compose*.yml`, `.dockerignore` | A.3 ✅, Z.5 (surcouche de production) | `infra/` |
 | État du réseau, mise à jour de l'app | `frontend/core/offline/` | G.1, G.4 | `apps/web`, à adapter (ici le hors-ligne écrit) |
 | Formatage des montants, valeur absente | `frontend/core/money/` | P.4 | `packages/kit` ou `apps/web`, à trancher en P.4 |
 | Traduction des erreurs d'API | `frontend/core/api/api-error.ts` | G.2 | `apps/web` |
@@ -120,16 +122,19 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un import relatif ne sort pas de son projet : il passe par un alias
 - [x] Un alias se résout dans les tests des packages, et Nx suit ces imports pour le cache et `affected`
 
-### A.3 — La pile tourne en conteneurs derrière une seule origine · **M**
-> Spec : Archi §9 · Zone : `infra/`
+### A.3 — La pile tourne en conteneurs derrière une seule origine · **M** ✅
+> Spec : Archi §9 · Zone : `infra/`, `.dockerignore`, `apps/api/src/{auth,health}/`, `apps/api/build.mjs`, `tools/infra.spec.mjs`
 > Dépend de : A.1 · Revue : aucun secret dans les fichiers versionnés ; PostgreSQL non exposé.
+> Livré le 2026-11-05, repris de build-track (compose, Caddyfile, Dockerfiles, `@Public`, route de santé, stratégie de build). Une dépendance déclarée, déjà installée par Angular : `esbuild` 0.28.1. Pile démarrée et interrogée pour de vrai : web 200, santé 200 par Caddy, repli SPA, en-têtes, base injoignable depuis Caddy et sans sortie vers internet.
+> Limites : la base tourne mais l'API ne s'y connecte pas encore (D.1, avec la sonde de disponibilité et la configuration validée au démarrage) ; l'image de l'API embarque les paquets d'exécution d'Angular, faute de manifeste par application (59 Mo de `node_modules`, à reprendre en Z.5) ; HTTPS et HSTS sont en Z.5.
 
-- [ ] `docker compose up` démarre Caddy, le web, l'API et PostgreSQL
-- [ ] Caddy sert le web et relaie `/api/v1` vers l'API : une seule origine, CORS jamais activé
-- [ ] L'API répond sur une route de santé publique ; toute autre route est refusée sans session
-- [ ] L'API testée (Jest) et construite démarre alors qu'elle importe une règle par `@domain/journal` et `@kit` (stratégie de build des packages partagés, résolution des alias)
-- [ ] Les secrets viennent de l'environnement ; `.env.example` ne contient aucune valeur réelle
-- [ ] PostgreSQL n'est joignable que depuis le réseau interne du compose
+- [x] `docker compose up` démarre le web derrière Caddy, l'API et PostgreSQL (trois conteneurs : Caddy sert lui-même le web statique)
+- [x] Caddy sert le web et relaie `/api/v1` vers l'API : une seule origine, CORS jamais activé
+- [x] L'API répond sur une route de santé publique ; toute autre route est refusée sans session (401, garde globale fermée par défaut)
+- [x] L'API testée (Jest) et construite démarre alors qu'elle importe une règle par `@domain/journal` et `@kit` (bundle esbuild, alias résolus au build)
+- [x] Les secrets viennent de l'environnement, exigés sans valeur par défaut ; `.env.example` ne contient aucune valeur réelle
+- [x] PostgreSQL n'est joignable que depuis le réseau interne du compose, et par l'API seule : Caddy n'a aucun chemin vers la base
+- [x] Les images tournent sans privilèges ni outils de build (API sous l'utilisateur `node`, web = Caddy et fichiers statiques)
 
 ### A.4 — La CI ne laisse passer que du vert · **S**
 > Spec : `CLAUDE.md` §9 · Zone : configuration CI
@@ -261,6 +266,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Tout modèle porte `tenant_id` ; un test échoue si un nouveau modèle l'oublie
 - [ ] Les identifiants sont des UUID fournis par l'appelant, sans séquence serveur
 - [ ] La migration initiale s'applique sur une base vide
+- [ ] L'API refuse de démarrer sans `DATABASE_URL` (configuration validée au démarrage) et le compose la lui fournit
+- [ ] Une sonde de disponibilité publique répond quand la base répond
 
 ### D.2 — Un tenant ne voit jamais un autre tenant · **M** · 🔒
 > Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : migrations RLS, `apps/api/src/tenants/`
@@ -313,6 +320,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### E.3 — Les routes sont fermées par défaut · **M** · 🔒
 > Spec : `CLAUDE.md` §4 règle 6 · Zone : `apps/api/src/auth/` (gardes globales)
 > Dépend de : E.2 · Revue : l'ouverture d'une route est explicite et testée.
+> Déjà en place depuis A.3 : `@Public()` et `ClosedByDefaultGuard`, qui refuse tout ce qui n'est pas ouvert. Cette tranche remplace le refus par la vérification de la session.
 
 - [ ] Une route sans marque explicite exige une session valide
 - [ ] Le tenant d'une requête vient du jeton, jamais d'un paramètre ni du corps

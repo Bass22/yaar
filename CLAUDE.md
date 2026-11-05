@@ -64,7 +64,7 @@ web — routes admin   → domain/journal, domain/finance, kit, shared, design-s
 - **`domain/finance`** (facturable, dette, grand livre, coût par poulet) n'entre jamais dans les routes gardien, ce qu'une règle de lint garantit. Côté admin, il ne sert qu'à prévisualiser une saisie en cours ; tout chiffre enregistré vient de l'API.
 - Le domaine est **isomorphe** (aucune API propre à Node) et le serveur **revalide toujours** : le calcul du client sert à l'affichage et au hors-ligne, il ne fait jamais foi.
 
-**Imports entre projets : par alias, et le lint tient les frontières.** Un projet en importe un autre par son alias (`@kit`, `@domain/journal`, `@domain/finance`, déclarés dans `tsconfig.base.json`), jamais par un chemin relatif ; un alias s'ajoute avec son premier consommateur. Côté web, les routes gardien vivent dans `apps/web/src/app/caretaker/` et les routes admin dans `apps/web/src/app/admin/` : ce dossier est le seul à importer `@domain/finance`, et rien ne l'importe autrement que par une route paresseuse. `domain/journal` n'importe jamais `domain/finance`. Ces règles sont dans `eslint.config.mjs` et chacune est prouvée par un import fautif dans `tools/boundaries.spec.mjs` : une nouvelle frontière y ajoute d'abord son test. Dans `apps/api`, les alias ne se résolvent pas encore (Jest, build) : tranche A.3.
+**Imports entre projets : par alias, et le lint tient les frontières.** Un projet en importe un autre par son alias (`@kit`, `@domain/journal`, `@domain/finance`, déclarés dans `tsconfig.base.json`), jamais par un chemin relatif ; un alias s'ajoute avec son premier consommateur. Côté web, les routes gardien vivent dans `apps/web/src/app/caretaker/` et les routes admin dans `apps/web/src/app/admin/` : ce dossier est le seul à importer `@domain/finance`, et rien ne l'importe autrement que par une route paresseuse. `domain/journal` n'importe jamais `domain/finance`. Ces règles sont dans `eslint.config.mjs` et chacune est prouvée par un import fautif dans `tools/boundaries.spec.mjs` : une nouvelle frontière y ajoute d'abord son test.
 
 **Reprendre avant d'écrire.** Avant de coder une brique générique (montants, résultat typé, horloge, garde tenant et RLS, dépôt de fichiers par empreinte, formatage FCFA, Caddy et compose), cherche-la dans le dépôt voisin `../build-track` (ERP Travaux) et reprends-la avec ses tests. Elle va dans `packages/kit` si un autre produit l'utiliserait telle quelle : aucun vocabulaire avicole, aucun import du reste du workspace, provenance notée dans `packages/kit/README.md`. Ce qui dépend du métier ou d'un framework s'adapte sur place. Avant de reprendre du code d'infrastructure, vérifie que ses dépendances passent `npm audit`.
 
@@ -140,7 +140,7 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 
 - **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Erreurs métier typées (résultat typé), exceptions réservées aux pannes d'infrastructure.
 - **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` (l'heure vient d'un port horloge). Un état invalide n'est pas représentable.
-- **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé.
+- **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
 - **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL dans ce qui est livré, et aucun code tiers recopié sans licence permissive vérifiée.
@@ -149,18 +149,20 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 
 ## 9. Commandes
 
-Prérequis : Node 22.12 ou plus. Le verrou `package-lock.json` fait foi : installe toujours avec `npm ci`. npm 10 sait installer depuis le verrou et y ajouter un paquet, mais plante s'il doit le recréer de zéro (défaut de résolution autour de `vitest` 4.1) ; dans ce cas : `npx npm@11 install --package-lock-only`.
+Prérequis : Node 22.12 ou plus, Docker pour la pile complète. Le verrou `package-lock.json` fait foi : installe toujours avec `npm ci`. **Toute modification du verrou passe par npm 11** — modifie `package.json`, puis `npx npm@11 install --package-lock-only`, puis `npm ci`. npm 10 plante s'il recrée le verrou (défaut de résolution autour de `vitest` 4.1) et, s'il le retouche, en retire les champs `libc`.
 
 ```bash
 npm ci                                # installer depuis le verrou
 npm test                              # structure du workspace + tests de tous les projets
 npm run lint                          # ESLint, `any` refusé
 npm run typecheck                     # tsc strict
-npm run build                         # web (dist/apps/web) et API (apps/api/dist)
+npm run build                         # web (dist/apps/web) et API (apps/api/dist/main.js, un seul fichier)
 npx nx test domain                    # un seul projet : web, api, domain, shared, design-system, kit
 npx nx affected -t lint test build    # ce que la modification touche
 npx nx serve web                      # Angular, en développement
 npx nx serve api                      # NestJS, après build (PORT, défaut 3000)
+cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD
+docker compose -f infra/docker-compose.yml up --build   # la pile : http://localhost:8080
 ```
 
 Il n'y a pas de générateur installé : un nouveau projet se crée en copiant un `project.json` voisin. Ouvrir une maquette : `open journal-gardien.html` (aucun build).
