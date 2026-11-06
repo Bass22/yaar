@@ -68,6 +68,8 @@ function referenceOf(fact: Fact): string | null {
     case 'VoiceMessage':
     case 'Photo':
       return fact.media;
+    case 'Loss':
+      return fact.lossType;
     case 'Death':
     case 'BagOpened':
     case 'NoLoss':

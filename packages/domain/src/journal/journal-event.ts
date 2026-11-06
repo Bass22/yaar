@@ -33,6 +33,9 @@ export type DeliveryNote =
   | { readonly kind: 'Photographed'; readonly media: MediaFingerprint }
   | { readonly kind: 'NoPaper' };
 
+/** A loss that is not a death: animals found missing at a recount, or given away. */
+export type LossType = 'Missing' | 'Donation';
+
 /**
  * What was observed in the field. Closed list, and facts only: nothing here is computed (no
  * average, no variance, no live count) and nothing is an amount of money — events ship to the
@@ -43,6 +46,8 @@ export type Fact =
   | { readonly type: 'BagOpened'; readonly quantity: Quantity }
   /** The explicit zero: nothing was lost that day. */
   | { readonly type: 'NoLoss' }
+  /** Lowers the live count without counting as mortality. Declared by the admin only. */
+  | { readonly type: 'Loss'; readonly lossType: LossType; readonly quantity: Quantity }
   | {
       readonly type: 'Delivery';
       readonly orderLineId: OrderLineId;
@@ -102,6 +107,8 @@ export function factOf(fact: Fact): Fact {
       return { type: fact.type, quantity: fact.quantity };
     case 'NoLoss':
       return { type: fact.type };
+    case 'Loss':
+      return { type: fact.type, lossType: lossTypeOf(fact.lossType), quantity: fact.quantity };
     case 'Delivery':
       return {
         type: fact.type,
@@ -122,6 +129,16 @@ export function factOf(fact: Fact): Fact {
       return { type: fact.type, media: fact.media };
     default:
       return outOfSchema('event type', fact);
+  }
+}
+
+function lossTypeOf(lossType: LossType): LossType {
+  switch (lossType) {
+    case 'Missing':
+    case 'Donation':
+      return lossType;
+    default:
+      return outOfSchema('loss type', lossType);
   }
 }
 

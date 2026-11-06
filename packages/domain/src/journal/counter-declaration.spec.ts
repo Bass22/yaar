@@ -211,6 +211,15 @@ describe('Contre-déclaration', () => {
       expect(juge(otherRequest, weighing)).toEqual({ ok: false, error: { kind: 'CorrectionChangesReference' } });
     });
 
+    it("une correction de perte hors mortalité change la quantité, pas le type de perte : des manquants ne deviennent pas des dons", () => {
+      const missing = declare({ type: 'Loss', lossType: 'Missing', quantity: unwrap(Quantity(4)) });
+      const fewer = corrige({ type: 'Loss', lossType: 'Missing', quantity: unwrap(Quantity(3)) });
+      const donated = corrige({ type: 'Loss', lossType: 'Donation', quantity: unwrap(Quantity(4)) });
+
+      expect(juge(fewer, missing, { authorRole: 'admin' })).toEqual({ ok: true, value: fewer });
+      expect(juge(donated, missing, { authorRole: 'admin' })).toEqual({ ok: false, error: { kind: 'CorrectionChangesReference' } });
+    });
+
     it("une tâche faite ne devient pas une autre tâche ; un vocal ou une photo ne se remplace pas", () => {
       const swaps: [declared: Fact, corrected: Fact][] = [
         [tacheFaite(81), tacheFaite(82)],

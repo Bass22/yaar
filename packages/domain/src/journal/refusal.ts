@@ -36,6 +36,8 @@ export type Refusal =
   | { readonly kind: 'NotAssignedToSite' }
   /** The admin turned strict mode on for the site: only its primary caretaker declares. */
   | { readonly kind: 'StrictModePrimaryOnly' }
+  /** A caretaker declares deaths; a loss that is not a death (missing, given away) is declared by the admin. */
+  | { readonly kind: 'LossByAdminOnly' }
   /** A counter-declaration names the declaration itself, never another counter-declaration. */
   | { readonly kind: 'CorrectsACounterDeclaration' }
   /** The corrected event belongs to another tenant, site or campaign. */

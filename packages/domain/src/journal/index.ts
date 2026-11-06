@@ -43,7 +43,9 @@ export {
   type EventType,
   type Fact,
   type JournalEvent,
+  type LossType,
 } from './journal-event';
+export { computeLiveCount, type LiveCount, type LiveCountContext } from './live-count';
 export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';

@@ -22,6 +22,7 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   RoleCannotDeclare: { kind: 'RoleCannotDeclare' },
   NotAssignedToSite: { kind: 'NotAssignedToSite' },
   StrictModePrimaryOnly: { kind: 'StrictModePrimaryOnly' },
+  LossByAdminOnly: { kind: 'LossByAdminOnly' },
   CorrectsACounterDeclaration: { kind: 'CorrectsACounterDeclaration' },
   CorrectsEventElsewhere: { kind: 'CorrectsEventElsewhere' },
   CorrectionChangesBusinessDate: { kind: 'CorrectionChangesBusinessDate' },
@@ -65,6 +66,8 @@ function explain(refusal: Refusal): string {
       return "l'auteur n'est pas affecté à ce site";
     case 'StrictModePrimaryOnly':
       return 'mode strict : seul le titulaire déclare';
+    case 'LossByAdminOnly':
+      return 'le gardien ne déclare que les morts';
     case 'CorrectsACounterDeclaration':
       return "une correction vise la déclaration d'origine";
     case 'CorrectsEventElsewhere':

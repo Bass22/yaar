@@ -5,7 +5,7 @@ import { BusinessDay } from './business-day';
 import { authorizeDeclaration, type Author, type SiteStaff } from './declaration-policy';
 import { CampaignId, JournalEventId, SiteId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
-import { Declaration } from './journal-event';
+import { CounterDeclaration, Declaration, type EventEnvelope, type Fact } from './journal-event';
 import { Quantity } from './quantity';
 import type { Role } from './role';
 
@@ -33,20 +33,23 @@ function lEquipeDuSite(overrides: Partial<SiteStaff> = {}): SiteStaff {
 
 const enModeStrict = (overrides: Partial<SiteStaff> = {}): SiteStaff => lEquipeDuSite({ strictMode: true, ...overrides });
 
-function troisMortsDeclaresPar(authorId: UserId): Declaration {
-  return Declaration(
-    {
-      id: unwrap(JournalEventId(uuid(1))),
-      tenantId: unwrap(TenantId(uuid(2))),
-      siteId: THE_SITE,
-      campaignId: unwrap(CampaignId(uuid(4))),
-      authorId,
-      businessDate: unwrap(BusinessDay('2026-11-05')),
-      recordedAt: unwrap(Instant('2026-11-05T18:30:00.000Z')),
-    },
-    { type: 'Death', quantity: unwrap(Quantity(3)) },
-  );
+function signePar(authorId: UserId, rank = 1): EventEnvelope {
+  return {
+    id: unwrap(JournalEventId(uuid(rank))),
+    tenantId: unwrap(TenantId(uuid(2))),
+    siteId: THE_SITE,
+    campaignId: unwrap(CampaignId(uuid(4))),
+    authorId,
+    businessDate: unwrap(BusinessDay('2026-11-05')),
+    recordedAt: unwrap(Instant('2026-11-05T18:30:00.000Z')),
+  };
 }
+
+const troisMortsDeclaresPar = (authorId: UserId): Declaration =>
+  Declaration(signePar(authorId), { type: 'Death', quantity: unwrap(Quantity(3)) });
+
+const quatreManquants: Fact = { type: 'Loss', lossType: 'Missing', quantity: unwrap(Quantity(4)) };
+const sixDonnes: Fact = { type: 'Loss', lossType: 'Donation', quantity: unwrap(Quantity(6)) };
 
 const declare = (author: Author, site: SiteStaff) =>
   authorizeDeclaration(troisMortsDeclaresPar(author.id), { author, site });
@@ -113,6 +116,39 @@ describe('Qui a le droit de déclarer', () => {
       expect(() => authorizeDeclaration(signedByOusmane, { author: admin(), site: lEquipeDuSite() })).toThrow(TypeError);
       // And celui que l'admin signe lui-même passe, avec son nom
       expect(declare(admin(), lEquipeDuSite())).toMatchObject({ ok: true, value: { authorId: LE_GERANT } });
+    });
+  });
+
+  describe('le gardien ne déclare que les morts', () => {
+    it("des manquants ou des dons déclarés par le gardien sont refusés, même s'il est titulaire", () => {
+      for (const loss of [quatreManquants, sixDonnes]) {
+        const event = Declaration(signePar(OUSMANE), loss);
+
+        expect(authorizeDeclaration(event, { author: gardien(OUSMANE), site: lEquipeDuSite() })).toEqual({
+          ok: false,
+          error: { kind: 'LossByAdminOnly' },
+        });
+      }
+    });
+
+    it("l'admin déclare des manquants et des dons", () => {
+      for (const loss of [quatreManquants, sixDonnes]) {
+        const event = Declaration(signePar(LE_GERANT), loss);
+
+        expect(authorizeDeclaration(event, { author: admin(), site: lEquipeDuSite() })).toEqual({ ok: true, value: event });
+      }
+    });
+
+    it("le gardien ne corrige pas une perte hors mortalité déclarée par l'admin", () => {
+      // Given quatre manquants déclarés par le gérant, qu'Ousmane voudrait ramener à un
+      const byAdmin = Declaration(signePar(LE_GERANT), quatreManquants);
+      const counter = CounterDeclaration(signePar(OUSMANE, 100), byAdmin.id, { ...quatreManquants, quantity: unwrap(Quantity(1)) });
+
+      // Then
+      expect(authorizeDeclaration(counter, { author: gardien(OUSMANE), site: lEquipeDuSite() })).toEqual({
+        ok: false,
+        error: { kind: 'LossByAdminOnly' },
+      });
     });
   });
 

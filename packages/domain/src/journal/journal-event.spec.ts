@@ -48,6 +48,7 @@ const facts: { readonly [Type in EventType]: Extract<Fact, { type: Type }> } = {
   Death: { type: 'Death', quantity: quantite(3) },
   BagOpened: { type: 'BagOpened', quantity: quantite(1) },
   NoLoss: { type: 'NoLoss' },
+  Loss: { type: 'Loss', lossType: 'Missing', quantity: quantite(4) },
   Delivery: {
     type: 'Delivery',
     orderLineId: unwrap(OrderLineId(uuid(6))),
@@ -69,6 +70,8 @@ function tell(event: Declaration): string {
       return `${event.quantity} sacs ouverts`;
     case 'NoLoss':
       return 'rien perdu';
+    case 'Loss':
+      return `${event.quantity} ${event.lossType === 'Missing' ? 'manquants' : 'donnés'}`;
     case 'Delivery':
       return `${event.receivedQuantity} reçus`;
     case 'Weighing':
@@ -156,11 +159,12 @@ describe('Événement du journal', () => {
   });
 
   describe('une liste fermée de types', () => {
-    it("les types d'événements sont : mort, sac ouvert, rien perdu, réception, pesée, tâche faite, vocal, photo", () => {
+    it("les types d'événements sont : mort, sac ouvert, rien perdu, perte hors mortalité, réception, pesée, tâche faite, vocal, photo", () => {
       expect(Object.keys(facts)).toEqual([
         'Death',
         'BagOpened',
         'NoLoss',
+        'Loss',
         'Delivery',
         'Weighing',
         'TaskDone',
@@ -169,9 +173,10 @@ describe('Événement du journal', () => {
       ]);
     });
 
-    it('chaque type se construit, garde ses faits et se lit par une fonction totale', () => {
+    it('chaque type se construit, garde ses faits et eux seuls, et se lit par une fonction totale', () => {
       for (const fact of Object.values(facts)) {
-        const event = Declaration(signeParLeGardien(), fact);
+        const smuggled: Fact = Object.assign({ cause: 'chaleur' }, fact);
+        const event = Declaration(signeParLeGardien(), smuggled);
 
         expect(event).toEqual({ ...signeParLeGardien(), ...fact });
         expect(tell(event)).toMatch(/\S/);
@@ -228,6 +233,19 @@ describe('Événement du journal', () => {
       // @ts-expect-error un papier ni photographié ni déclaré absent
       const unknownPaper: Fact = { ...facts.Delivery, deliveryNote: null };
       expect(() => Declaration(signeParLeGardien(), unknownPaper)).toThrow(TypeError);
+    });
+
+    it("une perte hors mortalité dit ce qu'elle est : des manquants ou des dons, jamais autre chose", () => {
+      // Given
+      const missing = Declaration(signeParLeGardien(), { type: 'Loss', lossType: 'Missing', quantity: quantite(4) });
+      const stolen = { type: 'Loss', lossType: 'Theft', quantity: quantite(4) } as unknown as Fact;
+
+      // Then
+      expect(missing).toMatchObject({ type: 'Loss', lossType: 'Missing', quantity: 4 });
+      // @ts-expect-error un vol n'est pas (encore) un type de perte du journal
+      const theft: Fact = { type: 'Loss', lossType: 'Theft', quantity: quantite(4) };
+      expect(theft).toBeDefined();
+      expect(() => Declaration(signeParLeGardien(), stolen)).toThrow(TypeError);
     });
 
     it('« rien perdu » est un événement à part entière, pas une mort de quantité zéro', () => {

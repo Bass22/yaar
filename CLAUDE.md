@@ -113,8 +113,8 @@ Rien à construire en V1, mais ne pas fermer :
 | Fait porté par un événement ; son type ; son auteur | `Fact` ; `type` (`EventType`) ; `authorId` (`UserId`), `Author` |
 | Date métier ; date de saisie (un instant en temps universel) ; date de réception (posée par le serveur à l'enregistrement en base) | `businessDate` ; `recordedAt` (`Instant`) ; `receivedAt` |
 | Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
-| Mort, perte ; sac ouvert ; « rien perdu » | `Death`, `Loss` ; `BagOpened` ; `NoLoss` |
-| Vivants | `liveCount` |
+| Mort ; perte hors mortalité (manquants, dons — admin seul) ; sac ouvert ; « rien perdu » | `Death` ; `Loss` (`lossType` : `Missing` / `Donation`) ; `BagOpened` ; `NoLoss` |
+| Vivants ; lignes de commande qui livrent les animaux mis en place | `liveCount` ; `placementOrderLines` |
 | Tâche ; tâche faite ; protocole sanitaire | `Task` ; `TaskDone` ; `HealthProtocol` |
 | Message vocal ; photo ; empreinte d'un média | `VoiceMessage` ; `Photo` ; `MediaFingerprint` |
 | Commande ; ligne de commande | `PurchaseOrder` ; `OrderLine` |
@@ -181,7 +181,7 @@ Il n'y a pas de générateur installé : un nouveau projet se crée en copiant u
 - `/designer` — concevoir ou critiquer un écran dans le design « cahier ».
 - `/tech-lead` — cadrer, implémenter ou relire du code front et back.
 - `/security-engineer` — modéliser les menaces d'une fonctionnalité, auditer une modification.
-- `/qa` — chercher les bugs d'une fonctionnalité avant qu'elle ne soit déclarée finie.
+- `/qa` — chercher les bugs d'une fonctionnalité avant qu'elle ne soit déclarée finie ; verdicts et réserves dans `docs/cahier-de-recette.md`.
 
 ## 11. Décisions ouvertes — ne pas les trancher en silence
 

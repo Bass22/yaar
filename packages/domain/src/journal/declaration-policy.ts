@@ -44,6 +44,9 @@ export const authorizeDeclaration = <Event extends JournalEvent>(
   if (author.role !== 'collaborator') {
     return err({ kind: 'RoleCannotDeclare' });
   }
+  if (event.type === 'Loss') {
+    return err({ kind: 'LossByAdminOnly' });
+  }
   const isPrimary = site.primaryCaretaker === author.id;
   if (!isPrimary && !site.substitutes.includes(author.id)) {
     return err({ kind: 'NotAssignedToSite' });

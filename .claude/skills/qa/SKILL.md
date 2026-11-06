@@ -67,6 +67,8 @@ Pour chaque défaut : les étapes pour le reproduire, le comportement attendu av
 
 Rapporte un défaut même s'il sort du périmètre demandé. Ne corrige pas le code de production de ta propre initiative : tu rends compte, et la correction se décide ensuite.
 
+Consigne chaque passage dans `docs/cahier-de-recette.md` : une ligne au tableau des passages (date, tranche, verdict, ce qui a été exécuté) ; chaque réserve au tableau des réserves ouvertes, avec un numéro, ce qui a été observé et la tranche qui doit la lever ; ce qui n'a pas pu être vérifié, avec la tranche qui le rendra vérifiable ; et, pour un écran, les essais à refaire à la main sur appareil. N'y recopie pas les tests automatisés : ils restent dans les fichiers de test, qui seuls font foi. Raye une réserve levée, ne l'efface pas.
+
 ## La demande
 
 $ARGUMENTS

@@ -31,7 +31,7 @@ Chaque tranche porte trois lignes d'en-tête : **Spec** (la règle) et **Zone** 
 | **S** / **M** | ≤ ½ jour / 1 à 2 jours |
 | ⚙ | Tranche mécanique : revue rapide |
 | 🔒 | Passage de `/security-engineer` avant de clore (auth, tenant, ingestion, médias, push) |
-| 🧪 | Passage de `/qa` avant de clore (journal, argent, synchro, rôles) |
+| 🧪 | Passage de `/qa` avant de clore (journal, argent, synchro, rôles) ; son verdict et ses réserves vont dans `docs/cahier-de-recette.md` |
 | 🎨 | Maquette à produire d'abord avec `/designer` : l'écran n'existe pas dans les maquettes |
 | ⚠ | Bloquée par une décision ouverte (tableau ci-dessous) |
 | ⏸ | Reportée : besoin ou règle à préciser |
@@ -53,7 +53,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Retirer une déclaration faite par erreur (3 morts déclarés alors qu'il n'y en a aucun, ou « rien perdu » déclaré à tort) : une quantité ne descend pas à zéro et une correction ne change pas le type. L'annulation par l'admin a été écartée « pour le moment » le 2026-11-06 | CdC « Points ouverts » | C.6 (un jour qui porte à la fois « rien perdu » et des morts), l'écran où l'admin corrige le cahier |
 | ~~Le gardien peut-il corriger une ligne que l'admin a écrite à sa place ?~~ ✅ tranché le 2026-11-06 : oui, dans ses trois jours, du moment que c'est tracé — la ligne de l'admin et la correction restent au journal, et la correction est signalée à l'admin | CdC « Corrections » | ~~K.5, F.1~~ |
 | ~~Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ?~~ ✅ tranché le 2026-11-06 : toujours les poussins réellement reçus, bonus compris ; des poussins manquants constatés après comptage sont déclarés plus tard par l'admin comme des pertes | CdC, cas du bonus poussins | ~~C.5~~ |
-| Sous quel type l'admin déclare-t-il les poussins manquants après comptage : des morts (`Death`), au risque de gonfler la mortalité et son alerte, ou un type à part ? | CdC (non précisé) | O.4 (alerte de mortalité) ; C.5 démarre avec les morts seuls |
+| ~~Sous quel type l'admin déclare-t-il les poussins manquants après comptage : des morts, ou un type à part ?~~ ✅ tranché le 2026-11-06 : un type à part — une perte en poussins n'est pas une mort. Manquants et dons diminuent les vivants, mais ne comptent ni ne s'affichent parmi les morts | CdC « Architecture des données », référentiel des types de pertes | ~~C.5, O.4~~ |
 | ~~Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ?~~ ✅ tranché le 2026-11-06 : la déclaration est acceptée et l'admin est alerté — un refus créerait un trou de donnée | CdC « Architecture des données » | ~~C.5, K.1~~ |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
 | Stockage du jeton dans la PWA ; sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
@@ -71,6 +71,10 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
 | Correspondance des onglets Excel vers les événements | CdC « Points ouverts » | Z.6 |
+
+## Réserves du QA à lever avant la fin de la V1
+
+Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Six réserves sont ouvertes au 2026-11-06 (R-1 à R-6, trouvées en C.4 et C.5).
 
 ## Reprises depuis build-track
 
@@ -278,18 +282,27 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Le gardien corrige une ligne écrite par l'admin : la ligne garde la signature de l'admin, la correction celle du gardien
 - [x] Le journal effectif ne dépend ni de l'ordre d'arrivée ni des doublons (property-based)
 
-### C.5 — Les vivants se recalculent depuis le journal · **M** · 🧪
-> Spec : CdC « En-tête et contexte » ; `CLAUDE.md` §4 règle 8 · Zone : `packages/domain/src/journal/live-count.ts`
+### C.5 — Les vivants se recalculent depuis le journal · **M** · 🧪 ✅
+> Spec : CdC « En-tête et contexte », « Architecture des données » ; `CLAUDE.md` §4 règle 8 · Zone : `packages/domain/src/journal/{live-count,journal-event,declaration-policy}.ts`
 > Dépend de : C.4 · Revue : les trois invariants en property-based.
-> **Décision du 2026-11-06** : les vivants partent toujours des poussins réellement reçus, bonus compris, jamais de l'effectif commandé. Le journal ne sait pas qu'une ligne de commande porte des poussins : l'appelant le lui dit. Des morts déclarés supérieurs aux vivants sont acceptés, et l'admin est alerté : le domaine rend le dépassement, il ne refuse pas. Reste ouvert, sans bloquer la tranche : le type sous lequel l'admin déclare des poussins manquants (la tranche démarre avec les morts seuls). À confirmer en livrant : ce que le compteur affiche une fois dépassé.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `computeLiveCount(events, { campaignId, placementOrderLines })` rend `{ received, deaths, losses, liveCount }` : les animaux réellement reçus sur les lignes de commande de mise en place, les morts, les pertes hors mortalité, et `liveCount = received − deaths − losses`, signé. Le calcul passe par le journal effectif (C.4) : une correction compte à la place de sa déclaration, et ni l'ordre d'arrivée ni les doublons ne changent le résultat. Seuls les événements de la campagne demandée comptent.
+> **Décisions du 2026-11-06, ajoutées au CdC** : (1) les vivants partent toujours des poussins réellement reçus, bonus compris, jamais de l'effectif commandé ; (2) des morts déclarés supérieurs aux vivants sont acceptés et l'admin est alerté — le calcul n'est pas bridé à zéro, ce que le compteur affiche alors se décidera avec les écrans ; (3) **une perte en poussins n'est pas une mort** : manquants et dons diminuent les vivants sans compter ni s'afficher parmi les morts ; (4) **le gardien ne déclare que les morts**, l'admin seul déclare manquants, dons et vols ; (5) les vols se constatent à la fin de la campagne : rien pour eux pour le moment.
+> **Nouveau type d'événement** (ajout au schéma de C.1) : `Loss`, avec `lossType` (`Missing` ou `Donation`) et une quantité. La politique de C.3 refuse à un collaborateur de déclarer ou de corriger une perte hors mortalité (`LossByAdminOnly`) ; une correction garde le type de perte (C.4).
+> **Choix à relire** : le type de perte est une liste fermée du domaine (manquants, dons), pas un identifiant du référentiel des types de pertes (N.2) — le référentiel pourra s'y rattacher plus tard, par ajout ; les vols n'y sont pas. Le journal ne sait pas qu'une ligne de commande porte des poussins : l'appelant lui donne `placementOrderLines`.
+> **Passage de `/qa` le 2026-11-06 : validé avec réserves.** (1) Tant que la réception des poussins n'est pas déclarée — ou si l'appelant ne connaît aucune ligne de mise en place — le premier mort donne des vivants négatifs (−3) : un écran qui s'y fierait lèverait à tort l'alerte de dépassement. Le résultat expose `received` pour le distinguer ; règle d'affichage portée par J.1 et O.4. (2) Les ventes ne diminuent pas les vivants (décision ouverte de W.1). (3) Le calcul prend le journal entier de la campagne : ce que le téléphone du gardien en reçoit est l'affaire de F.3. (4) Comme en C.4, le calcul fait confiance à des événements déjà validés (F.1).
 
-- [ ] Les vivants valent les poussins réellement reçus (bonus compris) moins les pertes déclarées
-- [ ] Un bonus de l'écloserie augmente les vivants ; un manque à la réception les diminue : l'effectif commandé ne compte pas
-- [ ] Des poussins manquants constatés après comptage, déclarés plus tard par l'admin comme des pertes, diminuent les vivants sans réécrire la réception
-- [ ] Chaque mort confirmé diminue les vivants d'autant
-- [ ] Rejouer deux fois le même événement (même UUID) ne change pas les vivants (property-based)
-- [ ] L'ordre d'arrivée des événements ne change pas les vivants (property-based)
-- [ ] Une déclaration de morts supérieure aux vivants est acceptée, et le dépassement est rendu pour alerter l'admin
+- [x] Les vivants valent les poussins réellement reçus (bonus compris) moins les pertes déclarées
+- [x] Un bonus de l'écloserie augmente les vivants ; un manque à la réception les diminue : l'effectif commandé ne compte pas
+- [x] Les réceptions partielles de poussins se cumulent ; une réception d'aliment ne met aucun poussin en place
+- [x] Des poussins manquants constatés après comptage, déclarés plus tard par l'admin, diminuent les vivants sans réécrire la réception
+- [x] Une perte hors mortalité (manquants, dons) diminue les vivants mais ne compte pas parmi les morts
+- [x] Seul l'admin déclare ou corrige une perte hors mortalité ; le gardien ne déclare que des morts
+- [x] Chaque mort confirmé diminue les vivants d'autant
+- [x] Une correction compte à la place de la déclaration (3 morts corrigés en 2, 510 reçus corrigés en 508)
+- [x] Seuls les événements de la campagne comptent
+- [x] Rejouer deux fois le même événement (même UUID) ne change pas les vivants (property-based)
+- [x] L'ordre d'arrivée des événements ne change pas les vivants (property-based)
+- [x] Une déclaration de morts supérieure aux vivants est acceptée : les vivants passent sous zéro, jamais bridés
 
 ### C.6 — Le résumé d'un jour distingue zéro et absence · **S** · 🧪
 > Spec : CdC « Le zéro est une déclaration », « Garde-fous anti-doublon » · Zone : `packages/domain/src/journal/day-summary.ts`
@@ -579,6 +592,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] La couverture montre l'avatar, le nom du gardien et son site
 - [ ] Le bandeau montre le jour J, la jauge poussin → poule et les vivants
+- [ ] Tant qu'aucun poussin n'est reçu, le bandeau ne montre pas de vivants : ni zéro, ni nombre négatif (QA de C.5 — à confirmer)
 - [ ] Le badge du titulaire est visible
 - [ ] Sans campagne en cours, l'écran le dit par picto et audio
 - [ ] L'écran s'affiche hors-ligne avec le dernier contexte reçu
@@ -739,7 +753,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Chaque catégorie porte son drapeau fixe ou variable
 - [ ] Aliments, Poussins et Santé sont commandables ; les autres ne le sont pas
 - [ ] Une catégorie du socle ne se supprime pas
-- [ ] Les types de pertes du socle existent : morts, manquants, dons, vols
+- [ ] Les types de pertes du socle existent : morts, manquants, dons, vols (le journal n'en porte que deux en dur, `Missing` et `Donation` : voir C.5)
 
 ### N.2 — Les types propres à l'élevage · **M**
 > Spec : CdC « Référentiels à deux niveaux » · Zone : `apps/api/src/reference-data/`
@@ -823,13 +837,14 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : O.3, O.2, C.5 · Revue : la règle d'alerte est dans le domaine, pas dans l'écran.
 
 - [ ] L'onglet montre le jour J et les vivants du site choisi
-- [ ] La mortalité des sept derniers jours se calcule depuis le journal
+- [ ] La mortalité des sept derniers jours se calcule depuis le journal, sur les morts seuls : manquants et dons n'y entrent pas et ne s'affichent pas parmi les morts
 - [ ] Au-delà du seuil du tenant, l'alerte s'affiche avec icône, couleur et mot
 - [ ] Sous le seuil, aucune alerte
 - [ ] Sans campagne en cours, l'onglet le dit et n'affiche aucun chiffre à zéro
 - [ ] Une déclaration corrigée montre l'ancienne et la nouvelle valeur, l'auteur de chacune et les deux dates de la correction (saisie et réception)
 - [ ] Une déclaration écrite pour un jour passé est marquée comme tardive
 - [ ] Des morts déclarés supérieurs aux vivants lèvent une alerte, avec icône, couleur et mot
+- [ ] Tant qu'aucun poussin n'est reçu, l'onglet dit que la réception manque au lieu de lever l'alerte de dépassement (QA de C.5 — à confirmer)
 
 ## P — Coûts
 
@@ -1341,6 +1356,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Caddy sert l'application en HTTPS avec un certificat persistant
 - [ ] Les en-têtes de sécurité sont en place (HSTS, CSP, anti-encadrement)
 - [ ] Aucun secret n'est présent dans une image ni dans le dépôt
+- [ ] Le tableau des réserves ouvertes de `docs/cahier-de-recette.md` est vide : chaque réserve est levée, ou acceptée par le fondateur
+- [ ] La recette manuelle sur appareil du même cahier a été rejouée en entier
 
 ### Z.6 — ⏸ Importer l'historique Excel · ⚠
 > Spec : CdC « Points ouverts » (import Excel) · à spécifier avant découpage : correspondance des onglets, agrégats incrustés dans les commentaires, dates en série Excel, quantités négatives de report.

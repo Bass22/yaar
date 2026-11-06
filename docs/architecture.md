@@ -81,7 +81,7 @@ Organisation en **modules NestJS**, un par domaine :
 - `tenants` — élevages, résolution du tenant courant, feature flags par module.
 - `users` — rôles (admin, collaborateur, investisseur V2), titulaire par site, affectations.
 - `sites` / `campagnes` — poulaillers, bandes, phases, configuration (balance, protocole sanitaire), budget prévisionnel par poste (pré-rempli depuis l'historique) et échéances récurrentes (salaire, eau) génératrices de dettes à date.
-- `journal` — **le cœur** : ingéré des événements (morts, sacs, réceptions, pesées, tâches, zéros, vocaux, photos), idempotence par UUID, contre-déclarations.
+- `journal` — **le cœur** : ingéré des événements (morts, pertes hors mortalité, sacs, réceptions, pesées, tâches, zéros, vocaux, photos), idempotence par UUID, contre-déclarations.
 - `commandes` — commandes multi-lignes (en-tête + lignes), annonces au gardien, réceptions partielles cumulées par ligne, paiements multiples découplés, statuts (brouillon → annoncée → partiellement reçue → reçue → soldée).
 - `tiers` — grand livre des tiers : dettes et créances issues des commandes (reçu/payé), des coûts directs à payer, des ventes à crédit et des avances de collaborateurs ; règlements partiels ; soldes en francs et en nature.
 - `couts` / `ventes` — écritures financières de l'admin, justificatifs, duplication, statut payé / à payer.
