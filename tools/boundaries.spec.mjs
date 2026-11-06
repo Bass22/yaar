@@ -120,16 +120,16 @@ describe('Frontières de dépendance', () => {
     });
   });
 
-  describe('packages/shared', () => {
-    const file = 'packages/shared/src/journal-event.dto.ts';
+  describe('packages/contracts', () => {
+    const file = 'packages/contracts/src/journal-event.dto.ts';
 
-    it("shared n'importe ni paquet ni autre projet du workspace", async () => {
+    it("contracts n'importe ni paquet ni autre projet du workspace", async () => {
       for (const outsider of ['@kit', '@domain/journal', 'rxjs', '@nestjs/common']) {
         await assertRefused(file, `import type { Anything } from '${outsider}';\nexport type Used = Anything;\n`);
       }
     });
 
-    it('shared ne contient que des types', async () => {
+    it('contracts ne contient que des types', async () => {
       const executable = [
         `export const MAX_BATCH = 50;\n`,
         `export function parse(): void {}\n`,
@@ -144,7 +144,7 @@ describe('Frontières de dépendance', () => {
       }
     });
 
-    it('shared accepte interfaces, alias de types et réexports', async () => {
+    it('contracts accepte interfaces, alias de types et réexports', async () => {
       await assertAccepted(
         file,
         [

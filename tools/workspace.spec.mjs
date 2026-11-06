@@ -34,7 +34,7 @@ function importedModules(file) {
 // Spec: backlog A.1 — le workspace démarre, teste et compile en strict
 describe('Structure du workspace', () => {
   it('le monorepo contient les deux applications et les trois packages', () => {
-    const projects = ['apps/web', 'apps/api', 'packages/domain', 'packages/shared', 'packages/design-system'];
+    const projects = ['apps/web', 'apps/api', 'packages/domain', 'packages/contracts', 'packages/design-system'];
 
     for (const project of projects) {
       assert.ok(existsSync(join(root, project, 'project.json')), `projet Nx manquant : ${project}`);

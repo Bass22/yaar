@@ -36,7 +36,7 @@ apps/api/                NestJS — un module par domaine : auth, tenants, users
                          journal (le cœur), orders, counterparties, costs, sales, weighings,
                          reference-data, notifications, media, settings, audit
 packages/domain/         cœur métier pur, deux points d'entrée : journal (terrain) et finance
-packages/shared/         types et DTO des événements, contrats d'API
+packages/contracts/      types et DTO des événements, contrats d'API
 packages/design-system/  design system « cahier » : tokens, pictos SVG, tampons
 packages/kit/            briques communes aux produits de la maison (Money, Result…), reprises
                          de build-track et extractibles plus tard dans un dépôt à part
@@ -49,13 +49,13 @@ docs/                    cahier des charges, architecture
 Règle de dépendance — les flèches pointent vers l'intérieur :
 
 ```
-packages/kit      → rien (ni le reste du workspace, ni framework)
-packages/domain   → kit (ni NestJS, ni Prisma, ni Angular, ni IO)
-packages/shared   → rien (types purs)
-application       → domain, kit       (cas d'usage + ports : dépôts, fichiers, push, horloge)
-infrastructure    → application, domain, kit   (Prisma, volume ou S3, web-push)
-web — routes gardien → domain/journal, kit, shared, design-system   (jamais domain/finance)
-web — routes admin   → domain/journal, domain/finance, kit, shared, design-system
+packages/kit       → rien (ni le reste du workspace, ni framework)
+packages/domain    → kit (ni NestJS, ni Prisma, ni Angular, ni IO)
+packages/contracts → rien (types purs)
+application        → domain, kit       (cas d'usage + ports : dépôts, fichiers, push, horloge)
+infrastructure     → application, domain, kit   (Prisma, volume ou S3, web-push)
+web — routes gardien → domain/journal, kit, contracts, design-system   (jamais domain/finance)
+web — routes admin   → domain/journal, domain/finance, kit, contracts, design-system
 ```
 
 **Une règle métier s'écrit une seule fois, dans `packages/domain`** — `apps/web` n'en réimplémente aucune. Mais tout le domaine ne va pas partout :
@@ -125,6 +125,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Vente ; prêt de poulets | `Sale` ; `BirdLoan` |
 | Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
+| Refus métier (et son motif) | `Refusal` (`kind`) |
 
 Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture seule). Un terme absent de la table s'y ajoute avant d'être codé.
 
@@ -138,8 +139,8 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 
 ## 8. Conventions de code
 
-- **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Erreurs métier typées (résultat typé), exceptions réservées aux pannes d'infrastructure.
-- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` (l'heure vient d'un port horloge). Un état invalide n'est pas représentable.
+- **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Un refus métier est une valeur — `Result<T, Refusal>`, `Result` venant du kit et les motifs d'une liste fermée (`domain/journal/refusal.ts`), chacun ajouté avec son test ; les exceptions sont réservées aux pannes d'infrastructure.
+- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` (l'heure vient d'un port horloge). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun.
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
@@ -157,7 +158,7 @@ npm test                              # structure du workspace + tests de tous l
 npm run lint                          # ESLint, `any` refusé
 npm run typecheck                     # tsc strict
 npm run build                         # web (dist/apps/web) et API (apps/api/dist/main.js, un seul fichier)
-npx nx test domain                    # un seul projet : web, api, domain, shared, design-system, kit
+npx nx test domain                    # un seul projet : web, api, domain, contracts, design-system, kit
 npx nx affected -t lint test build    # ce que la modification touche
 npx nx serve web                      # Angular, en développement
 npx nx serve api                      # NestJS, après build (PORT, défaut 3000)

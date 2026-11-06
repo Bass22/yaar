@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const nxManifest = require.resolve('nx/package.json');
 const nxBin = join(dirname(nxManifest), require(nxManifest).bin.nx);
-const ALL_PROJECTS = ['api', 'design-system', 'domain', 'kit', 'shared', 'web'];
+const ALL_PROJECTS = ['api', 'contracts', 'design-system', 'domain', 'kit', 'web'];
 
 // Asks Nx which projects a change to `file` touches — what `nx affected` runs in CI.
 function projectsTouchedBy(file) {
@@ -33,8 +33,8 @@ describe('Ce qu’une modification déclenche', () => {
     assert.deepEqual(projectsTouchedBy('packages/domain/src/journal/index.ts'), ['api', 'domain', 'web']);
   });
 
-  it('un changement dans packages/shared déclenche aussi le web et l’API', () => {
-    assert.deepEqual(projectsTouchedBy('packages/shared/src/workbench.spec.ts'), ['api', 'shared', 'web']);
+  it('un changement dans packages/contracts déclenche aussi le web et l’API', () => {
+    assert.deepEqual(projectsTouchedBy('packages/contracts/src/workbench.spec.ts'), ['api', 'contracts', 'web']);
   });
 
   it('un changement dans le kit déclenche le domaine, le web et l’API', () => {

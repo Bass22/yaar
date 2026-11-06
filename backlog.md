@@ -71,7 +71,7 @@ Avant d'écrire une brique générique, on la reprend de l'ERP Travaux avec ses 
 
 | Brique dans build-track | Fichiers d'origine | Tranche | Destination |
 |---|---|---|---|
-| Résultat typé, identifiants typés | `domain/shared/result.ts`, `ids.ts` | B.3 | `packages/kit` |
+| Résultat typé, identifiants typés | `domain/shared/result.ts`, `ids.ts` | B.3 ✅ | `packages/kit` (`Result`, `Brand`) ; les identifiants eux-mêmes dans `packages/domain` |
 | Montants, devise | `domain/shared/money.ts`, `signed-money.ts`, `currency-code.ts`, `currency.ts` | B.1 | `packages/kit` |
 | Arrondi explicite, taux | `domain/shared/rounding-policy.ts`, `rate.ts`, `basis-points.ts` | P.1 (coût par poulet) | `packages/kit`, quand P.1 en a besoin |
 | Horloge injectée | `workflows/ports/clock.ts`, `infrastructure/clock/` | B.4 | `packages/kit` |
@@ -97,11 +97,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ## A — Monorepo et outillage
 
 ### A.1 — ⚙ Le workspace démarre, teste et compile en strict · **M** ✅
-> Spec : Archi §10 · Zone : racine, `apps/web`, `apps/api`, `packages/{domain,shared,design-system}`, `tools/`
+> Spec : Archi §10 · Zone : racine, `apps/web`, `apps/api`, `packages/{domain,contracts,design-system}`, `tools/`
 > Dépend de : — · Revue : `package.json` (chaque dépendance), `tsconfig.base.json`, les `project.json`. Seule la coquille web vient d'un générateur ; le reste est écrit à la main.
-> Livré le 2026-11-05 : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Nx 24 sans plugin, Vitest 4 (web, packages), Jest 29 (API). Audit : zéro vulnérabilité à l'exécution ; 7 alertes faibles dans Jest, sans correctif publié.
+> Livré le 2026-11-05 : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Nx 24 sans plugin, Vitest 4 (web, packages), Jest 29 (API). Audit : zéro vulnérabilité à l'exécution ; 7 alertes faibles dans Jest, sans correctif publié. Le 2026-11-06, `packages/shared` est renommé `packages/contracts` (le nom de build-track) : ce paquet ne porte que les contrats entre le web et l'API, pas les briques communes, qui sont dans `packages/kit`.
 
-- [x] Le monorepo Nx contient `apps/web`, `apps/api`, `packages/domain`, `packages/shared`, `packages/design-system`
+- [x] Le monorepo Nx contient `apps/web`, `apps/api`, `packages/domain`, `packages/contracts`, `packages/design-system`
 - [x] TypeScript est strict partout (`strict`, `noUncheckedIndexedAccess`) et `any` est refusé par le lint
 - [x] Chaque projet a un test qui passe, lancé par une seule commande à la racine
 - [x] Tout `package.json` est privé et renvoie à `LICENSE`
@@ -117,7 +117,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] `domain/journal` n'importe jamais `domain/finance`, ni par l'alias ni par un chemin relatif
 - [x] Une route gardien qui importe `domain/finance` fait échouer le lint, import différé compris
 - [x] Hors de `apps/web/src/app/admin/`, rien n'importe `domain/finance` ni le code admin en statique
-- [x] `packages/shared` n'importe rien et ne contient aucun code exécutable
+- [x] `packages/contracts` n'importe rien et ne contient aucun code exécutable
 - [x] `packages/kit` n'importe rien du reste du workspace
 - [x] Un import relatif ne sort pas de son projet : il passe par un alias
 - [x] Un alias se résout dans les tests des packages, et Nx suit ces imports pour le cache et `affected`
@@ -142,7 +142,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Livré le 2026-11-05 : GitHub Actions, aucune dépendance ajoutée (le contrôle des licences lit le verrou, 40 lignes). Actions officielles épinglées par empreinte, droits en lecture seule, aucun secret. **Le pipeline n'a pas encore tourné sur GitHub** : ses étapes ont été rejouées en local ; la première poussée fera foi.
 
 - [x] Une modification déclenche lint, tests, typage et build des seuls projets touchés
-- [x] Un changement dans `packages/domain` ou `packages/shared` déclenche le web et l'API ; dans le kit, le domaine aussi
+- [x] Un changement dans `packages/domain` ou `packages/contracts` déclenche le web et l'API ; dans le kit, le domaine aussi
 - [x] Un changement de règle commune (`tsconfig.base.json`, ESLint, `nx.json`, verrou) déclenche tous les projets
 - [x] Sans base de comparaison fiable (première poussée, historique réécrit), la CI vérifie tout
 - [x] Une dépendance sous licence GPL ou AGPL, ou sans licence connue, fait échouer la CI, même indirecte ou de développement
@@ -180,14 +180,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un poids s'exprime en grammes entiers, au pas de 50 g
 - [ ] Un poids hors de l'échelle de la balance du site est refusé
 
-### B.3 — Identifiants typés et résultat typé · **S**
-> Spec : `CLAUDE.md` §4 règle 2, §8 · Zone : `packages/kit/src/` (`result.ts`, `brand.ts`), identifiants et motifs de refus du métier dans `packages/domain`
+### B.3 — Identifiants typés et résultat typé · **S** ✅
+> Spec : `CLAUDE.md` §4 règle 2, §8 · Zone : `packages/kit/src/` (`result.ts`, `brand.ts`), identifiants et motifs de refus du métier dans `packages/domain/src/journal/` (`ids.ts`, `refusal.ts`)
 > Dépend de : A.5 · Revue : **reprise de build-track** (`result.ts`, le motif des identifiants typés de `ids.ts`). Différence voulue : ici l'UUID vient du client, pas de la base.
+> Livré le 2026-11-05, aucune dépendance ajoutée. Écarts avec build-track : `Result` n'a plus de type d'erreur par défaut (le kit ignore le métier) ; un identifiant ne s'obtient plus par simple conversion mais par vérification de l'UUID, qui rend un résultat. Seule l'écriture canonique en minuscules est acceptée, toute version d'UUID comprise : un identifiant n'a qu'une écriture, sans quoi l'idempotence par UUID ne tient pas. Les refus à la compilation sont vérifiés par `typecheck`, pas par `test`.
+> **Dernier scénario reformulé** : la liste fermée ne contient que le motif dont la règle existe (`InvalidId`). Les motifs des tranches suivantes arrivent avec leur règle et leur test (`CLAUDE.md` §7), et leurs données dépendent de types qui n'existent pas encore (jour métier, quantité). Seuls `SiteId` et `CampaignId` sont créés ; les autres identifiants viennent avec C.1.
 
-- [ ] Un identifiant de site et un identifiant de campagne ne sont pas interchangeables à la compilation
-- [ ] Un identifiant est un UUID fourni par l'appelant ; le domaine n'en génère pas
-- [ ] Un refus métier est un résultat typé, jamais une exception
-- [ ] Chaque motif de refus utilisé par les tranches suivantes existe dans une liste fermée
+- [x] Un identifiant de site et un identifiant de campagne ne sont pas interchangeables à la compilation
+- [x] Un identifiant est un UUID fourni par l'appelant ; le domaine n'en génère pas
+- [x] Un refus métier est un résultat typé, jamais une exception
+- [x] Les motifs de refus forment une liste fermée : un motif ajouté sans son test, ou un motif inconnu, ne se compile pas
 
 ### B.4 — Le jour métier et l'âge de la bande · **S**
 > Spec : CdC « Jour J », « deux dates » · Zone : `packages/domain/src/journal/business-day.ts`
@@ -201,7 +203,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ## C — Le journal (domaine)
 
 ### C.1 — Un événement est un fait signé et immuable · **M** · ⚠
-> Spec : CdC « Architecture des données » ; `CLAUDE.md` §4 règles 1 et 2 · Zone : `packages/domain/src/journal/journal-event.ts`, `packages/shared`
+> Spec : CdC « Architecture des données » ; `CLAUDE.md` §4 règles 1 et 2 · Zone : `packages/domain/src/journal/journal-event.ts`, `packages/contracts`
 > Dépend de : B.2, B.3, B.4 · Revue : la liste des types d'événements et leurs champs — c'est le contrat le plus durable du produit.
 
 - [ ] Un événement porte : UUID, tenant, site, campagne, type, auteur, date métier, date de saisie
@@ -312,7 +314,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Le compteur d'essais se remet à zéro après une connexion réussie
 
 ### E.2 — Se connecter avec son numéro et son PIN · **M** · 🔒 · ⚠
-> Spec : CdC « Identité » ; Archi §6 · Zone : `apps/api/src/auth/`, `packages/shared`
+> Spec : CdC « Identité » ; Archi §6 · Zone : `apps/api/src/auth/`, `packages/contracts`
 > Dépend de : E.1, D.2 · Revue : même réponse pour « numéro inconnu » et « mauvais PIN ».
 
 - [ ] Un numéro et un PIN corrects ouvrent une session liée à l'appareil
@@ -384,7 +386,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un lot au-delà de la taille maximale est refusé
 
 ### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒
-> Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/shared`
+> Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/contracts`
 > Dépend de : F.2, C.6 · Revue : le type de réponse du gardien est distinct de ceux de l'admin.
 
 - [ ] `GET /api/v1/gardien/contexte` renvoie le site, la campagne en cours, le jour J et les vivants
@@ -798,7 +800,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Chaque contre-écriture porte son auteur et sa date
 
 ### P.3 — L'API des coûts · **M** · 🔒
-> Spec : Archi §4 (`couts`) · Zone : `apps/api/src/costs/`, `packages/shared`
+> Spec : Archi §4 (`couts`) · Zone : `apps/api/src/costs/`, `packages/contracts`
 > Dépend de : P.2, E.3, N.2 · Revue : un collaborateur n'obtient rien, pas même une liste vide.
 
 - [ ] L'admin enregistre, modifie et liste les coûts d'une campagne
@@ -865,7 +867,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Pour toute suite de réceptions et de paiements, le solde ne dépend pas de leur ordre (property-based)
 
 ### Q.4 — L'API des commandes · **M** · 🔒
-> Spec : Archi §4 (`commandes`) · Zone : `apps/api/src/orders/`, `packages/shared`
+> Spec : Archi §4 (`commandes`) · Zone : `apps/api/src/orders/`, `packages/contracts`
 > Dépend de : Q.3, E.3, N.3 · Revue : réservé à l'admin ; les prix ne sortent jamais vers le gardien.
 
 - [ ] L'admin crée et modifie une commande en brouillon
