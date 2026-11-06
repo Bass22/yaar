@@ -1,6 +1,15 @@
 import { unwrap } from '@kit';
 import { describe, expect, it } from 'vitest';
-import { CampaignId, SiteId } from './ids';
+import {
+  CampaignId,
+  JournalEventId,
+  OrderLineId,
+  SiteId,
+  TaskId,
+  TenantId,
+  UserId,
+  WeighingRequestId,
+} from './ids';
 
 // Spec: CLAUDE.md §4 règle 2 — identifiants générés côté client (UUID) ; §8 — pas d'état invalide.
 // Les refus à la compilation (`@ts-expect-error`) sont vérifiés par `npx nx typecheck domain`.
@@ -67,6 +76,28 @@ describe('Identifiants typés', () => {
     // Idempotence par UUID (CLAUDE.md §4 règle 2) : deux écritures d'un même identifiant
     // seraient deux chaînes différentes, donc deux événements au lieu d'un doublon ignoré.
     expect(SiteId(A_UUID.toUpperCase())).toEqual({ ok: false, error: { kind: 'InvalidId', expected: 'SiteId' } });
+  });
+
+  it("chaque chose que le journal désigne a son type d'identifiant, nommé dans le refus", () => {
+    const constructors = { CampaignId, JournalEventId, OrderLineId, SiteId, TaskId, TenantId, UserId, WeighingRequestId };
+
+    for (const [expected, construct] of Object.entries(constructors)) {
+      expect(construct(A_UUID)).toEqual({ ok: true, value: A_UUID });
+      expect(construct('pas-un-uuid')).toEqual({ ok: false, error: { kind: 'InvalidId', expected } });
+    }
+  });
+
+  it("l'auteur d'un événement n'est pas l'événement, ni le tenant", () => {
+    // Given
+    const author = unwrap(UserId(A_UUID));
+    const sign = (id: UserId): string => id;
+
+    // Then
+    expect(sign(author)).toBe(A_UUID);
+    // @ts-expect-error un événement n'est pas un utilisateur
+    sign(unwrap(JournalEventId(A_UUID)));
+    // @ts-expect-error un tenant n'est pas un utilisateur
+    sign(unwrap(TenantId(A_UUID)));
   });
 
   it("un identifiant refusé est un résultat, jamais une exception", () => {

@@ -45,7 +45,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Décision | Source | Bloque |
 |---|---|---|
 | ~~Outil de test du domaine et du web (Jest ou Vitest)~~ ✅ tranché le 2026-11-05 : Vitest pour le web et les packages, Jest pour l'API | `CLAUDE.md` §7 | ~~A.1~~ |
-| Champ `version` dans le schéma d'événements dès le lot 1 ? | Archi §12 | C.1 |
+| ~~Champ `version` dans le schéma d'événements dès le lot 1 ?~~ ✅ tranché le 2026-11-06 : non — le schéma n'évolue que par ajout, le sens d'un champ ne change jamais ; le contrat d'échange est versionné par `/api/v1` | Archi §12 | ~~C.1~~ |
 | Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ? | CdC, cas du bonus poussins | C.5 |
 | Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ? (un refus crée un trou de donnée) | CdC (non précisé) | C.5, K.1 |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
@@ -211,15 +211,19 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## C — Le journal (domaine)
 
-### C.1 — Un événement est un fait signé et immuable · **M** · ⚠
-> Spec : CdC « Architecture des données » ; `CLAUDE.md` §4 règles 1 et 2 · Zone : `packages/domain/src/journal/journal-event.ts`, `packages/contracts`
+### C.1 — Un événement est un fait signé et immuable · **M** ✅
+> Spec : CdC « Architecture des données » ; `CLAUDE.md` §4 règles 1 et 2 · Zone : `packages/domain/src/journal/{journal-event,instant,media-fingerprint,ids}.ts`
 > Dépend de : B.2, B.3, B.4 · Revue : la liste des types d'événements et leurs champs — c'est le contrat le plus durable du produit.
+> Livré le 2026-11-06, aucune dépendance ajoutée. **Pas de champ `version`** (décision du 2026-11-06) : le schéma n'évolue que par ajout. `JournalEvent(envelope, fact)` assemble des valeurs déjà vérifiées, ne recopie que les champs du schéma et gèle le résultat en profondeur ; un type hors liste ne se compile pas et, s'il contourne le typage, lève une panne. La date de saisie est un `Instant` (texte en temps universel, à la milliseconde) et non un `Date`, qui resterait modifiable. Un média est désigné par son empreinte SHA-256 (`MediaFingerprint`). Six identifiants et deux motifs de refus (`InvalidInstant`, `InvalidMediaFingerprint`) s'ajoutent.
+> **Champs par type, à relire** : mort et sac ouvert → `quantity` ; rien perdu → aucun champ ; réception → `orderLineId`, `receivedQuantity`, `deliveryNote` (photographié avec son empreinte, ou « pas de papier ») ; pesée → `weighingRequestId`, `weights` ; tâche faite → `taskId` ; vocal et photo → `media`.
+> **Reporté** : le nombre de poids d'une pesée (cinq) est la règle de T.1 ; l'appareil vient de la session (F.1) et n'est pas dans l'événement du domaine ; **rien n'est écrit dans `packages/contracts`** — le DTO d'échange et le décodage d'un événement reçu en JSON arrivent avec leur premier consommateur (F.1).
 
-- [ ] Un événement porte : UUID, tenant, site, campagne, type, auteur, date métier, date de saisie
-- [ ] Les types d'événements forment une liste fermée (mort, sac ouvert, rien perdu, réception, pesée, tâche faite, vocal, photo)
-- [ ] Un événement porte des faits, jamais une valeur calculée (cinq poids, pas leur moyenne)
-- [ ] Un événement construit ne peut plus être modifié
-- [ ] Aucun type d'événement ne porte de montant
+- [x] Un événement porte : UUID, tenant, site, campagne, type, auteur, date métier, date de saisie
+- [x] Les types d'événements forment une liste fermée (mort, sac ouvert, rien perdu, réception, pesée, tâche faite, vocal, photo)
+- [x] Un événement porte des faits, jamais une valeur calculée (cinq poids, pas leur moyenne)
+- [x] Un événement construit ne peut plus être modifié
+- [x] Aucun type d'événement ne porte de montant
+- [x] Un champ hors du schéma, glissé dans la signature ou dans le fait, n'entre pas dans le journal
 
 ### C.2 — Une déclaration invalide est refusée · **S**
 > Spec : CdC « Rattrapage » · Zone : `packages/domain/src/journal/validate-declaration.ts`
@@ -378,6 +382,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
 > Dépend de : C.2, C.3, C.5 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur.
 
+- [ ] Un événement reçu en JSON est décodé par le domaine en `JournalEvent` : type hors liste, champ manquant ou valeur invalide donnent un motif typé (DTO dans `packages/contracts`)
 - [ ] Un événement valide est accepté et rejoint le journal
 - [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement

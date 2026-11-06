@@ -1,0 +1,122 @@
+import type { BusinessDay } from './business-day';
+import type {
+  CampaignId,
+  JournalEventId,
+  OrderLineId,
+  SiteId,
+  TaskId,
+  TenantId,
+  UserId,
+  WeighingRequestId,
+} from './ids';
+import type { Instant } from './instant';
+import type { MediaFingerprint } from './media-fingerprint';
+import type { Quantity } from './quantity';
+import type { Weight } from './weight';
+
+/** Who declared, where, for which day, and when it was written down. */
+export type EventEnvelope = {
+  /** Created on the phone: ingestion is idempotent on it. */
+  readonly id: JournalEventId;
+  readonly tenantId: TenantId;
+  readonly siteId: SiteId;
+  readonly campaignId: CampaignId;
+  readonly authorId: UserId;
+  /** The day the fact belongs to, chosen by the author. */
+  readonly businessDate: BusinessDay;
+  /** When the fact was written down, read on the clock by the caller. */
+  readonly recordedAt: Instant;
+};
+
+/** The paper handed over by the driver: photographed, or declared missing. */
+export type DeliveryNote =
+  | { readonly kind: 'Photographed'; readonly media: MediaFingerprint }
+  | { readonly kind: 'NoPaper' };
+
+/**
+ * What was observed in the field. Closed list, and facts only: nothing here is computed (no
+ * average, no variance, no live count) and nothing is an amount of money — events ship to the
+ * caretaker phone. The list changes by addition only: a field keeps its meaning forever.
+ */
+export type Fact =
+  | { readonly type: 'Death'; readonly quantity: Quantity }
+  | { readonly type: 'BagOpened'; readonly quantity: Quantity }
+  /** The explicit zero: nothing was lost that day. */
+  | { readonly type: 'NoLoss' }
+  | {
+      readonly type: 'Delivery';
+      readonly orderLineId: OrderLineId;
+      readonly receivedQuantity: Quantity;
+      readonly deliveryNote: DeliveryNote;
+    }
+  | { readonly type: 'Weighing'; readonly weighingRequestId: WeighingRequestId; readonly weights: readonly Weight[] }
+  | { readonly type: 'TaskDone'; readonly taskId: TaskId }
+  | { readonly type: 'VoiceMessage'; readonly media: MediaFingerprint }
+  | { readonly type: 'Photo'; readonly media: MediaFingerprint };
+
+export type EventType = Fact['type'];
+
+/** A signed, immutable fact of the journal. */
+export type JournalEvent = EventEnvelope & Fact;
+
+/**
+ * Builds an event from verified parts. Only the fields of the schema are copied and the result
+ * is frozen in depth: whatever else the caller passed, or changes afterwards, never reaches the
+ * journal. An unknown type can only come from bypassed typing: it is a fault and throws.
+ */
+export const JournalEvent = (envelope: EventEnvelope, fact: Fact): JournalEvent =>
+  Object.freeze({
+    id: envelope.id,
+    tenantId: envelope.tenantId,
+    siteId: envelope.siteId,
+    campaignId: envelope.campaignId,
+    authorId: envelope.authorId,
+    businessDate: envelope.businessDate,
+    recordedAt: envelope.recordedAt,
+    ...factOf(fact),
+  });
+
+function factOf(fact: Fact): Fact {
+  switch (fact.type) {
+    case 'Death':
+    case 'BagOpened':
+      return { type: fact.type, quantity: fact.quantity };
+    case 'NoLoss':
+      return { type: fact.type };
+    case 'Delivery':
+      return {
+        type: fact.type,
+        orderLineId: fact.orderLineId,
+        receivedQuantity: fact.receivedQuantity,
+        deliveryNote: deliveryNoteOf(fact.deliveryNote),
+      };
+    case 'Weighing':
+      return {
+        type: fact.type,
+        weighingRequestId: fact.weighingRequestId,
+        weights: Object.freeze([...fact.weights]),
+      };
+    case 'TaskDone':
+      return { type: fact.type, taskId: fact.taskId };
+    case 'VoiceMessage':
+    case 'Photo':
+      return { type: fact.type, media: fact.media };
+    default:
+      return outOfSchema('event type', fact);
+  }
+}
+
+function deliveryNoteOf(note: DeliveryNote): DeliveryNote {
+  switch (note?.kind) {
+    case 'Photographed':
+      return Object.freeze({ kind: note.kind, media: note.media });
+    case 'NoPaper':
+      return Object.freeze({ kind: note.kind });
+    default:
+      return outOfSchema('delivery note', note);
+  }
+}
+
+function outOfSchema(what: string, value: never): never {
+  throw new TypeError(`Unknown ${what}: ${JSON.stringify(value)}`);
+}

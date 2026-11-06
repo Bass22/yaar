@@ -70,7 +70,7 @@ web — routes admin   → domain/journal, domain/finance, kit, contracts, desig
 
 ## 4. Règles non négociables
 
-1. **Le journal est immuable.** Un événement ne se modifie ni ne s'efface : une correction après envoi est une **contre-déclaration** tracée. Aucun `UPDATE` ni `DELETE` sur le journal.
+1. **Le journal est immuable.** Un événement ne se modifie ni ne s'efface : une correction après envoi est une **contre-déclaration** tracée. Aucun `UPDATE` ni `DELETE` sur le journal. Son schéma n'évolue que **par ajout** (champ facultatif, nouveau type) : le sens d'un champ existant ne change jamais, et un événement ne porte pas de numéro de version (décision du 2026-11-06).
 2. **Identifiants générés côté client** (UUID, jamais de séquence serveur). L'ingestion est **idempotente par UUID** : un doublon de synchro est ignoré, jamais compté deux fois. Chaque événement porte deux dates : date métier (choisie) et date de saisie (automatique). Il porte des **faits** (les cinq poids), jamais une valeur calculée (la moyenne) : le serveur recalcule, donc un téléphone resté sur une ancienne version du domaine ne fausse rien.
 3. **Hors-ligne d'abord.** Toute déclaration du gardien fonctionne sans réseau (outbox IndexedDB). La synchro est un détail d'exécution, jamais une condition ; un événement déclaré ne se perd jamais.
 4. **Need-to-know.** Le téléphone du gardien ne reçoit et ne stocke aucune donnée financière (coûts, prix, ventes, soldes). Le filtrage se fait **côté serveur selon le rôle**, pas en masquant à l'écran.
@@ -108,13 +108,15 @@ Rien à construire en V1, mais ne pas fermer :
 | Campagne, bande | `Campaign` |
 | Gardien ; titulaire du site | `Caretaker` ; `primaryCaretaker` |
 | Événement du journal ; déclaration ; contre-déclaration | `JournalEvent` ; `Declaration` ; `CounterDeclaration` |
-| Date métier ; date de saisie | `businessDate` ; `recordedAt` |
+| Fait porté par un événement ; son type ; son auteur | `Fact` ; `type` (`EventType`) ; `authorId` (`UserId`) |
+| Date métier ; date de saisie (un instant en temps universel) | `businessDate` ; `recordedAt` (`Instant`) |
 | Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
 | Mort, perte ; sac ouvert ; « rien perdu » | `Death`, `Loss` ; `BagOpened` ; `NoLoss` |
 | Vivants | `liveCount` |
-| Tâche ; protocole sanitaire | `Task` ; `HealthProtocol` |
+| Tâche ; tâche faite ; protocole sanitaire | `Task` ; `TaskDone` ; `HealthProtocol` |
+| Message vocal ; photo ; empreinte d'un média | `VoiceMessage` ; `Photo` ; `MediaFingerprint` |
 | Commande ; ligne de commande | `PurchaseOrder` ; `OrderLine` |
-| Réception ; PV de réception | `Delivery` ; `DeliveryNote` |
+| Réception ; PV de réception (photographié / pas de papier) | `Delivery` ; `DeliveryNote` (`Photographed` / `NoPaper`) |
 | Écart (manque / bonus) | `Variance` (`shortfall` / `bonus`) |
 | Facturable ; paiement d'une commande | `billable` ; `Payment` |
 | Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
@@ -142,7 +144,7 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 ## 8. Conventions de code
 
 - **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Un refus métier est une valeur — `Result<T, Refusal>`, `Result` venant du kit et les motifs d'une liste fermée (`domain/journal/refusal.ts`), chacun ajouté avec son test ; les exceptions sont réservées aux pannes d'infrastructure.
-- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` ni de `Date.now()` (le lint les refuse : l'instant est un paramètre, lu par l'application sur le port `Clock` du kit). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun.
+- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` ni de `Date.now()` (le lint les refuse : l'instant est un paramètre, lu par l'application sur le port `Clock` du kit). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun. Un événement se construit par `JournalEvent(envelope, fact)` depuis des valeurs déjà vérifiées : seuls les champs du schéma sont recopiés, et le résultat est gelé.
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
@@ -179,4 +181,4 @@ Il n'y a pas de générateur installé : un nouveau projet se crée en copiant u
 
 ## 11. Décisions ouvertes — ne pas les trancher en silence
 
-Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, versionnement du schéma d'événements, champs spécifiques par type de coût, modèles de balance, seuils d'alerte par défaut, format des clips audio, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.
+Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, champs spécifiques par type de coût, modèles de balance, seuils d'alerte par défaut, format des clips audio, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.

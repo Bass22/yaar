@@ -12,6 +12,8 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   WeightOutOfScale: { kind: 'WeightOutOfScale', grams: 5_050, capacityGrams: 5_000 },
   InvalidBusinessDay: { kind: 'InvalidBusinessDay' },
   InvalidTimeZone: { kind: 'InvalidTimeZone' },
+  InvalidInstant: { kind: 'InvalidInstant' },
+  InvalidMediaFingerprint: { kind: 'InvalidMediaFingerprint' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -29,6 +31,10 @@ function explain(refusal: Refusal): string {
       return 'jour métier invalide';
     case 'InvalidTimeZone':
       return 'fuseau inconnu';
+    case 'InvalidInstant':
+      return 'instant invalide';
+    case 'InvalidMediaFingerprint':
+      return 'empreinte de média invalide';
     default:
       return assertNever(refusal);
   }

@@ -10,7 +10,19 @@ export {
   TimeZone,
   type RecentBusinessDays,
 } from './business-day';
-export { CampaignId, SiteId } from './ids';
+export {
+  CampaignId,
+  JournalEventId,
+  OrderLineId,
+  SiteId,
+  TaskId,
+  TenantId,
+  UserId,
+  WeighingRequestId,
+} from './ids';
+export { Instant, instantOf } from './instant';
+export { JournalEvent, type DeliveryNote, type EventEnvelope, type EventType, type Fact } from './journal-event';
+export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';
 export { Weight, type Scale } from './weight';

@@ -15,8 +15,20 @@ export type Refusal =
   /** Not a real calendar date written `YYYY-MM-DD`. */
   | { readonly kind: 'InvalidBusinessDay' }
   /** Not a time zone the platform knows (IANA name such as `Africa/Dakar`). */
-  | { readonly kind: 'InvalidTimeZone' };
+  | { readonly kind: 'InvalidTimeZone' }
+  /** Not a point in time written in UTC to the millisecond (`2026-11-05T18:30:00.000Z`). */
+  | { readonly kind: 'InvalidInstant' }
+  /** Not a SHA-256 fingerprint: 64 lowercase hexadecimal characters. */
+  | { readonly kind: 'InvalidMediaFingerprint' };
 
 export type RefusalKind = Refusal['kind'];
 
-export type IdName = 'SiteId' | 'CampaignId';
+export type IdName =
+  | 'JournalEventId'
+  | 'TenantId'
+  | 'SiteId'
+  | 'CampaignId'
+  | 'UserId'
+  | 'OrderLineId'
+  | 'WeighingRequestId'
+  | 'TaskId';

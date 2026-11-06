@@ -9,6 +9,7 @@ Nov 1, 2026 · @Bass
 > - **Arborescence (§10)** : `packages/design-cahier` s'appelle `packages/design-system` ; `packages/shared` s'appelle `packages/contracts`, comme dans l'ERP Travaux (2026-11-06) ; `packages/kit` accueille les briques communes aux produits de la maison, reprises de l'ERP Travaux.
 > - **Domaine partagé (§4)** : `packages/domain` a deux points d'entrée, `journal` (partagé avec le téléphone) et `finance` (jamais dans les routes gardien).
 > - **Conteneurs (§9)** : trois conteneurs et non quatre — Caddy sert lui-même le web statique (image `web`), comme dans l'ERP Travaux. Deux réseaux : `edge` (Caddy ↔ API) et `data` (API ↔ base, sans sortie) ; seul `web` publie un port. Le mot de passe de la base s'appelle `DB_PASSWORD` et il est exigé. Fichiers : `infra/docker-compose.yml`, `infra/caddy/Caddyfile`, `infra/docker/*.Dockerfile`.
+> - **Schéma d'événements** (2026-11-06) : pas de champ `version` dans un événement. Le schéma n'évolue que par ajout — un nouveau champ est facultatif, un nouveau type rejoint la liste fermée — et le sens d'un champ existant ne change jamais : un changement de sens est un nouveau champ ou un nouveau type. Le contrat entre le téléphone et le serveur, lui, est versionné par l'adresse de l'API (`/api/v1`).
 > - **Versions** : stables recommandées — Angular 21 (LTS), NestJS 11, Vitest pour le web et les packages, Jest pour l'API.
 
 Produit de **pilotage d'élevages avicoles** : journal de terrain tenu par le gardien (hors-ligne, pictos, audio) + bureau financier du gérant. Vendu en SaaS multi-tenant à bas prix, FCFA (XOF) par défaut, exigence d'accessibilité maximale (utilisable par une personne ne sachant pas lire) — la même famille d'exigences que l'ERP Travaux, possée un cran plus loin.
@@ -229,6 +230,6 @@ Les lots 1–3 donnent un produit mono-éleveur complet ; le multi-tenant étant
 - [ ] JWT : TTL et stratégie refresh — trancher une fois pour les deux produits.
 - [ ] Hébergeur et région (résidence des données comme argument commercial ?).
 - [ ] Compression/format des clips audio et taille du précache par langue.
-- [ ] Stratégie de versionnement du schéma d'événements (champ `version` dès le lot 1 ?).
+- [x] ~~Stratégie de versionnement du schéma d'événements (champ `version` dès le lot 1 ?)~~ — tranché le 2026-11-06 : pas de champ `version`, évolution par ajout seulement (voir « Décisions postérieures »).
 - [ ] Champs spécifiques par type de coût (schémas de saisie dynamiques) — déjà pointé au cahier des charges, impacte DTO et `packages/contracts`.
 - [ ] Seuils de bascule vers stockage objet et vers réplique analytics dédiée.
