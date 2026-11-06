@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { TenantId } from '@domain/journal';
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { APP_CONFIG, type AppConfig } from '../config/app-config';
 
@@ -18,7 +19,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
   private readonly tenantScope = new AsyncLocalStorage<TenantScope>();
 
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
-    super({ datasources: { db: { url: config.databaseUrl } } });
+    super({ adapter: new PrismaPg({ connectionString: config.databaseUrl }) });
   }
 
   async onModuleDestroy(): Promise<void> {
