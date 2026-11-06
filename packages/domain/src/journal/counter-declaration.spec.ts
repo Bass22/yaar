@@ -98,7 +98,7 @@ const juge = (
   counter: CounterDeclaration,
   corrected: JournalEvent,
   { authorRole = 'collaborator', campaign = uneCampagneEnCours() }: Judgement = {},
-) => validateCounterDeclaration(counter, { corrected, campaign, timeZone: DAKAR, authorRole });
+) => validateCounterDeclaration(counter, { corrected, correctedIsRetracted: false, campaign, timeZone: DAKAR, authorRole });
 
 describe('Contre-déclaration', () => {
   describe('une correction tracée', () => {
@@ -274,7 +274,7 @@ describe('Contre-déclaration', () => {
     it("sans correction, une déclaration compte telle qu'elle a été écrite", () => {
       const declaration = troisMortsDOusmane();
 
-      expect(effectiveJournal([declaration])).toEqual([{ declaration, correction: null, fact: morts(3) }]);
+      expect(effectiveJournal([declaration])).toEqual([{ declaration, correction: null, retraction: null, fact: morts(3) }]);
     });
 
     it('le journal effectif du jour tient compte des contre-déclarations : 3 morts corrigés en 2 comptent pour 2', () => {
@@ -291,8 +291,8 @@ describe('Contre-déclaration', () => {
 
       // Then
       expect(november5th).toEqual([
-        { declaration: deaths, correction: counter, fact: morts(2) },
-        { declaration: bag, correction: null, fact: sacs(1) },
+        { declaration: deaths, correction: counter, retraction: null, fact: morts(2) },
+        { declaration: bag, correction: null, retraction: null, fact: sacs(1) },
       ]);
     });
 
@@ -344,7 +344,7 @@ describe('Contre-déclaration', () => {
         [troisMortsDOusmane(), at19, at20],
         [at20, at19, troisMortsDOusmane()],
       ]) {
-        expect(effectiveJournal(journal)).toEqual([{ declaration: troisMortsDOusmane(), correction: at20, fact: morts(4) }]);
+        expect(effectiveJournal(journal)).toEqual([{ declaration: troisMortsDOusmane(), correction: at20, retraction: null, fact: morts(4) }]);
       }
     });
 
@@ -374,7 +374,7 @@ describe('Contre-déclaration', () => {
     it("un événement reçu deux fois ne donne qu'une ligne", () => {
       const journal = [troisMortsDOusmane(), corrige(morts(2)), troisMortsDOusmane(), corrige(morts(2))];
 
-      expect(effectiveJournal(journal)).toEqual([{ declaration: troisMortsDOusmane(), correction: corrige(morts(2)), fact: morts(2) }]);
+      expect(effectiveJournal(journal)).toEqual([{ declaration: troisMortsDOusmane(), correction: corrige(morts(2)), retraction: null, fact: morts(2) }]);
     });
 
     it("sous un même identifiant, seul le premier événement reçu compte, comme à l'ingestion", () => {
@@ -385,7 +385,7 @@ describe('Contre-déclaration', () => {
 
       // Then
       expect(effectiveJournal([troisMortsDOusmane(), nineDeaths])).toEqual([
-        { declaration: troisMortsDOusmane(), correction: null, fact: morts(3) },
+        { declaration: troisMortsDOusmane(), correction: null, retraction: null, fact: morts(3) },
       ]);
       expect(effectiveJournal([troisMortsDOusmane(), toTwo, toSeven])[0]).toMatchObject({ fact: morts(2) });
     });
@@ -394,7 +394,7 @@ describe('Contre-déclaration', () => {
       const sameId = corrige(morts(2), { id: eventId(1) });
 
       expect(effectiveJournal([troisMortsDOusmane(), sameId])).toEqual([
-        { declaration: troisMortsDOusmane(), correction: null, fact: morts(3) },
+        { declaration: troisMortsDOusmane(), correction: null, retraction: null, fact: morts(3) },
       ]);
     });
 

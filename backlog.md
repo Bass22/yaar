@@ -49,8 +49,11 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture d'une **déclaration** sur sa date de saisie ; une correction se juge de même, C.4). Chaque événement ayant une date côté client et une date côté serveur, l'écart entre les deux est mesurable — et pour une correction, écrite en ligne, il devrait être de quelques secondes) | CdC (non précisé) | F.1 |
 | ~~L'admin doit-il pouvoir travailler hors-ligne dès la V1 ?~~ ✅ tranché le 2026-11-06 : oui pour la saisie, en trois volets — écritures d'argent ajoutées et jamais modifiées (identifiant créé sur l'appareil) ; coût, paiement, vente et déclaration à la place du gardien en file d'attente ; référentiels, modification de commande, clôture et comptes restent en ligne | Archi, décisions postérieures | ~~O.3, P.1, P.7~~ |
 | Combien de temps les éleveurs pilotes restent-ils sans aucun réseau (heures ou jours) ? La réponse décide du calcul local complet des chiffres du bureau | CdC « Points ouverts » | Rien en V1 |
+| Par quel écran l'admin annule-t-il une déclaration (C.7) ? Même question que la suivante | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche O.4, U.2 |
 | Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
-| Retirer une déclaration faite par erreur (3 morts déclarés alors qu'il n'y en a aucun, ou « rien perdu » déclaré à tort) : une quantité ne descend pas à zéro et une correction ne change pas le type. L'annulation par l'admin a été écartée « pour le moment » le 2026-11-06 | CdC « Points ouverts » | C.6 (un jour qui porte à la fois « rien perdu » et des morts), l'écran où l'admin corrige le cahier |
+| ~~Retirer une déclaration faite par erreur (double saisie, mauvais jour, mauvais geste)~~ ✅ tranché le 2026-11-06 : l'admin l'annule, en ligne — l'annulation est tracée, définitive, et l'emporte sur toute correction (C.7) | CdC « Corrections » | ~~C.6~~ |
+| Le gardien peut-il annuler lui-même, dans ses trois jours et en ligne, comme il corrige ? (reporté le 2026-11-06 : « on verra plus tard » ; d'ici là une erreur attend que l'admin soit joignable) | CdC « Points ouverts » | K.5 |
+| Date de dernière synchro du cahier de chaque appareil : la garder côté serveur et l'afficher (au bureau : « le cahier d'Ousmane n'a rien envoyé depuis 2 jours », pour ne pas lire « non déclaré » là où il faut lire « pas encore reçu » ; au gardien : de quand datent ses chiffres) ? Recommandé ; ce n'est pas une condition de l'annulation, que le serveur arbitre seul | CdC (non précisé) | F.2, F.3, O.4, U.2 |
 | ~~Le gardien peut-il corriger une ligne que l'admin a écrite à sa place ?~~ ✅ tranché le 2026-11-06 : oui, dans ses trois jours, du moment que c'est tracé — la ligne de l'admin et la correction restent au journal, et la correction est signalée à l'admin | CdC « Corrections » | ~~K.5, F.1~~ |
 | ~~Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ?~~ ✅ tranché le 2026-11-06 : toujours les poussins réellement reçus, bonus compris ; des poussins manquants constatés après comptage sont déclarés plus tard par l'admin comme des pertes | CdC, cas du bonus poussins | ~~C.5~~ |
 | ~~Sous quel type l'admin déclare-t-il les poussins manquants après comptage : des morts, ou un type à part ?~~ ✅ tranché le 2026-11-06 : un type à part — une perte en poussins n'est pas une mort. Manquants et dons diminuent les vivants, mais ne comptent ni ne s'affichent parmi les morts | CdC « Architecture des données », référentiel des types de pertes | ~~C.5, O.4~~ |
@@ -74,7 +77,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 
 ## Réserves du QA à lever avant la fin de la V1
 
-Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Six réserves sont ouvertes au 2026-11-06 (R-1 à R-6, trouvées en C.4 et C.5).
+Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Sept réserves sont ouvertes au 2026-11-06 (R-1 à R-7, trouvées de C.4 à C.7).
 
 ## Reprises depuis build-track
 
@@ -264,7 +267,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Corrections » · Zone : `packages/domain/src/journal/{counter-declaration,journal-event,validate-declaration}.ts`
 > Dépend de : C.1, C.2 · Revue : l'événement d'origine reste intact, quoi qu'il arrive.
 > Livré le 2026-11-06, aucune dépendance ajoutée. Une contre-déclaration est un événement signé comme un autre, qui nomme la déclaration qu'elle corrige (`corrects`) et porte le fait qui la remplace. `validateCounterDeclaration(counter, { corrected, campaign, timeZone, authorRole })` rend six motifs propres (`CorrectsItself`, `CorrectsACounterDeclaration`, `CorrectsEventElsewhere`, `CorrectionChangesBusinessDate`, `CorrectionChangesType`, `CorrectionChangesReference`) ou l'un de ceux de C.2. `effectiveJournal(events)` rend une ligne par déclaration (`JournalLine` : la déclaration telle qu'écrite, la correction qui fait foi, le fait qui compte).
-> **Décisions du 2026-11-06, ajoutées au CdC et à l'architecture** : (1) **pas d'annulation pour le moment** — `Retraction` est retiré du code ; (2) **une correction après envoi s'écrit en ligne**, pour le gardien comme pour l'admin ; (3) le gardien corrige **les trois jours de son cahier**, l'admin tout jour depuis la mise en place ; (4) chaque correction est signalée à l'admin, et une déclaration tardive est marquée (O.4, Y.2) ; (5) **une correction se juge à l'horloge du gardien**, comme une déclaration — on part d'un seul gardien par site, la règle se reverra si plusieurs téléphones corrigent le même cahier ; (6) **chaque événement a une date côté client et une date côté serveur** (`recordedAt`, et `receivedAt` posée à l'enregistrement en base : D.3, F.1) ; (7) **la dernière correction écrite fait foi**, d'après les dates côté client ; (8) **le gardien peut corriger une ligne écrite par l'admin**, du moment que c'est tracé — la ligne de l'admin et la correction du gardien restent toutes deux au journal.
+> **Décisions du 2026-11-06, ajoutées au CdC et à l'architecture** : (1) **pas d'annulation dans cette tranche** — elle revient en C.7, par l'admin seul ; (2) **une correction après envoi s'écrit en ligne**, pour le gardien comme pour l'admin ; (3) le gardien corrige **les trois jours de son cahier**, l'admin tout jour depuis la mise en place ; (4) chaque correction est signalée à l'admin, et une déclaration tardive est marquée (O.4, Y.2) ; (5) **une correction se juge à l'horloge du gardien**, comme une déclaration — on part d'un seul gardien par site, la règle se reverra si plusieurs téléphones corrigent le même cahier ; (6) **chaque événement a une date côté client et une date côté serveur** (`recordedAt`, et `receivedAt` posée à l'enregistrement en base : D.3, F.1) ; (7) **la dernière correction écrite fait foi**, d'après les dates côté client ; (8) **le gardien peut corriger une ligne écrite par l'admin**, du moment que c'est tracé — la ligne de l'admin et la correction du gardien restent toutes deux au journal.
 > **Dans le domaine** : `validateCounterDeclaration` vérifie ce qui fait une correction, puis finit par `validateDeclaration` — les trois jours du gardien et la clôture se jugent à la date de saisie de la correction, sans horloge en paramètre. Dans `effectiveJournal`, « la dernière » correction est celle dont la date de saisie est la plus récente (à égalité, le plus grand identifiant) ; les lignes sortent dans l'ordre d'écriture des déclarations ; le résultat ne dépend ni de l'ordre d'arrivée ni des doublons. Sous un même identifiant, seul le premier événement reçu compte, comme à l'ingestion. Limites connues et acceptées : un téléphone dont on recule la date corrige au-delà de trois jours, et entre deux appareils (gardien et admin) une horloge décalée peut faire perdre la correction réellement la plus récente ; l'écart entre les deux dates de chaque événement le rendra visible (décision ouverte de F.1).
 > **Choix à relire** : une correction garde l'objet de la déclaration (ligne de commande, demande de pesée, tâche, média) et ne change que les valeurs mesurées — quantité, poids, papier du livreur ; un vocal ou une photo ne se remplace donc pas. Une contre-déclaration vise toujours la déclaration d'origine, jamais une autre correction. Une correction dont l'origine est absente du journal ne crée aucune ligne. Après la clôture, une correction est refusée, pour l'admin aussi (X.3).
 > **Passages de `/qa` le 2026-11-06.** Premier passage : refusé (annulation défaite par une correction du gardien ; correction qui change la ligne de commande, la tâche ou le média ; contre-déclaration portant l'identifiant de sa déclaration ; résultat dépendant de l'ordre d'arrivée sous un même identifiant). Les quatre défauts sont levés par les décisions ci-dessus. Second passage : **validé avec réserves** — une correction identique à la déclaration est acceptée (sans effet, mais elle sera signalée à l'admin) ; `effectiveJournal` fait confiance à des événements déjà validés (une correction d'un autre type, jamais validée, remplacerait le fait) : c'est l'ingestion (F.1) qui le garantit. Une question rejoint le tableau des décisions : retirer une déclaration faite par erreur.
@@ -304,15 +307,42 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'ordre d'arrivée des événements ne change pas les vivants (property-based)
 - [x] Une déclaration de morts supérieure aux vivants est acceptée : les vivants passent sous zéro, jamais bridés
 
-### C.6 — Le résumé d'un jour distingue zéro et absence · **S** · 🧪
+### C.6 — Le résumé d'un jour distingue zéro et absence · **S** · 🧪 ✅
 > Spec : CdC « Le zéro est une déclaration », « Garde-fous anti-doublon » · Zone : `packages/domain/src/journal/day-summary.ts`
 > Dépend de : C.4 · Revue : trois états distincts, jamais confondus.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `summarizeDay(events, { campaignId, businessDate })` rend `mortality` — `NotDeclared`, `NoLossDeclared` ou `DeathsDeclared` avec le total — et, par auteur, les morts et les sacs ouverts déjà écrits pour le jour. `declaredBefore(summary, type, authorId)` sépare ce que l'auteur a déjà écrit (`null` s'il n'a rien écrit : jamais `0`) de ce que les autres ont écrit. `validateAgainstDay(event, journal)` refuse « rien perdu » quand des morts ont été écrits avant lui ce jour-là (`NoLossAfterDeaths`).
+> **Décisions du 2026-11-06, ajoutées au CdC** : (1) **les morts d'un même jour s'ajoutent** — le gardien peut déclarer à chaque tournée ; (2) des morts écrits après un « rien perdu » l'emportent ; (3) **pas de champ « matin, midi, soir »** : le bureau le déduira de l'heure de saisie, pour une déclaration faite le jour même (U.2) ; (4) **le rappel anti-doublon vaut aussi pour le gardien lui-même** (« tu as déjà écrit 3 morts aujourd'hui », K.1, K.3) ; (5) **le gardien ne voit que les morts** : manquants et dons n'entrent pas dans son résumé.
+> **Choix à relire** : « rien perdu » se juge à sa date de saisie, comme toute déclaration — écrit le matin, il reste valable si des morts sont écrits le soir, même s'il arrive au serveur après eux. Une ligne corrigée par un autre reste attribuée à son auteur, avec la quantité corrigée. Les sacs ouverts ne disent rien des pertes : un jour qui n'a que des sacs reste « non déclaré ».
+> **Passage de `/qa` le 2026-11-06 : validé avec réserves** (R-6, R-7 du cahier de recette).
 
-- [ ] Un jour sans aucune déclaration est « non déclaré »
-- [ ] Un jour avec « rien perdu » est « zéro déclaré », distinct de « non déclaré »
-- [ ] Un jour avec des morts donne leur total effectif, par type
-- [ ] Le résumé signale qu'un autre auteur a déjà déclaré le même type ce jour-là, et combien
-- [ ] « Rien perdu » déclaré un jour qui a déjà des morts est refusé
+- [x] Un jour sans aucune déclaration est « non déclaré »
+- [x] Un jour avec « rien perdu » est « zéro déclaré », distinct de « non déclaré »
+- [x] Un jour avec des morts donne leur total effectif ; plusieurs déclarations du même jour s'ajoutent
+- [x] Des morts écrits après un « rien perdu » l'emportent
+- [x] Manquants et dons n'entrent pas dans le résumé du gardien
+- [x] Le résumé signale qu'un autre auteur a déjà déclaré le même type ce jour-là, et combien
+- [x] Le résumé dit ce que l'auteur lui-même a déjà déclaré ce jour-là
+- [x] « Rien perdu » écrit un jour qui a déjà des morts est refusé ; écrit avant eux, il reste valable
+- [x] Ni l'ordre d'arrivée ni les doublons ne changent le résumé (property-based)
+
+### C.7 — L'admin annule une déclaration faite par erreur · **M** · 🧪 ✅
+> Spec : CdC « Corrections » (annulation) ; `CLAUDE.md` §4 règle 1 · Zone : `packages/domain/src/journal/{retraction,journal-event,counter-declaration,declaration-policy}.ts`
+> Dépend de : C.4, C.5, C.6 · Revue : une ligne annulée ne compte plus nulle part, et rien ne la fait recompter.
+> Livré le 2026-11-06, aucune dépendance ajoutée. **Décision du 2026-11-06** : une déclaration faite par erreur s'annule ; seul l'admin annule pour le moment (le gardien : décision reportée), en ligne ; l'annulation est définitive. Une annulation est un troisième genre d'événement, `Retraction(envelope, retracts)` : signée, elle nomme la déclaration et ne porte aucun fait. `validateRetraction(retraction, { retracted, alreadyRetracted, campaign, timeZone, authorRole })` exige la déclaration d'origine, du même cahier et du même jour, pas déjà annulée, puis juge comme une déclaration (jour, clôture). La politique de C.3 refuse l'annulation à un collaborateur (`RetractionByAdminOnly`). Une déclaration annulée ne se corrige plus (`DeclarationRetracted`).
+> **Dans le journal effectif** : une ligne annulée reste (`JournalLine.retraction`), mais son fait vaut `null` — le typage oblige chaque calcul à l'écarter. L'annulation l'emporte sur toute correction **sans lire aucune horloge** et quel que soit l'ordre d'arrivée : c'est ce qui lève le défaut bloquant du premier passage QA de C.4. Les vivants (C.5) et le résumé d'un jour (C.6) ne comptent plus une ligne annulée ; un jour dont tout est annulé redevient « non déclaré ».
+> **Choix à relire** : les motifs de refus d'une correction servent aussi à l'annulation (`CorrectsItself`, `CorrectsACounterDeclaration`, `CorrectsEventElsewhere`, `CorrectionChangesBusinessDate`) — moins de messages à dire au gardien. Annulée deux fois, une déclaration garde la première annulation écrite. L'appelant dit si la déclaration visée est déjà annulée (`alreadyRetracted`, `correctedIsRetracted`) : l'ingestion le lira dans le journal (F.1). Annuler puis redéclarer signe la nouvelle déclaration du nom de l'admin.
+> **Passage de `/qa` le 2026-11-06 : validé avec réserves** (R-4, R-6 ; R-7 allégée — voir le cahier de recette).
+
+- [x] Une annulation est un événement signé qui nomme la déclaration qu'elle annule, sans aucun fait
+- [x] Elle vise la déclaration d'origine, du même cahier et du même jour : ni une correction, ni une autre annulation
+- [x] Seul l'admin annule ; le gardien est refusé, même pour sa propre déclaration
+- [x] L'admin annule un jour ancien tant que la campagne est en cours ; après la clôture, l'annulation est refusée
+- [x] Une déclaration annulée reste au journal et ne compte plus
+- [x] Une déclaration annulée ne se corrige plus et ne se ré-annule pas
+- [x] Une correction ne fait pas recompter une déclaration annulée, qu'elle soit écrite ou reçue avant ou après
+- [x] Les vivants ne comptent plus une ligne annulée (morts, réception de poussins)
+- [x] Un jour dont les morts sont annulés redevient « non déclaré » ; une double saisie se rattrape
+- [x] Ni l'ordre d'arrivée ni les doublons ne changent ce qui est annulé (property-based)
 
 ## D — Base de données et cloisonnement
 
@@ -430,6 +460,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'auteur, le tenant et l'appareil viennent de la session ; ceux du corps sont ignorés
 - [ ] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre : incohérence à lever ici, où les deux sont appelées ensemble)
 - [ ] Un événement refusé par la politique de déclaration donne un motif typé
+- [ ] « Rien perdu » est jugé contre le journal du jour (`validateAgainstDay`) : refusé si des morts ont été écrits avant lui
+- [ ] Une annulation est jugée par `validateRetraction` contre la déclaration qu'elle nomme ; le serveur lit dans le journal si celle-ci est déjà annulée, pour une annulation comme pour une correction
 - [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base et la garde avec l'événement ; une date de réception venue du client est ignorée
 - [ ] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
 - [ ] Rejouer un lot entier ne change rien au journal (property-based)
@@ -450,6 +482,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] `GET /api/v1/gardien/contexte` renvoie le site, la campagne en cours, le jour J et les vivants
 - [ ] Il renvoie le journal effectif des trois derniers jours, avec l'auteur de chaque ligne
+- [ ] Ce journal ne contient aucune perte hors mortalité (manquants, dons) : le gardien ne voit que les morts ; les vivants renvoyés, eux, en tiennent compte
+- [ ] Une ligne annulée par l'admin y est donnée comme annulée : le téléphone cesse de la compter et de la rappeler
 - [ ] Un collaborateur ne reçoit que le contexte de ses sites
 - [ ] Aucun champ de la réponse ne porte de montant, de prix ni de solde (test de garde sur le type)
 - [ ] Sans campagne en cours, la réponse le dit explicitement
@@ -625,6 +659,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Geste → quantité → Oui : trois taps pour déclarer
 - [ ] Les poulets couchés s'empilent à chaque unité ajoutée
 - [ ] La voix relit la déclaration avant le Oui
+- [ ] Si le gardien a déjà écrit des morts ce jour-là, la voix le lui rappelle avant le Oui : « tu as déjà écrit 3 morts aujourd'hui, tes 5 morts, c'est en plus ? » (C.6)
 - [ ] Non ferme la feuille sans rien écrire
 - [ ] Après le Oui : tampon, ligne dans le journal, vivants diminués, événement dans l'outbox
 - [ ] Une quantité supérieure aux vivants est acceptée comme une autre : le gardien n'est pas bloqué, c'est l'admin qui est alerté (C.5)
@@ -644,7 +679,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Si un autre a déclaré le même type aujourd'hui, la confirmation le nomme et dit sa quantité
 - [ ] La voix demande si la nouvelle quantité vient « en plus »
 - [ ] Oui ajoute la déclaration ; Non l'abandonne
-- [ ] Sans déclaration préalable d'un autre, la confirmation reste simple
+- [ ] Sans déclaration préalable du même type ce jour-là, ni d'un autre ni de soi, la confirmation reste simple
 
 ### K.4 — « Rien perdu hier » · **S** · 🧪
 > Spec : CdC « Rappel d'oubli », « Le zéro est une déclaration » · Zone : `apps/web/src/app/caretaker/reminder/`
@@ -1144,6 +1179,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] Les photos reçues apparaissent dans l'inbox, avec leur auteur
 - [ ] La synthèse montre les morts synchronisés par jour
+- [ ] Pour une déclaration faite le jour même, elle dit si elle a été écrite le matin, le midi ou le soir, d'après l'heure de saisie dans le fuseau du site — présenté comme l'heure de la déclaration, pas de la mort (bornes des trois périodes à fixer)
 - [ ] Un jour à zéro déclaré et un jour non déclaré se distinguent
 
 ### U.3 — Les médias s'archivent seuls · **M** · 🔒 · ⚠

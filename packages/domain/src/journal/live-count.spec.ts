@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BusinessDay } from './business-day';
 import { CampaignId, JournalEventId, OrderLineId, SiteId, TaskId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
-import { CounterDeclaration, Declaration, type EventEnvelope, type Fact, type JournalEvent } from './journal-event';
+import { CounterDeclaration, Declaration, Retraction, type EventEnvelope, type Fact, type JournalEvent } from './journal-event';
 import { computeLiveCount } from './live-count';
 import { Quantity } from './quantity';
 
@@ -153,6 +153,23 @@ describe('Vivants', () => {
 
       // Then 508 − 2 = 506
       expect(vivants(journal)).toEqual({ received: 508, deaths: 2, losses: 0, liveCount: 506 });
+    });
+
+    it('une déclaration annulée ne compte plus : 3 morts annulés rendent 3 vivants', () => {
+      // Given 510 reçus, 3 morts, puis l'admin annule ces 3 morts
+      const deaths = declare(2, morts(3));
+      const journal = [declare(1, recus(510)), deaths, Retraction(signe(3), deaths.id)];
+
+      // Then 510 − 0 = 510
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 0, liveCount: 510 });
+    });
+
+    it('une réception de poussins annulée ne met plus aucun poussin en place', () => {
+      // Given la même livraison saisie deux fois par erreur ; l'admin annule la seconde
+      const twice = declare(2, recus(510));
+      const journal = [declare(1, recus(510)), twice, Retraction(signe(3), twice.id)];
+
+      expect(vivants(journal)).toMatchObject({ received: 510, liveCount: 510 });
     });
 
     it('rejouer deux fois le même événement ne change pas les vivants', () => {

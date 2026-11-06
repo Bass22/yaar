@@ -3,10 +3,12 @@ import type { JournalEventId } from './ids';
 import {
   factOf,
   isCounterDeclaration,
+  isRetraction,
   type CounterDeclaration,
   type Declaration,
   type Fact,
   type JournalEvent,
+  type Retraction,
 } from './journal-event';
 import type { Refusal } from './refusal';
 import { validateDeclaration, type DeclarationContext } from './validate-declaration';
@@ -14,6 +16,8 @@ import { validateDeclaration, type DeclarationContext } from './validate-declara
 export type CounterDeclarationContext = DeclarationContext & {
   /** The event the counter-declaration names. */
   readonly corrected: JournalEvent;
+  /** Whether the journal holds a retraction of that event: a retracted declaration is no longer corrected. */
+  readonly correctedIsRetracted: boolean;
 };
 
 /**
@@ -26,14 +30,14 @@ export const validateCounterDeclaration = (
   counter: CounterDeclaration,
   context: CounterDeclarationContext,
 ): Result<CounterDeclaration, Refusal> => {
-  const { corrected } = context;
+  const { corrected, correctedIsRetracted } = context;
   if (corrected.id !== counter.corrects) {
     throw new TypeError('A counter-declaration is judged against the event it names.');
   }
   if (counter.id === counter.corrects) {
     return err({ kind: 'CorrectsItself' });
   }
-  if (isCounterDeclaration(corrected)) {
+  if (isCounterDeclaration(corrected) || isRetraction(corrected)) {
     return err({ kind: 'CorrectsACounterDeclaration' });
   }
   if (
@@ -51,6 +55,9 @@ export const validateCounterDeclaration = (
   }
   if (referenceOf(counter) !== referenceOf(corrected)) {
     return err({ kind: 'CorrectionChangesReference' });
+  }
+  if (correctedIsRetracted) {
+    return err({ kind: 'DeclarationRetracted' });
   }
   return validateDeclaration(counter, context);
 };
@@ -77,44 +84,59 @@ function referenceOf(fact: Fact): string | null {
   }
 }
 
-/** A declaration and what it counts for today. */
-export type JournalLine = {
+type WrittenLine = {
   /** As it was written: its author and its recording instant never change. */
   readonly declaration: Declaration;
-  /** The counter-declaration that stands, `null` when the declaration was never corrected. */
+  /** The last counter-declaration written, `null` when the declaration was never corrected. */
   readonly correction: CounterDeclaration | null;
-  /** What counts: the declared fact, or the corrected one. */
-  readonly fact: Fact;
 };
+
+/** A declaration and what it counts for today: a fact, or nothing once it was taken back. */
+export type JournalLine = WrittenLine &
+  (
+    | { readonly retraction: null; /** The declared fact, or the corrected one. */ readonly fact: Fact }
+    | { readonly retraction: Retraction; readonly fact: null }
+  );
 
 /**
  * Reads the journal as it stands: one line per declaration, with the last counter-declaration
- * written for it — "last" by the recording instant, the clock of the author. The result does
- * not depend on the order the events arrived in, nor on how many times each was received.
- * Under one identifier only the first event received counts, as at ingestion. A
- * counter-declaration whose declaration is not in the journal gives no line.
+ * written for it — "last" by the recording instant, the clock of the author — and its
+ * retraction if it was taken back. A retraction wins over any correction and reads no clock.
+ * The result does not depend on the order the events arrived in, nor on how many times each
+ * was received. Under one identifier only the first event received counts, as at ingestion.
+ * A counter-declaration or a retraction whose declaration is not in the journal gives no line.
  */
 export const effectiveJournal = (events: readonly JournalEvent[]): JournalLine[] => {
   const received = new Set<JournalEventId>();
   const declarations: Declaration[] = [];
-  const standing = new Map<JournalEventId, CounterDeclaration>();
+  const corrections = new Map<JournalEventId, CounterDeclaration>();
+  const retractions = new Map<JournalEventId, Retraction>();
   for (const event of events) {
     if (received.has(event.id)) {
       continue;
     }
     received.add(event.id);
-    if (!isCounterDeclaration(event)) {
+    if (isRetraction(event)) {
+      // Taken back twice, a declaration keeps the first retraction written.
+      const current = retractions.get(event.retracts);
+      if (current === undefined || inWritingOrder(event, current) < 0) {
+        retractions.set(event.retracts, event);
+      }
+    } else if (isCounterDeclaration(event)) {
+      const current = corrections.get(event.corrects);
+      if (current === undefined || inWritingOrder(current, event) < 0) {
+        corrections.set(event.corrects, event);
+      }
+    } else {
       declarations.push(event);
-      continue;
-    }
-    const current = standing.get(event.corrects);
-    if (current === undefined || inWritingOrder(current, event) < 0) {
-      standing.set(event.corrects, event);
     }
   }
-  return declarations.sort(inWritingOrder).map((declaration) => {
-    const correction = standing.get(declaration.id) ?? null;
-    return { declaration, correction, fact: factOf(correction ?? declaration) };
+  return declarations.sort(inWritingOrder).map((declaration): JournalLine => {
+    const correction = corrections.get(declaration.id) ?? null;
+    const retraction = retractions.get(declaration.id) ?? null;
+    return retraction === null
+      ? { declaration, correction, retraction, fact: factOf(correction ?? declaration) }
+      : { declaration, correction, retraction, fact: null };
   });
 };
 

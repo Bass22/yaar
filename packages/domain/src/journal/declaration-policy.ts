@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '@kit';
 import type { SiteId, UserId } from './ids';
-import type { JournalEvent } from './journal-event';
+import { isRetraction, type JournalEvent } from './journal-event';
 import type { Refusal } from './refusal';
 import type { Role } from './role';
 
@@ -43,6 +43,9 @@ export const authorizeDeclaration = <Event extends JournalEvent>(
   // if it was listed in the staff of the site by mistake.
   if (author.role !== 'collaborator') {
     return err({ kind: 'RoleCannotDeclare' });
+  }
+  if (isRetraction(event)) {
+    return err({ kind: 'RetractionByAdminOnly' });
   }
   if (event.type === 'Loss') {
     return err({ kind: 'LossByAdminOnly' });

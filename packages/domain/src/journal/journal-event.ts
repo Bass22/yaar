@@ -82,10 +82,22 @@ export type CounterDeclaration = EventEnvelope & { readonly corrects: JournalEve
 export const CounterDeclaration = (envelope: EventEnvelope, corrects: JournalEventId, fact: Fact): CounterDeclaration =>
   Object.freeze({ ...envelopeOf(envelope), corrects, ...factOf(fact) });
 
+/**
+ * Takes a declaration made by mistake back: a signed event that names it and carries no fact.
+ * The declaration stays in the journal and no longer counts, whatever corrects it.
+ */
+export type Retraction = EventEnvelope & { readonly retracts: JournalEventId };
+
+/** Builds a retraction the way a declaration is built: schema fields only, frozen. */
+export const Retraction = (envelope: EventEnvelope, retracts: JournalEventId): Retraction =>
+  Object.freeze({ ...envelopeOf(envelope), retracts });
+
 /** Everything the journal holds. */
-export type JournalEvent = Declaration | CounterDeclaration;
+export type JournalEvent = Declaration | CounterDeclaration | Retraction;
 
 export const isCounterDeclaration = (event: JournalEvent): event is CounterDeclaration => 'corrects' in event;
+
+export const isRetraction = (event: JournalEvent): event is Retraction => 'retracts' in event;
 
 function envelopeOf(envelope: EventEnvelope): EventEnvelope {
   return {

@@ -27,7 +27,7 @@ export const computeLiveCount = (events: readonly JournalEvent[], context: LiveC
   let deaths = 0;
   let losses = 0;
   for (const { declaration, fact } of effectiveJournal(events)) {
-    if (declaration.campaignId !== context.campaignId) {
+    if (fact === null || declaration.campaignId !== context.campaignId) {
       continue;
     }
     if (fact.type === 'Delivery' && context.placementOrderLines.includes(fact.orderLineId)) {

@@ -18,6 +18,16 @@ export {
   type JournalLine,
 } from './counter-declaration';
 export {
+  declaredBefore,
+  summarizeDay,
+  validateAgainstDay,
+  type DayContext,
+  type DayMortality,
+  type DaySummary,
+  type DeclaredBefore,
+  type DeclaredQuantity,
+} from './day-summary';
+export {
   authorizeDeclaration,
   type Author,
   type DeclarationPolicyContext,
@@ -38,6 +48,8 @@ export {
   CounterDeclaration,
   Declaration,
   isCounterDeclaration,
+  isRetraction,
+  Retraction,
   type DeliveryNote,
   type EventEnvelope,
   type EventType,
@@ -49,6 +61,7 @@ export { computeLiveCount, type LiveCount, type LiveCountContext } from './live-
 export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';
+export { validateRetraction, type RetractionContext } from './retraction';
 export type { Role } from './role';
 export { validateDeclaration, type DeclarationContext } from './validate-declaration';
 export { Weight, type Scale } from './weight';

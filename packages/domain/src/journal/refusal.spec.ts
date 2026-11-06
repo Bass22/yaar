@@ -23,6 +23,9 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   NotAssignedToSite: { kind: 'NotAssignedToSite' },
   StrictModePrimaryOnly: { kind: 'StrictModePrimaryOnly' },
   LossByAdminOnly: { kind: 'LossByAdminOnly' },
+  NoLossAfterDeaths: { kind: 'NoLossAfterDeaths' },
+  RetractionByAdminOnly: { kind: 'RetractionByAdminOnly' },
+  DeclarationRetracted: { kind: 'DeclarationRetracted' },
   CorrectsACounterDeclaration: { kind: 'CorrectsACounterDeclaration' },
   CorrectsEventElsewhere: { kind: 'CorrectsEventElsewhere' },
   CorrectionChangesBusinessDate: { kind: 'CorrectionChangesBusinessDate' },
@@ -68,6 +71,12 @@ function explain(refusal: Refusal): string {
       return 'mode strict : seul le titulaire déclare';
     case 'LossByAdminOnly':
       return 'le gardien ne déclare que les morts';
+    case 'NoLossAfterDeaths':
+      return 'des morts sont déjà écrits pour ce jour';
+    case 'RetractionByAdminOnly':
+      return "seul l'admin annule une déclaration";
+    case 'DeclarationRetracted':
+      return 'cette déclaration est annulée';
     case 'CorrectsACounterDeclaration':
       return "une correction vise la déclaration d'origine";
     case 'CorrectsEventElsewhere':

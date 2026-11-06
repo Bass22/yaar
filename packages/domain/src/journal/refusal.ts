@@ -38,17 +38,23 @@ export type Refusal =
   | { readonly kind: 'StrictModePrimaryOnly' }
   /** A caretaker declares deaths; a loss that is not a death (missing, given away) is declared by the admin. */
   | { readonly kind: 'LossByAdminOnly' }
-  /** A counter-declaration names the declaration itself, never another counter-declaration. */
+  /** "Nothing lost" was written for a day on which deaths were already written. */
+  | { readonly kind: 'NoLossAfterDeaths' }
+  /** Only the admin takes a declaration back. */
+  | { readonly kind: 'RetractionByAdminOnly' }
+  /** The declaration was taken back for good: it is neither corrected nor taken back again. */
+  | { readonly kind: 'DeclarationRetracted' }
+  /** A counter-declaration or a retraction names the declaration itself, never a counter-declaration or a retraction. */
   | { readonly kind: 'CorrectsACounterDeclaration' }
-  /** The corrected event belongs to another tenant, site or campaign. */
+  /** The corrected or retracted event belongs to another tenant, site or campaign. */
   | { readonly kind: 'CorrectsEventElsewhere' }
-  /** A counter-declaration keeps the business date of the declaration it corrects. */
+  /** A counter-declaration or a retraction keeps the business date of the declaration it names. */
   | { readonly kind: 'CorrectionChangesBusinessDate' }
   /** A counter-declaration keeps the type of the declaration it corrects. */
   | { readonly kind: 'CorrectionChangesType' }
   /** A counter-declaration keeps what the declaration is about: order line, weighing request, task, media. */
   | { readonly kind: 'CorrectionChangesReference' }
-  /** A counter-declaration has its own identifier: under the one of its declaration it would be dropped as a duplicate. */
+  /** A counter-declaration or a retraction has its own identifier: under the one of its declaration it would be dropped as a duplicate. */
   | { readonly kind: 'CorrectsItself' };
 
 export type RefusalKind = Refusal['kind'];
