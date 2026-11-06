@@ -60,6 +60,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ?~~ ✅ tranché le 2026-11-06 : la déclaration est acceptée et l'admin est alerté — un refus créerait un trou de donnée | CdC « Architecture des données » | ~~C.5, K.1~~ |
 | ~~Longueur du PIN~~ ✅ tranché le 2026-11-06 : 4 chiffres pour un gardien, 6 pour l'admin | CdC « Identité » | ~~E.1~~ |
 | ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
+| ~~Faut-il refuser les PIN trop simples (0000, 1234, 111111) à la création d'un compte ?~~ ✅ tranché le 2026-11-06 : oui — un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre | CdC « Identité » | ~~E.1~~ |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
 | Stockage du jeton dans la PWA ; sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
@@ -79,7 +80,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 
 ## Réserves du QA à lever avant la fin de la V1
 
-Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Onze réserves sont ouvertes au 2026-11-06 : R-1 à R-7 (QA, de C.4 à C.7) et R-8 à R-11 (sécurité, D.2 et D.3).
+Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Quatorze réserves sont ouvertes au 2026-11-06 : R-1 à R-7 (QA, de C.4 à C.7) et R-8 à R-14 (sécurité, de D.2 à E.1).
 
 ## Reprises depuis build-track
 
@@ -402,7 +403,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une annulation ne porte aucun fait ; tout autre événement porte son type, pris dans la liste fermée, et son fait
 
 ### D.4 — Un élevage s'amorce par un script · **S**
-> **En attente de E.1** (2026-11-06) : le premier admin a besoin d'un PIN haché, que E.1 apporte. Le script tournera sous le rôle propriétaire de la base, le seul qui peut créer un élevage (D.2).
+> **Débloquée par E.1** (2026-11-06). Le script tournera sous le rôle propriétaire de la base, le seul qui peut créer un élevage (D.2), et ajoutera la colonne de l'empreinte du PIN.
 > Spec : CdC « Onboarding assisté » (tenants créés manuellement en V1) · Zone : `apps/api/scripts/`
 > Dépend de : D.2, E.1 · Revue : rien n'est ouvert au self-signup.
 
@@ -429,14 +430,23 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## E — Identité et sessions
 
-### E.1 — Le PIN est haché et ses essais sont comptés · **S** · 🔒
-> Spec : Archi §6 · Zone : `apps/api/src/auth/`
+### E.1 — Le PIN est haché et ses essais sont comptés · **S** · 🔒 ✅
+> Spec : Archi §6 ; CdC « Identité » · Zone : `apps/api/src/auth/{pin,pin-attempts,pin-hasher,argon2-pin-hasher}.ts`
 > Dépend de : B.3 · Revue : argon2id derrière un port ; le PIN ne sort jamais.
+> Livré le 2026-11-06. **Dépendance ajoutée** : `argon2` 0.45.2 (MIT), la bibliothèque de build-track. Elle déclare un script d'installation, mais ses binaires sont livrés dans le paquet : elle se charge sans que ce script tourne, sur le poste comme dans l'image de l'API (vérifié dans un conteneur). Audit à zéro.
+> **Décisions du 2026-11-06, ajoutées au CdC** : le PIN a **4 chiffres pour un gardien, 6 pour l'admin** ; un PIN trop simple est refusé (un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre) ; après **trois essais libres**, l'attente s'allonge — 30 s, 1 min, 5 min, 15 min, puis 1 h au plus — sans jamais de blocage définitif ; une connexion réussie remet le compteur à zéro.
+> **Ce qui est livré** : `Pin(texte, rôle)` vérifie la longueur selon le rôle et rend une valeur qui ne s'écrit jamais — imprimée, sérialisée ou glissée dans un message d'erreur, elle montre `[PIN]` ; seul `reveal()` rend les chiffres, et seul le hacheur l'appelle. Le port `PinHasher` et son adaptateur `Argon2PinHasher` (argon2id, 19 Mio, deux passes : le minimum recommandé par l'OWASP) ; une empreinte illisible ou d'un autre algorithme ne reconnaît aucun PIN, sans lever d'erreur. La règle pure `retryAt(essais, maintenant)` dit quand le prochain essai est permis ; `afterFailure` et `afterSuccess` tiennent le compteur.
+> **Hors de cette tranche** : rien n'est encore stocké ni branché. La colonne de l'empreinte arrive avec D.4 (le premier admin), le compteur d'essais et son stockage avec E.2 (la connexion).
+> **Passage de `/security-engineer` le 2026-11-06.** Deux durcissements faits : c'est la règle, et non l'appelant, qui dit si l'attente est écoulée ; et dans le doute elle fait attendre — des essais ratés sans date attendent à partir de maintenant, un compteur illisible attend une heure. **Restent ouverts, pour E.2** (cahier de recette, R-12 à R-14) : un essai refusé pendant l'attente ne doit ni vérifier le PIN ni compter ; un numéro inconnu doit coûter le même temps qu'un mauvais PIN ; le compteur par compte laisse n'importe qui imposer jusqu'à une heure d'attente à un gardien qui se connecte sur un nouvel appareil ; un PIN à 4 chiffres ne résiste que par le comptage des essais (au plus 24 essais par jour une fois l'attente à une heure).
 
-- [ ] Un PIN est stocké haché en argon2id, jamais en clair
-- [ ] Un PIN correct est reconnu ; un PIN incorrect ne l'est pas
-- [ ] Après plusieurs essais ratés, le délai avant un nouvel essai s'allonge
-- [ ] Le compteur d'essais se remet à zéro après une connexion réussie
+- [x] Un PIN est stocké haché en argon2id, jamais en clair ; deux comptes au même PIN n'ont pas la même empreinte
+- [x] Un PIN correct est reconnu ; un PIN incorrect ne l'est pas ; une empreinte illisible ne reconnaît rien
+- [x] Le PIN a 4 chiffres pour un gardien, 6 pour l'admin ; rien d'autre que des chiffres
+- [x] Un PIN trop simple est refusé : un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre
+- [x] Un PIN ne s'écrit ni dans un texte, ni dans un JSON, ni dans un message d'erreur ; un refus ne répète pas ce qui a été tapé
+- [x] Après trois essais ratés, le délai avant un nouvel essai s'allonge : 30 s, 1 min, 5 min, 15 min, puis 1 h au plus
+- [x] Le compteur d'essais se remet à zéro après une connexion réussie
+- [x] Dans le doute (état incohérent, compteur illisible), la règle fait attendre
 
 ### E.2 — Se connecter avec son numéro et son PIN · **M** · 🔒 · ⚠
 > Spec : CdC « Identité » ; Archi §6 · Zone : `apps/api/src/auth/`, `packages/contracts`
@@ -447,6 +457,9 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Les essais sont limités par numéro et par appareil
 - [ ] Le jeton porte le tenant, le rôle, les sites et la session, et rien d'autre
 - [ ] Le PIN n'apparaît dans aucun journal applicatif
+- [ ] Un essai fait pendant l'attente est refusé sans que le PIN soit vérifié, et ne compte pas comme un essai raté (réserve R-12)
+- [ ] Un numéro inconnu et un mauvais PIN donnent la même réponse, dans le même temps (réserve R-13)
+- [ ] Le compteur d'essais tient compte de l'appareil, pour qu'un inconnu ne ralentisse pas le gardien sur son propre téléphone (réserve R-14)
 
 ### E.3 — Les routes sont fermées par défaut · **M** · 🔒
 > Spec : `CLAUDE.md` §4 règle 6 · Zone : `apps/api/src/auth/` (gardes globales)
