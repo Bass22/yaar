@@ -12,6 +12,12 @@ export {
 } from './business-day';
 export type { Campaign } from './campaign';
 export {
+  authorizeDeclaration,
+  type Author,
+  type DeclarationPolicyContext,
+  type SiteStaff,
+} from './declaration-policy';
+export {
   CampaignId,
   JournalEventId,
   OrderLineId,

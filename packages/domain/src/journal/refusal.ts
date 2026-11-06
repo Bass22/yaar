@@ -29,7 +29,13 @@ export type Refusal =
   /** The business date is before the chicks were placed. */
   | { readonly kind: 'BusinessDateBeforePlacement' }
   /** Older than the day before yesterday: only the admin still declares for that day. */
-  | { readonly kind: 'CatchUpWindowPassed' };
+  | { readonly kind: 'CatchUpWindowPassed' }
+  /** The author is neither an admin nor a caretaker: that role never declares. */
+  | { readonly kind: 'RoleCannotDeclare' }
+  /** The author is neither the primary caretaker of the site nor one of its substitutes. */
+  | { readonly kind: 'NotAssignedToSite' }
+  /** The admin turned strict mode on for the site: only its primary caretaker declares. */
+  | { readonly kind: 'StrictModePrimaryOnly' };
 
 export type RefusalKind = Refusal['kind'];
 

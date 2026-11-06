@@ -114,6 +114,7 @@ Une déclaration devient un événement signé qui fait un seul voyage ; une cor
 - **Outbox hors-ligne** : les événements s'empilent localement (stockage persistant demandé), synchronisation dès le retour du réseau ; envoi **idempotent** — un doublon de synchro est ignoré grâce à l'UUID.
 - Pas de réplication bidirectionnelle : on synchronise un **journal**, pas un état — deux déclarants produisent deux faits, jamais un conflit. C'est aussi ce qui réserve, pour une version ultérieure (décision fondateur, nov. 2026), un mode 100 % hors-ligne — consultation et calculs compris — sur les téléphones et ordinateurs des clients : il suffira de répliquer le journal dans les deux sens (borné par le rôle, need-to-know) et de calculer les vues localement avec le même code métier.
 - Cache minimal côté gardien : référentiels du site, campagne en cours, clips audio — jamais de données financières.
+- **L'admin ne perd pas une saisie faute de réseau** (décision du 2026-11-06) : un coût, un paiement, une vente ou une déclaration à la place du gardien s'enregistrent sur l'appareil et partent au retour du réseau. Le bureau dit de quand datent ses chiffres et distingue ce qui est en attente. Le reste (référentiels, modification d'une commande, clôture de campagne, création de comptes) demande le réseau. Pour le permettre, une écriture d'argent ne se modifie jamais : elle se corrige par une contre-écriture, comme une déclaration.
 - Multi-tenant : cloisonnement par identifiant de tenant sur toutes les tables dès le premier jour, schéma partagé ; modules activés par feature flags.
 - Les écarts (reçu vs commandé) sont **signés**, jamais bridés : un bonus est un écart positif.
 - Le choix de la stack est détaillé dans le document d'architecture technique ; cette architecture logique n'impose rien, hormis une PWA côté client (hors-ligne + push).
@@ -185,6 +186,7 @@ Posture statistique : avec peu de campagnes par tenant, descriptif honnête (mé
 ## Points ouverts pour le développement
 
 - [ ] **Champs spécifiques par type de coût** : chaque type porte son schéma de saisie (Aliments = nb de sacs × prix unitaire ; Poussins = effectif × PU ; Vétérinaires = produit + doses…) — à spécifier au démarrage du dev.
+- [ ] Réseau chez les éleveurs pilotes : où font-ils leurs comptes, sur quel appareil, et combien de temps restent-ils sans aucun réseau (heures ou jours) ? La réponse décide si le bureau doit aller jusqu'au calcul local complet de ses chiffres.
 - [ ] Modèles de balance par site : recenser les cadrans courants (peson 0–5 kg, 0–10 kg, digitale) pour que l'aiguille réplique fidèlement chaque modèle.
 - [ ] Clips audio wolof : écrire le script complet des phrases de l'interface, enregistrer un locuteur, règle de composition des nombres.
 - [ ] Import Excel : mapping des onglets existants (Couts, Pertes, Ventes, Commandes, Réceptions, Investissements, Capital, Résultats) vers les événements ; traiter les pièges connus (agrégats incrustés dans les commentaires, dates en série Excel, quantités négatives de report).

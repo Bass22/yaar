@@ -47,6 +47,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Outil de test du domaine et du web (Jest ou Vitest)~~ ✅ tranché le 2026-11-05 : Vitest pour le web et les packages, Jest pour l'API | `CLAUDE.md` §7 | ~~A.1~~ |
 | ~~Champ `version` dans le schéma d'événements dès le lot 1 ?~~ ✅ tranché le 2026-11-06 : non — le schéma n'évolue que par ajout, le sens d'un champ ne change jamais ; le contrat d'échange est versionné par `/api/v1` | Archi §12 | ~~C.1~~ |
 | Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture sur la date de saisie) | CdC (non précisé) | F.1 |
+| ~~L'admin doit-il pouvoir travailler hors-ligne dès la V1 ?~~ ✅ tranché le 2026-11-06 : oui pour la saisie, en trois volets — écritures d'argent ajoutées et jamais modifiées (identifiant créé sur l'appareil) ; coût, paiement, vente et déclaration à la place du gardien en file d'attente ; référentiels, modification de commande, clôture et comptes restent en ligne | Archi, décisions postérieures | ~~O.3, P.1, P.7~~ |
+| Combien de temps les éleveurs pilotes restent-ils sans aucun réseau (heures ou jours) ? La réponse décide du calcul local complet des chiffres du bureau | CdC « Points ouverts » | Rien en V1 |
 | Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
 | Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ? | CdC, cas du bonus poussins | C.5 |
 | Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ? (un refus crée un trou de donnée) | CdC (non précisé) | C.5, K.1 |
@@ -240,15 +242,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une déclaration faite après la clôture de la campagne est refusée
 - [x] Une déclaration sur un site qui n'est pas celui de la campagne est refusée
 
-### C.3 — Qui a le droit de déclarer · **S**
+### C.3 — Qui a le droit de déclarer · **S** ✅
 > Spec : CdC « Gouvernance des déclarations » · Zone : `packages/domain/src/journal/declaration-policy.ts`
 > Dépend de : C.1 · Revue : le mode strict est un choix de l'admin, jamais un verrou par défaut.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `authorizeDeclaration(event, { author, site })` rend l'événement ou l'un de trois motifs (`RoleCannotDeclare`, `NotAssignedToSite`, `StrictModePrimaryOnly`). L'équipe d'un site (`SiteStaff`) porte son titulaire, ses remplaçants et le mode strict ; l'admin passe toujours, même en mode strict et sans être affecté. Seuls l'admin et le collaborateur déclarent : tout autre rôle est refusé (`RoleCannotDeclare`), même inscrit par erreur dans l'équipe du site. Il n'existe pas de champ « pour le compte de » : l'événement nomme celui qui l'a écrit. Le défaut « mode strict désactivé » est celui de la configuration du site (O.1) ; ici, la valeur est fournie par l'appelant.
 
-- [ ] Un collaborateur affecté au site peut déclarer
-- [ ] Un collaborateur d'un autre site ne peut pas déclarer
-- [ ] En mode strict, seul le titulaire du site déclare
-- [ ] L'admin peut toujours déclarer à la place du gardien, et l'événement le nomme comme auteur
-- [ ] Sans mode strict, un remplaçant déclare comme le titulaire
+- [x] Un collaborateur affecté au site peut déclarer
+- [x] Un collaborateur d'un autre site ne peut pas déclarer
+- [x] En mode strict, seul le titulaire du site déclare ; sans titulaire, aucun collaborateur ne déclare
+- [x] L'admin peut toujours déclarer à la place du gardien, et l'événement le nomme comme auteur
+- [x] Sans mode strict, un remplaçant déclare comme le titulaire
 
 ### C.4 — La contre-déclaration corrige sans effacer · **M** · 🧪
 > Spec : CdC « Corrections » · Zone : `packages/domain/src/journal/counter-declaration.ts`
@@ -785,7 +788,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Quatre onglets : Jour, Argent, Commandes, Suivi
 - [ ] Le sélecteur de site change le contexte de tous les onglets
 - [ ] Hors-ligne, le bureau montre la dernière lecture et sa date
-- [ ] Hors-ligne, une saisie est refusée et l'écran dit pourquoi
+- [ ] Hors-ligne, un coût, un paiement, une vente ou une déclaration partent en file d'attente (P.7) ; toute autre saisie est refusée et l'écran dit pourquoi
 - [ ] Un collaborateur ne peut ouvrir aucune route du bureau
 
 ### O.4 — L'onglet Jour : où en est la bande · **M** · ⚠
@@ -800,11 +803,14 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## P — Coûts
 
+> **Écritures d'argent (décision du 2026-11-06)** — vaut pour les épopées P, Q, R, S et W : une écriture (coût, paiement, règlement, vente) est ajoutée et jamais modifiée, porte un identifiant créé sur l'appareil, et son enregistrement est idempotent. Une correction est une contre-écriture (P.2). C'est ce qui permet à l'admin de saisir sans réseau (P.7).
+
 ### P.1 — Un coût et l'engagé à date · **M** · ⚠ · 🧪
 > Spec : CdC « Argent » · Zone : `packages/domain/src/finance/{cost,committed-cost}.ts`
 > Dépend de : B.1 · Revue : rien n'est stocké qui se recalcule ; relire la formule du coût par poulet.
 
-- [ ] Un coût porte un type, une date de dépense, un montant, une note et un statut payé ou à payer
+- [ ] Un coût porte un identifiant créé sur l'appareil, un type, une date de dépense, un montant, une note et un statut payé ou à payer
+- [ ] Le même coût enregistré deux fois (même identifiant) ne compte qu'une fois dans l'engagé (property-based)
 - [ ] La date de dépense vaut aujourd'hui par défaut et peut être passée
 - [ ] L'engagé d'une campagne est la somme de ses coûts reconnus
 - [ ] Un coût « à payer » compte dans l'engagé comme un coût payé
@@ -824,7 +830,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : Archi §4 (`couts`) · Zone : `apps/api/src/costs/`, `packages/contracts`
 > Dépend de : P.2, E.3, N.2 · Revue : un collaborateur n'obtient rien, pas même une liste vide.
 
-- [ ] L'admin enregistre, modifie et liste les coûts d'une campagne
+- [ ] L'admin enregistre, corrige (contre-écriture) et liste les coûts d'une campagne
+- [ ] Un coût déjà reçu (même identifiant) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un collaborateur reçoit un refus sur toute route de coûts
 - [ ] Un coût d'un type archivé ou non rattaché est refusé
 - [ ] Chaque modification d'un coût est tracée dans l'audit
@@ -851,6 +858,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ### P.6 — ⏸ Champs propres à chaque type de coût · ⚠
 > Spec : CdC « Points ouverts » · à spécifier avant découpage.
+
+### P.7 — Les écritures de l'admin attendent le réseau · **M** · 🔒 · 🧪
+> Spec : Archi, décisions postérieures « Admin hors-ligne » ; CdC « Architecture des données & hors-ligne » · Zone : `apps/web/src/app/core/outbox/`, `apps/web/src/app/admin/`
+> Dépend de : P.4, G.4 · Revue : ce que l'appareil de l'admin garde en clair ; aucune écriture perdue ni doublée.
+
+- [ ] Un coût saisi sans réseau est enregistré sur l'appareil avant tout appel, avec son identifiant
+- [ ] Il part au retour du réseau, une seule fois, même si l'envoi est rejoué
+- [ ] Une écriture en attente se distingue à l'écran de celles que le serveur a reçues
+- [ ] Chaque écran du bureau dit de quand datent ses chiffres
+- [ ] Une écriture refusée par le serveur reste visible avec son motif, jamais perdue en silence
+- [ ] Les écritures en attente ne sortent jamais vers le cahier d'un gardien qui utiliserait le même appareil
 
 ## Q — Commandes et réceptions
 
@@ -940,6 +958,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : Q.5 · Revue : un paiement ne touche pas l'engagé.
 
 - [ ] L'admin enregistre un paiement : date, montant, moyen (espèces, Wave)
+- [ ] Hors-ligne, le paiement part en file d'attente et s'affiche « en attente » (P.7)
 - [ ] Plusieurs paiements partiels se cumulent
 - [ ] Un paiement avant toute réception est accepté
 - [ ] L'engagé ne change pas quand un paiement est enregistré
@@ -1147,6 +1166,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : W.1, W.2, P.4 · Revue : réservé à l'admin ; la créance apparaît dans « Qui doit quoi ».
 
 - [ ] L'admin enregistre une vente payée ou à crédit
+- [ ] Hors-ligne, la vente part en file d'attente et s'affiche « en attente » (P.7)
 - [ ] Une vente à crédit apparaît chez l'acheteur dans « Qui doit quoi »
 - [ ] Le restant à vendre diminue de la quantité vendue
 - [ ] Un collaborateur reçoit un refus sur toute route de ventes

@@ -19,6 +19,9 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   FutureBusinessDate: { kind: 'FutureBusinessDate' },
   BusinessDateBeforePlacement: { kind: 'BusinessDateBeforePlacement' },
   CatchUpWindowPassed: { kind: 'CatchUpWindowPassed' },
+  RoleCannotDeclare: { kind: 'RoleCannotDeclare' },
+  NotAssignedToSite: { kind: 'NotAssignedToSite' },
+  StrictModePrimaryOnly: { kind: 'StrictModePrimaryOnly' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -50,6 +53,12 @@ function explain(refusal: Refusal): string {
       return 'ce jour précède la mise en place';
     case 'CatchUpWindowPassed':
       return 'ce jour est trop ancien pour le gardien';
+    case 'RoleCannotDeclare':
+      return 'ce rôle ne déclare jamais';
+    case 'NotAssignedToSite':
+      return "l'auteur n'est pas affecté à ce site";
+    case 'StrictModePrimaryOnly':
+      return 'mode strict : seul le titulaire déclare';
     default:
       return assertNever(refusal);
   }

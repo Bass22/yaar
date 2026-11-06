@@ -130,9 +130,18 @@ describe("Validation d'une déclaration", () => {
       });
     });
 
-    it("les trois jours se comptent depuis la saisie : une déclaration restée hors-ligne n'attend aucune horloge", () => {
-      // The rule takes no clock: whenever the server replays it, the answer is the same.
-      expect(validateDeclaration).toHaveLength(2);
+    it("les trois jours se comptent depuis la saisie : une déclaration relue un an plus tard reçoit la même réponse", () => {
+      // Given une campagne de 2025 et deux déclarations écrites le 5 novembre 2025
+      const campaign = uneCampagneEnCours({ placementDay: jour('2025-10-15') });
+      const forThatDay = troisMortsPourLe('2025-11-05', '2025-11-05T18:30:00.000Z');
+      const forTheNextDay = troisMortsPourLe('2025-11-06', '2025-11-05T18:30:00.000Z');
+
+      // Then relues aujourd'hui, la première reste dans ses trois jours et la seconde reste future
+      expect(validateDeclaration(forThatDay, parLeGardien({ campaign })).ok).toBe(true);
+      expect(validateDeclaration(forTheNextDay, parLeGardien({ campaign }))).toEqual({
+        ok: false,
+        error: { kind: 'FutureBusinessDate' },
+      });
     });
 
     it("pour tout écart entre le jour déclaré et le jour de saisie, le gardien est accepté de 0 à 2 jours, l'admin dès 0 (property-based)", () => {

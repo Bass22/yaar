@@ -71,8 +71,8 @@ web — routes admin   → domain/journal, domain/finance, kit, contracts, desig
 ## 4. Règles non négociables
 
 1. **Le journal est immuable.** Un événement ne se modifie ni ne s'efface : une correction après envoi est une **contre-déclaration** tracée. Aucun `UPDATE` ni `DELETE` sur le journal. Son schéma n'évolue que **par ajout** (champ facultatif, nouveau type) : le sens d'un champ existant ne change jamais, et un événement ne porte pas de numéro de version (décision du 2026-11-06).
-2. **Identifiants générés côté client** (UUID, jamais de séquence serveur). L'ingestion est **idempotente par UUID** : un doublon de synchro est ignoré, jamais compté deux fois. Chaque événement porte deux dates : date métier (choisie) et date de saisie (automatique) ; une déclaration se valide d'après sa date de saisie, jamais d'après l'heure de sa réception. Il porte des **faits** (les cinq poids), jamais une valeur calculée (la moyenne) : le serveur recalcule, donc un téléphone resté sur une ancienne version du domaine ne fausse rien.
-3. **Hors-ligne d'abord.** Toute déclaration du gardien fonctionne sans réseau (outbox IndexedDB). La synchro est un détail d'exécution, jamais une condition ; un événement déclaré ne se perd jamais.
+2. **Identifiants générés côté client** (UUID, jamais de séquence serveur). L'ingestion est **idempotente par UUID** : un doublon de synchro est ignoré, jamais compté deux fois. Chaque événement porte deux dates : date métier (choisie) et date de saisie (automatique) ; une déclaration se valide d'après sa date de saisie, jamais d'après l'heure de sa réception. Il porte des **faits** (les cinq poids), jamais une valeur calculée (la moyenne) : le serveur recalcule, donc un téléphone resté sur une ancienne version du domaine ne fausse rien. **Les écritures d'argent suivent la même règle** (coût, paiement, règlement, vente) : identifiant créé sur l'appareil, ingestion idempotente, jamais de modification — une correction est une contre-écriture.
+3. **Hors-ligne d'abord.** Toute déclaration du gardien fonctionne sans réseau (outbox IndexedDB). La synchro est un détail d'exécution, jamais une condition ; un événement déclaré ne se perd jamais. Côté admin (décision du 2026-11-06), quatre saisies partent aussi en file d'attente : un coût, un paiement, une vente, une déclaration à la place du gardien. Le reste du bureau demande le réseau et affiche la date de ses chiffres.
 4. **Need-to-know.** Le téléphone du gardien ne reçoit et ne stocke aucune donnée financière (coûts, prix, ventes, soldes). Le filtrage se fait **côté serveur selon le rôle**, pas en masquant à l'écran.
 5. **Tenant partout.** `tenant_id` sur chaque table et chaque requête : garde NestJS + couche d'accès + RLS PostgreSQL. Le tenant vient de la session, jamais du client.
 6. **Fail-closed.** Dans le doute, l'état par défaut est le plus restrictif : accès refusé, route protégée, entrée inconnue rejetée. L'autorisation (rôle, portée par site, mode strict) se vérifie à l'ingestion, côté serveur ; le client n'est jamais l'autorité.
@@ -89,7 +89,7 @@ web — routes admin   → domain/journal, domain/finance, kit, contracts, desig
 
 Rien à construire en V1, mais ne pas fermer :
 
-- **Mode 100 % hors-ligne** : UUID client ; règles dans `packages/domain`, exécutables des deux côtés ; vues dérivables du journal ; synchro pensée comme réplication du journal par curseur, bornée par le rôle ; auth téléphone + PIN vérifiable localement après la première connexion.
+- **Mode 100 % hors-ligne** (calcul local complet des vues, au-delà des saisies en file d'attente de la V1) : UUID client ; règles dans `packages/domain`, exécutables des deux côtés ; vues dérivables du journal ; synchro pensée comme réplication du journal par curseur, bornée par le rôle ; auth téléphone + PIN vérifiable localement après la première connexion.
 - **On-premise** : aucun service cloud propriétaire (fichiers derrière un port de stockage, push VAPID standard) ; le `docker-compose` de production reste auto-hébergeable ; une instance on-premise = le même code en mono-tenant (`tenant_id` et RLS restent).
 - **Autres espèces (V2 pondeuses, puis moutons)** : le modèle d'événements est agnostique à l'espèce ; seuls les référentiels changent. Ne code pas « poulet » en dur dans le journal.
 
@@ -106,9 +106,10 @@ Rien à construire en V1, mais ne pas fermer :
 |---|---|
 | Élevage (tenant) ; site (poulailler) | `Tenant`, `tenant_id` ; `Site` |
 | Campagne, bande | `Campaign` |
-| Gardien ; titulaire du site | `Caretaker` ; `primaryCaretaker` |
+| Gardien ; titulaire du site ; remplaçant ; équipe du site | `Caretaker` ; `primaryCaretaker` ; `substitute` ; `SiteStaff` |
+| Mode strict (seul le titulaire déclare) | `strictMode` |
 | Événement du journal ; déclaration ; contre-déclaration | `JournalEvent` ; `Declaration` ; `CounterDeclaration` |
-| Fait porté par un événement ; son type ; son auteur | `Fact` ; `type` (`EventType`) ; `authorId` (`UserId`) |
+| Fait porté par un événement ; son type ; son auteur | `Fact` ; `type` (`EventType`) ; `authorId` (`UserId`), `Author` |
 | Date métier ; date de saisie (un instant en temps universel) | `businessDate` ; `recordedAt` (`Instant`) |
 | Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
 | Mort, perte ; sac ouvert ; « rien perdu » | `Death`, `Loss` ; `BagOpened` ; `NoLoss` |
@@ -122,6 +123,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
 | Tiers ; grand livre des tiers | `Counterparty` ; `Ledger` |
 | Montant ; différence signée | `Money` ; `SignedMoney` (du kit) |
+| Contre-écriture (correction d'une écriture d'argent) | `CounterEntry` |
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
