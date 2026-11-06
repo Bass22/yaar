@@ -71,7 +71,7 @@ web — routes admin   → domain/journal, domain/finance, kit, contracts, desig
 ## 4. Règles non négociables
 
 1. **Le journal est immuable.** Un événement ne se modifie ni ne s'efface : une correction après envoi est une **contre-déclaration** tracée. Aucun `UPDATE` ni `DELETE` sur le journal. Son schéma n'évolue que **par ajout** (champ facultatif, nouveau type) : le sens d'un champ existant ne change jamais, et un événement ne porte pas de numéro de version (décision du 2026-11-06).
-2. **Identifiants générés côté client** (UUID, jamais de séquence serveur). L'ingestion est **idempotente par UUID** : un doublon de synchro est ignoré, jamais compté deux fois. Chaque événement porte deux dates : date métier (choisie) et date de saisie (automatique). Il porte des **faits** (les cinq poids), jamais une valeur calculée (la moyenne) : le serveur recalcule, donc un téléphone resté sur une ancienne version du domaine ne fausse rien.
+2. **Identifiants générés côté client** (UUID, jamais de séquence serveur). L'ingestion est **idempotente par UUID** : un doublon de synchro est ignoré, jamais compté deux fois. Chaque événement porte deux dates : date métier (choisie) et date de saisie (automatique) ; une déclaration se valide d'après sa date de saisie, jamais d'après l'heure de sa réception. Il porte des **faits** (les cinq poids), jamais une valeur calculée (la moyenne) : le serveur recalcule, donc un téléphone resté sur une ancienne version du domaine ne fausse rien.
 3. **Hors-ligne d'abord.** Toute déclaration du gardien fonctionne sans réseau (outbox IndexedDB). La synchro est un détail d'exécution, jamais une condition ; un événement déclaré ne se perd jamais.
 4. **Need-to-know.** Le téléphone du gardien ne reçoit et ne stocke aucune donnée financière (coûts, prix, ventes, soldes). Le filtrage se fait **côté serveur selon le rôle**, pas en masquant à l'écran.
 5. **Tenant partout.** `tenant_id` sur chaque table et chaque requête : garde NestJS + couche d'accès + RLS PostgreSQL. Le tenant vient de la session, jamais du client.
@@ -130,6 +130,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
+| Rattrapage (aujourd'hui, hier, avant-hier) ; rôle de l'auteur | catch-up (`CatchUpWindowPassed`) ; `Role`, `authorRole` |
 
 Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture seule). Un terme absent de la table s'y ajoute avant d'être codé.
 

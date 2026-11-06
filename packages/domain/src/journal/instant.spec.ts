@@ -1,3 +1,4 @@
+import { unwrap } from '@kit';
 import { describe, expect, it } from 'vitest';
 import { Instant, instantOf } from './instant';
 
@@ -28,6 +29,11 @@ describe('Instant de saisie', () => {
     for (const raw of ['2026-02-30T10:00:00.000Z', '2026-11-05T24:00:00.000Z', '2026-11-05T10:60:00.000Z']) {
       expect(Instant(raw)).toEqual({ ok: false, error: { kind: 'InvalidInstant' } });
     }
+  });
+
+  it('deux instants se comparent comme deux textes : une année à plus de quatre chiffres est refusée', () => {
+    expect(Instant('+010000-01-01T00:00:00.000Z')).toEqual({ ok: false, error: { kind: 'InvalidInstant' } });
+    expect(unwrap(Instant('2026-11-05T09:00:00.000Z')) < unwrap(Instant('2026-11-05T18:30:00.000Z'))).toBe(true);
   });
 
   it("ce qui n'est pas un texte est refusé", () => {

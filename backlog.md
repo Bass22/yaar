@@ -46,6 +46,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 |---|---|---|
 | ~~Outil de test du domaine et du web (Jest ou Vitest)~~ ✅ tranché le 2026-11-05 : Vitest pour le web et les packages, Jest pour l'API | `CLAUDE.md` §7 | ~~A.1~~ |
 | ~~Champ `version` dans le schéma d'événements dès le lot 1 ?~~ ✅ tranché le 2026-11-06 : non — le schéma n'évolue que par ajout, le sens d'un champ ne change jamais ; le contrat d'échange est versionné par `/api/v1` | Archi §12 | ~~C.1~~ |
+| Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture sur la date de saisie) | CdC (non précisé) | F.1 |
+| Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
 | Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ? | CdC, cas du bonus poussins | C.5 |
 | Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ? (un refus crée un trou de donnée) | CdC (non précisé) | C.5, K.1 |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
@@ -225,15 +227,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Aucun type d'événement ne porte de montant
 - [x] Un champ hors du schéma, glissé dans la signature ou dans le fait, n'entre pas dans le journal
 
-### C.2 — Une déclaration invalide est refusée · **S**
-> Spec : CdC « Rattrapage » · Zone : `packages/domain/src/journal/validate-declaration.ts`
+### C.2 — Une déclaration invalide est refusée · **S** ✅
+> Spec : CdC « Rattrapage » · Zone : `packages/domain/src/journal/{validate-declaration,campaign,role}.ts`
 > Dépend de : C.1 · Revue : chaque motif de refus a son test.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `validateDeclaration(event, { campaign, timeZone, authorRole })` rend l'événement ou l'un de cinq motifs (`SiteNotOfCampaign`, `CampaignClosed`, `FutureBusinessDate`, `BusinessDateBeforePlacement`, `CatchUpWindowPassed`). **Tout se juge au moment de la saisie** (`recordedAt`, dans le fuseau du site), jamais à la réception : la fonction ne prend pas d'horloge, donc une déclaration restée hors-ligne reçoit la même réponse sur le serveur que sur le téléphone. **La limite de trois jours ne vaut que pour le gardien** (décision du 2026-11-06, ajoutée au CdC) ; un rôle inconnu est traité comme le gardien. `Campaign` ne porte que ce que la règle lit (site, mise en place, instant de clôture) : O.2 la complétera.
+> **Laissé ouvert** : une déclaration écrite avant la clôture et synchronisée après n'est pas refusée ici — son sort reste la décision de X.3. La confiance dans l'horloge du téléphone est une décision d'ingestion (tableau des décisions, F.1).
 
-- [ ] Une déclaration pour une date métier future est refusée
-- [ ] Une déclaration antérieure à la mise en place de la campagne est refusée
-- [ ] Le gardien déclare pour aujourd'hui, hier ou avant-hier, pas au-delà
-- [ ] Une déclaration sur une campagne clôturée est refusée
-- [ ] Une déclaration sur un site qui n'est pas celui de la campagne est refusée
+- [x] Une déclaration pour une date métier future est refusée
+- [x] Une déclaration antérieure à la mise en place de la campagne est refusée
+- [x] Le gardien déclare pour aujourd'hui, hier ou avant-hier, pas au-delà ; l'admin supplée pour tout jour depuis la mise en place
+- [x] Le futur et les trois jours se jugent au moment de la saisie, dans le fuseau du site
+- [x] Une déclaration faite après la clôture de la campagne est refusée
+- [x] Une déclaration sur un site qui n'est pas celui de la campagne est refusée
 
 ### C.3 — Qui a le droit de déclarer · **S**
 > Spec : CdC « Gouvernance des déclarations » · Zone : `packages/domain/src/journal/declaration-policy.ts`
@@ -378,12 +383,13 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## F — Ingestion et descente
 
-### F.1 — Ingérer un lot d'événements · **M** · 🧪
+### F.1 — Ingérer un lot d'événements · **M** · 🧪 · ⚠
 > Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
 > Dépend de : C.2, C.3, C.5 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur.
 
 - [ ] Un événement reçu en JSON est décodé par le domaine en `JournalEvent` : type hors liste, champ manquant ou valeur invalide donnent un motif typé (DTO dans `packages/contracts`)
 - [ ] Un événement valide est accepté et rejoint le journal
+- [ ] Un événement dont la date de saisie est postérieure à sa réception suit la règle décidée (voir le tableau des décisions)
 - [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
 - [ ] L'auteur, le tenant et l'appareil viennent de la session ; ceux du corps sont ignorés

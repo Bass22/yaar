@@ -3,13 +3,17 @@ import type { Refusal } from './refusal';
 
 /**
  * A point in time, written in UTC to the millisecond: `2026-11-05T18:30:00.000Z`. Only this
- * spelling is accepted, so that one instant has one spelling. It is a plain string: an event
- * that carries it is stored and sent as is, and cannot be altered the way a `Date` can.
+ * spelling is accepted, so that one instant has one spelling and two instants compare as two
+ * texts (`<`, `>=`). It is a plain string: an event that carries it is stored and sent as is,
+ * and cannot be altered the way a `Date` can.
  */
 export type Instant = Brand<string, 'Instant'>;
 
+// `2026-11-05T18:30:00.000Z`: a four-digit year, so that two instants compare as two texts.
+const WRITTEN_LENGTH = 24;
+
 export const Instant = (raw: unknown): Result<Instant, Refusal> => {
-  if (typeof raw !== 'string') {
+  if (typeof raw !== 'string' || raw.length !== WRITTEN_LENGTH) {
     return err({ kind: 'InvalidInstant' });
   }
   const time = Date.parse(raw);

@@ -14,6 +14,11 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   InvalidTimeZone: { kind: 'InvalidTimeZone' },
   InvalidInstant: { kind: 'InvalidInstant' },
   InvalidMediaFingerprint: { kind: 'InvalidMediaFingerprint' },
+  SiteNotOfCampaign: { kind: 'SiteNotOfCampaign' },
+  CampaignClosed: { kind: 'CampaignClosed' },
+  FutureBusinessDate: { kind: 'FutureBusinessDate' },
+  BusinessDateBeforePlacement: { kind: 'BusinessDateBeforePlacement' },
+  CatchUpWindowPassed: { kind: 'CatchUpWindowPassed' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -35,6 +40,16 @@ function explain(refusal: Refusal): string {
       return 'instant invalide';
     case 'InvalidMediaFingerprint':
       return 'empreinte de média invalide';
+    case 'SiteNotOfCampaign':
+      return "ce site n'est pas celui de la campagne";
+    case 'CampaignClosed':
+      return 'la campagne est clôturée';
+    case 'FutureBusinessDate':
+      return 'ce jour est à venir';
+    case 'BusinessDateBeforePlacement':
+      return 'ce jour précède la mise en place';
+    case 'CatchUpWindowPassed':
+      return 'ce jour est trop ancien pour le gardien';
     default:
       return assertNever(refusal);
   }

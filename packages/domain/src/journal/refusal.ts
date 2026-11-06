@@ -19,7 +19,17 @@ export type Refusal =
   /** Not a point in time written in UTC to the millisecond (`2026-11-05T18:30:00.000Z`). */
   | { readonly kind: 'InvalidInstant' }
   /** Not a SHA-256 fingerprint: 64 lowercase hexadecimal characters. */
-  | { readonly kind: 'InvalidMediaFingerprint' };
+  | { readonly kind: 'InvalidMediaFingerprint' }
+  /** The declaration names a site that is not the one of its campaign. */
+  | { readonly kind: 'SiteNotOfCampaign' }
+  /** The declaration was written once the campaign was closed. */
+  | { readonly kind: 'CampaignClosed' }
+  /** The business date is after the day the declaration was written, in the time zone of the site. */
+  | { readonly kind: 'FutureBusinessDate' }
+  /** The business date is before the chicks were placed. */
+  | { readonly kind: 'BusinessDateBeforePlacement' }
+  /** Older than the day before yesterday: only the admin still declares for that day. */
+  | { readonly kind: 'CatchUpWindowPassed' };
 
 export type RefusalKind = Refusal['kind'];
 

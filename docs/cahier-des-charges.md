@@ -68,7 +68,7 @@ Un seul écran, tout visible sans défiler jusqu'aux gestes ; PWA hors-ligne sur
 
 **Gestes du cahier** : Mort (compteur visuel, poulets couchés qui s'empilent) ; Sac ouvert. **Prévenir le chef** : Parler (message vocal) ; Photo. Chaque envoi : relecture vocale → Oui/Non → tampon « C'est noté ».
 
-**Rattrapage** : trois jours visibles (aujourd'hui / hier / avant-hier) avec mini-résumé par jour ; bannière d'avertissement vocal quand on écrit pour un jour passé.
+**Rattrapage** : trois jours visibles (aujourd'hui / hier / avant-hier) avec mini-résumé par jour ; bannière d'avertissement vocal quand on écrit pour un jour passé. Cette limite de trois jours vaut pour le gardien : l'admin, qui peut toujours suppléer, déclare pour n'importe quel jour depuis la mise en place (décision du 2026-11-06). Personne ne déclare pour un jour futur ni pour un jour antérieur à la mise en place. Les trois jours se comptent depuis le moment de la saisie, pas depuis celui de la synchronisation : une déclaration restée hors-ligne n'est jamais refusée pour être arrivée tard.
 
 **Journal du jour** : lignes du cahier avec picto, auteur, statut (horloge → tampon), crayon de correction (mort, sac, réception).
 
