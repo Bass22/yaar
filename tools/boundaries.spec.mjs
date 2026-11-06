@@ -212,6 +212,29 @@ describe('Frontières de dépendance', () => {
     });
   });
 
+  // Spec: backlog D.2 — la base fait confiance à l'API pour nommer le tenant : une injection SQL
+  // dans l'API traverserait la RLS. Aucune requête n'est donc fabriquée par concaténation.
+  describe("SQL de l'API", () => {
+    const file = 'apps/api/src/journal/ingest.ts';
+
+    it("le code de l'API n'exécute jamais de SQL fabriqué comme un texte", async () => {
+      await assertRefused(file, "export const read = (db, id) => db.$queryRawUnsafe('SELECT * FROM sites WHERE id = ' + id);\n");
+      await assertRefused(file, "export const write = (db, name) => db.$executeRawUnsafe(`UPDATE sites SET name = '${name}'`);\n");
+      await assertRefused(file, "import { Prisma } from '@prisma/client';\nexport const fragment = (name) => Prisma.raw(name);\n");
+    });
+
+    it('une requête brute paramétrée reste permise', async () => {
+      await assertAccepted(file, 'export const read = (db, id) => db.$queryRaw`SELECT * FROM sites WHERE id = ${id}`;\n');
+    });
+
+    it("les tests et leur outillage préparent la base comme ils l'entendent", async () => {
+      const source = "export const prepare = (db) => db.$executeRawUnsafe('TRUNCATE probe');\n";
+
+      await assertAccepted('apps/api/src/journal/ingest.integration.spec.ts', source);
+      await assertAccepted('apps/api/src/testing/test-database.ts', source);
+    });
+  });
+
   describe('entre projets', () => {
     it("un import relatif ne sort pas de son projet : il passe par un alias", async () => {
       await assertRefused(

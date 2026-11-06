@@ -1,6 +1,6 @@
 # Cahier de recette — Yaar
 
-Tenu par `/qa`. Il dit ce qui a été réellement exécuté, ce qui reste en réserve, et ce qui n'a pas pu être vérifié.
+Tenu par `/qa`, et par `/security-engineer` pour ses constats restés ouverts. Il dit ce qui a été réellement exécuté, ce qui reste en réserve, et ce qui n'a pas pu être vérifié.
 
 **Ce qu'il ne contient pas** : les tests automatisés. Ils vivent dans les fichiers `*.spec.ts`, leurs titres sont la spécification, et eux seuls font foi — un scénario recopié ici vieillirait sans que personne ne le lance. Ce cahier ne garde que ce qu'un test automatisé ne dit pas : un verdict, une réserve, une vérification impossible aujourd'hui, un essai à refaire à la main sur un appareil.
 
@@ -15,6 +15,7 @@ Tenu par `/qa`. Il dit ce qui a été réellement exécuté, ce qui reste en ré
 | 2026-11-06 | C.5 — vivants | **Validé avec réserves** (R-1, R-2, R-3, R-4) | 153 tests du domaine, 24 sabotages détectés sur 24, 8 scénarios exploratoires |
 | 2026-11-06 | C.6 — résumé d'un jour | **Validé avec réserves** (R-6, R-7) | 176 tests du domaine, 23 sabotages détectés sur 23, 8 scénarios exploratoires |
 | 2026-11-06 | C.7 — annulation par l'admin | **Validé avec réserves** (R-4, R-6, R-7) | 202 tests du domaine, 24 sabotages détectés sur 24, 8 scénarios exploratoires. Le défaut bloquant du 1er passage de C.4 (une correction du gardien défait l'annulation) est rejoué et tenu : la ligne annulée ne recompte pas, correction écrite ou reçue avant ou après |
+| 2026-11-06 | D.2 et D.3 — cloisonnement, journal en ajout seul (passage sécurité) | **Trois constats corrigés, trois réserves** (R-8, R-9, R-10) | 62 tests de l'API sur PostgreSQL 16 réel (Testcontainers) ; 45 sabotages détectés sur 45 (D.1 : 14, D.2 : 15, D.3 : 16) ; 15 tentatives d'attaque jouées avec le rôle de l'application ; image de l'API construite et pile complète démarrée à la main (migration appliquée, API saine sous `yaar_app`, sonde 200 à travers Caddy). Corrigés : sonde qui acceptait un rôle propriétaire d'une table ; SQL assemblé comme un texte, désormais interdit par le lint ; PostgreSQL de test au mot de passe connu |
 
 ## 2. Réserves ouvertes
 
@@ -27,6 +28,10 @@ Tenu par `/qa`. Il dit ce qui a été réellement exécuté, ce qui reste en ré
 | R-5 | Une correction identique à la déclaration est acceptée : sans effet sur les chiffres, mais elle serait signalée à l'admin comme une vraie correction | 3 morts « corrigés » en 3 : acceptée | C.4 | F.1, K.5 |
 | R-6 | L'horloge des appareils décide : un téléphone dont on recule la date déclare et corrige au-delà de trois jours, et entre deux appareils une horloge décalée peut faire perdre la correction réellement la plus récente. Limite acceptée le 2026-11-06 pour un seul gardien par site ; l'écart entre la date côté client et la date côté serveur doit au moins être visible | Non rejoué en C.4 depuis le changement de règle : découle du code, qui ne lit que la date de saisie. En C.6 : un « rien perdu » du soir, daté du matin par une horloge en retard, passe avant les morts au lieu d'être refusé — sans effet sur le résumé, où les morts l'emportent. En C.7 : l'appareil de l'admin en retard d'un jour voit son annulation refusée (« ce jour est à venir ») ; l'annulation elle-même, une fois acceptée, ne dépend d'aucune horloge | C.4, C.6, C.7 | F.1 (décision ouverte sur l'horloge fausse), O.4 |
 | R-7 | Une double saisie par erreur ne se rattrape pas toujours : les morts s'ajoutent, une quantité ne descend pas sous 1 et rien ne s'annule. Deux fois 3 morts se corrigent en 2 et 1 ; deux fois 1 mort restent 2. Le rappel « tu as déjà écrit… » est la première parade, et elle est dans l'écran. Allégée le 2026-11-06 (C.7) : l'admin peut annuler la saisie en trop ; le gardien seul ne le peut toujours pas, et l'erreur attend que l'admin soit joignable | 3 morts écrits deux fois à cinq secondes d'écart : le jour compte 6 morts ; après annulation de la seconde par l'admin : 3 | C.6 | K.1 (rappel à la confirmation) ; décision reportée « le gardien peut-il annuler ? » |
+| R-8 | (sécurité) Un événement du journal ne garde pas l'appareil d'où il vient, alors que toute action doit dire « depuis quel appareil ». La colonne manque à `journal_events` | Lu dans la migration 0003 | D.3 | E.4 (sessions par appareil), F.1 — avant toute donnée réelle |
+| R-9 | (sécurité) La sonde `/api/v1/health/ready` est publique et interroge la base à chaque appel : n'importe qui peut la marteler à travers Caddy | Lu dans le Caddyfile, qui relaie tout `/api/v1/*` | D.1, D.2 | Z.5 (limite de débit, ou sonde non relayée) |
+| R-10 | (sécurité) Durcissements de production : images de base désignées par étiquette et non par empreinte (`postgres:16`, `node:22-slim`) ; moteurs Prisma téléchargés au build de l'image ; si PostgreSQL journalisait les ordres de structure, le mot de passe de `yaar_app` y figurerait en clair | — | D.1, D.2 | Z.5 |
+| R-11 | (sécurité) Connaître l'identifiant d'un utilisateur, d'un site ou d'une campagne d'un autre élevage permet de vérifier qu'il existe (refus d'unicité à la création). Il faut déjà posséder un UUID aléatoire : risque faible, accepté pour l'instant | Créer dans A un utilisateur sous un identifiant de B : « contrainte d'unicité » | D.2 | À réévaluer si un identifiant devient prévisible |
 
 ## 3. Non vérifié
 
@@ -43,6 +48,8 @@ Ce qui n'a pas pu être exécuté, et la tranche à partir de laquelle ce sera p
 | Le rappel « tu as déjà écrit 3 morts aujourd'hui » : entendu, compris sans lire, et le gardien déclare bien le supplément | Aucun écran | K.1, K.3 — puis recette manuelle |
 | L'admin annule une ligne pendant que le téléphone du gardien est hors-ligne : ce que le gardien voit avant et après sa synchro (ligne encore comptée, rappel faux), et sa correction de la ligne annulée refusée par le serveur | Ni ingestion, ni descente, ni écran | F.1, F.3, K.5 |
 | L'annulation d'une réception déjà facturée ou payée : effet sur le facturable et la dette | Aucune règle d'argent n'existe | Q.2, Q.3 |
+| ~~L'image Docker de l'API et `docker compose up`~~ — vérifié à la main le 2026-11-06 : image construite, `migrate` applique trois migrations et s'arrête, API saine sous `yaar_app`, sonde 200 à travers Caddy | ~~Le démon Docker ne répondait pas~~ | ~~D.1~~ ; à rejouer avec Z.5 |
+| Les tests d'infrastructure en CI : Testcontainers sur le Docker de la machine de CI | Aucune CI n'a tourné depuis l'ajout | Première poussée après D.1 |
 
 ## 4. Recette manuelle sur appareil
 

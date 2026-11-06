@@ -87,6 +87,19 @@ const purePackage = ({ folder, allowed = [], alsoRefused = [], syntax = [] }) =>
   },
 ];
 
+// The database trusts the API to name the tenant of a transaction: an SQL injection in the
+// API would walk through row-level security. Queries are parameterised, never assembled.
+const noAssembledSql = [
+  {
+    selector: 'MemberExpression[property.name=/^\\$(queryRawUnsafe|executeRawUnsafe)$/]',
+    message: 'No SQL assembled as text in the API: use the tagged form ($queryRaw`…`, $executeRaw`…`), which binds every value.',
+  },
+  {
+    selector: "MemberExpression[object.name='Prisma'][property.name='raw']",
+    message: 'Prisma.raw splices text into a query: bind values instead.',
+  },
+];
+
 export default tseslint.config(
   {
     ignores: ['**/dist/**', '**/out-tsc/**', '**/node_modules/**', '.nx/**', '.angular/**'],
@@ -107,6 +120,13 @@ export default tseslint.config(
     rules: {
       ...restrictImports(crossProject, financeAlias, adminCode),
       'no-restricted-syntax': ['error', noLazyFinance],
+    },
+  },
+  {
+    files: ['apps/api/src/**/*.ts'],
+    ignores: ['apps/api/src/**/*.spec.ts', 'apps/api/src/testing/**'],
+    rules: {
+      'no-restricted-syntax': ['error', ...noAssembledSql],
     },
   },
   ...purePackage({ folder: 'packages/kit' }),

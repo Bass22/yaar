@@ -30,7 +30,7 @@ Chaque tranche porte trois lignes d'en-tête : **Spec** (la règle) et **Zone** 
 |---|---|
 | **S** / **M** | ≤ ½ jour / 1 à 2 jours |
 | ⚙ | Tranche mécanique : revue rapide |
-| 🔒 | Passage de `/security-engineer` avant de clore (auth, tenant, ingestion, médias, push) |
+| 🔒 | Passage de `/security-engineer` avant de clore (auth, tenant, ingestion, médias, push) ; ses constats restés ouverts vont dans `docs/cahier-de-recette.md` |
 | 🧪 | Passage de `/qa` avant de clore (journal, argent, synchro, rôles) ; son verdict et ses réserves vont dans `docs/cahier-de-recette.md` |
 | 🎨 | Maquette à produire d'abord avec `/designer` : l'écran n'existe pas dans les maquettes |
 | ⚠ | Bloquée par une décision ouverte (tableau ci-dessous) |
@@ -77,7 +77,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 
 ## Réserves du QA à lever avant la fin de la V1
 
-Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Sept réserves sont ouvertes au 2026-11-06 (R-1 à R-7, trouvées de C.4 à C.7).
+Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Onze réserves sont ouvertes au 2026-11-06 : R-1 à R-7 (QA, de C.4 à C.7) et R-8 à R-11 (sécurité, D.2 et D.3).
 
 ## Reprises depuis build-track
 
@@ -346,43 +346,66 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## D — Base de données et cloisonnement
 
-### D.1 — Le schéma initial porte le tenant partout · **M**
-> Spec : Archi §6 · Zone : `apps/api/prisma/`
+### D.1 — Le schéma initial porte le tenant partout · **M** ✅
+> Spec : Archi §6 · Zone : `apps/api/prisma/`, `apps/api/src/{config,database,health,testing}/`, `infra/`
 > Dépend de : A.3 · Revue : le schéma Prisma, pas le SQL généré.
+> Livré le 2026-11-06. **Dépendances ajoutées** : `prisma` et `@prisma/client` 6.19.3 (Apache-2.0, la version de build-track). L'audit a trouvé une vulnérabilité haute dans une sous-dépendance de la ligne de commande (`deepmerge-ts` < 8, via `@prisma/config`), corrigée seulement en Prisma 7.10.1 : elle est levée par un `overrides` vers `deepmerge-ts` 8.0.2, et l'audit est de nouveau à zéro. Prisma 7 a été écarté pour l'instant : sa ligne de commande embarque `mysql2`, un studio et un serveur de développement dont on n'a pas besoin. **À planifier** : la branche 6 ne reçoit visiblement plus ce correctif, le passage à Prisma 7 est une tranche à part.
+> **Schéma** : `tenants`, `users`, `sites`, `site_assignments`, `campaigns`. UUID fournis par l'appelant, aucun défaut en base. `tenant_id` obligatoire et indexé partout ; une clé étrangère passe par `(tenant_id, id)`, donc la base refuse elle-même une campagne attachée au site d'un autre élevage. Un seul titulaire par site (index partiel écrit à la main). Le rôle est un type énuméré PostgreSQL (`admin`, `collaborator`). Rien de plus que ce que les tranches livrées demandent : ni PIN (E.1), ni avatar (E.5), ni langue du site (I).
+> **Tests sur PostgreSQL réel, avec Testcontainers, comme dans build-track** (décision du 2026-11-06, après un premier essai sans) : `@testcontainers/postgresql` 11.14 en dépendance de développement (MIT ; la 12 exige Node 22.22). Elle apportait neuf alertes modérées, levées par deux `overrides` (`uuid` 11.1.1 sous `dockerode`, `glob` 14.0.4 sous `archiver-utils`). Un conteneur par processus de test, une base neuve et migrée par fichier ; le superutilisateur du conteneur reçoit un mot de passe tiré au hasard.
+> **Choix à relire** : les migrations sont appliquées par une tâche à part du compose (`migrate`), pas par l'API au démarrage — l'API n'aura ainsi jamais besoin du rôle propriétaire (D.2). L'API se connecte à la base à la première requête, pas au démarrage : une base qui redémarre ne la fait pas tomber, et la sonde `/api/v1/health/ready` dit si elle répond. Un même numéro de téléphone peut exister dans deux élevages : la connexion (E.2) devra dire dans lequel.
+> **Vérifié à la main le 2026-11-06, une fois Docker revenu** : l'image de l'API se construit (client et moteurs Prisma téléchargés au build) ; `docker compose up` dans un projet à part applique les trois migrations par la tâche `migrate`, qui s'arrête avec le code 0 ; l'API devient saine ; `/api/v1/health/ready` répond 200 à travers Caddy.
+> **Reporté en D.4** : la vérification du fuseau par `TimeZone` du domaine se fait là où un site est écrit pour la première fois ; D.1 garantit seulement que la colonne est obligatoire.
 
-- [ ] Les modèles tenant, utilisateur, site, affectation et campagne existent
-- [ ] Un site porte son fuseau horaire (nom IANA, vérifié par `TimeZone` du domaine)
-- [ ] Tout modèle porte `tenant_id` ; un test échoue si un nouveau modèle l'oublie
-- [ ] Les identifiants sont des UUID fournis par l'appelant, sans séquence serveur
-- [ ] La migration initiale s'applique sur une base vide
-- [ ] L'API refuse de démarrer sans `DATABASE_URL` (configuration validée au démarrage) et le compose la lui fournit
-- [ ] Une sonde de disponibilité publique répond quand la base répond
+- [x] Les modèles tenant, utilisateur, site, affectation et campagne existent
+- [x] Un site porte son fuseau horaire, obligatoire (nom IANA ; sa vérification par `TimeZone` du domaine : D.4)
+- [x] Tout modèle porte `tenant_id` ; un test échoue si un nouveau modèle ou une nouvelle table l'oublie, ou n'a pas d'index qui commence par lui
+- [x] Les identifiants sont des UUID fournis par l'appelant, sans séquence serveur ni valeur par défaut
+- [x] Une ligne ne référence que des lignes de son élevage (campagne, affectation)
+- [x] Un site n'a qu'un titulaire, et autant de remplaçants qu'il faut
+- [x] La migration initiale s'applique sur une base vide, et se rejoue sans effet
+- [x] L'API refuse de démarrer sans `DATABASE_URL` (configuration validée au démarrage, sans jamais répéter un secret) et le compose la lui fournit
+- [x] Une sonde de disponibilité publique répond quand la base répond, et 503 sans détail quand elle ne répond pas
 
-### D.2 — Un tenant ne voit jamais un autre tenant · **M** · 🔒
-> Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : migrations RLS, `apps/api/src/tenants/`
+### D.2 — Un tenant ne voit jamais un autre tenant · **M** · 🔒 ✅
+> Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : `apps/api/prisma/migrations/0002_row_level_security/`, `apps/api/src/database/prisma.service.ts`, `apps/api/src/tenants/`, `infra/`
 > Dépend de : D.1 · Revue : le tenant est fixé dans la transaction ; le rôle applicatif n'est pas propriétaire des tables.
+> Livré le 2026-11-06, aucune dépendance ajoutée. Repris de build-track (migration RLS, `runInTenant`) et adapté : l'API se **connecte** sous le rôle applicatif `yaar_app` au lieu d'y basculer depuis le propriétaire — une requête faite hors de `runInTenant` ne voit donc rien et n'écrit rien. RLS activée et forcée sur chaque table, politique unique `tenant_isolation`, droits accordés table par table (lire et écrire, jamais supprimer ni vider ; `tenants` en lecture seule). `runInTenant(tenantId, travail)` ouvre une transaction, y fixe le tenant (`set_config` local), et un appel imbriqué du même élevage rejoint la transaction ouverte ; d'un autre élevage, il est refusé.
+> **Dans le compose** : deux mots de passe. `DB_PASSWORD` pour le propriétaire (tâche `migrate`), `APP_DB_PASSWORD` pour `yaar_app` (l'API), posé une fois par `infra/postgres/init-app-role.sh` à la création du volume. Le mot de passe du propriétaire n'entre jamais dans le conteneur de l'API.
+> **Durci en cours de route** : les clés étrangères générées par Prisma propageaient un changement d'identifiant (`ON UPDATE CASCADE`) — un `tenant_id` réécrit par erreur aurait entraîné ses lignes ; toutes refusent maintenant (`Restrict`). Deux migrations lancées en même temps sur un même serveur se gênaient à la création du rôle : corrigé.
+> **Passage de `/security-engineer` le 2026-11-06.** Quinze tentatives jouées sur la base avec le rôle de l'application (désactiver les déclencheurs, s'accorder `BYPASSRLS`, changer de rôle, lire les mots de passe, créer une table, lancer un programme, écrire pour un autre élevage…) : toutes refusées, sauf une attendue. **Trois constats corrigés** : (1) la sonde de disponibilité acceptait un rôle non privilégié mais propriétaire d'une table, donc capable de défaire la RLS — elle le refuse maintenant ; (2) la base fait confiance à l'API pour nommer le tenant, donc une injection SQL traverserait la RLS — le lint interdit désormais tout SQL assemblé comme un texte dans l'API ; (3) le PostgreSQL jetable des tests était joignable en superutilisateur avec un mot de passe connu — le conteneur de test reçoit maintenant un mot de passe tiré au hasard. **Restent ouverts** (cahier de recette, R-8 à R-11) : l'appareil n'est pas encore enregistré avec un événement ; la sonde publique interroge la base à chaque appel ; durcissements de production.
+> **Vérifié à la main le 2026-11-06 dans de vrais conteneurs** : le script d'initialisation donne son accès à `yaar_app` (ni superutilisateur, ni dispensé de RLS) ; les tables appartiennent au propriétaire `yaar` ; le conteneur de l'API tourne sous l'utilisateur `node`, ne reçoit pas `DB_PASSWORD` et se connecte sous `yaar_app`. Le script a aussi été joué avec un mot de passe piégé, sans effet.
 
-- [ ] Sans tenant fixé, aucune ligne n'est visible
-- [ ] Un utilisateur du tenant A ne lit aucune ligne du tenant B
-- [ ] Un utilisateur du tenant A ne peut ni écrire ni modifier une ligne du tenant B
-- [ ] Deux requêtes concurrentes de tenants différents ne se mélangent pas dans le pool de connexions
-- [ ] Le rôle PostgreSQL de l'application n'est ni superutilisateur ni dispensé de RLS
+- [x] Sans tenant fixé, aucune ligne n'est visible, dans aucune table, et rien ne s'écrit
+- [x] Un utilisateur du tenant A ne lit aucune ligne du tenant B
+- [x] Un utilisateur du tenant A ne peut ni écrire ni modifier une ligne du tenant B, ni y faire passer une des siennes
+- [x] Deux requêtes concurrentes de tenants différents ne se mélangent pas dans le pool de connexions ; le tenant ne survit pas à la transaction
+- [x] Le rôle PostgreSQL de l'application n'est ni superutilisateur, ni dispensé de RLS, ni propriétaire d'une table ; il n'a que les droits accordés table par table
+- [x] Toute table a sa RLS activée et forcée, avec une politique : une table ajoutée sans elle fait échouer un test
+- [x] Branchée sous un rôle privilégié ou propriétaire, l'API ne se déclare jamais disponible
+- [x] Aucun SQL assemblé comme un texte dans l'API (règle de lint, prouvée)
 
-### D.3 — La table du journal n'accepte que des ajouts · **S** · 🔒
-> Spec : `CLAUDE.md` §4 règle 1 · Zone : migration du journal
+### D.3 — La table du journal n'accepte que des ajouts · **S** · 🔒 ✅
+> Spec : `CLAUDE.md` §4 règles 1 et 2 · Zone : `apps/api/prisma/migrations/0003_journal/`, `apps/api/src/journal/`
 > Dépend de : D.2 · Revue : le refus vient de la base, pas seulement du code.
+> Livré le 2026-11-06, aucune dépendance ajoutée. Table `journal_events` : une ligne par événement tel qu'il a été écrit sur l'appareil — déclaration, contre-déclaration (`corrects`) ou annulation (`retracts`, sans fait). Clé primaire `(tenant_id, id)` : l'identifiant créé sur l'appareil est unique par élevage. Le type est un type énuméré PostgreSQL (les neuf types du domaine), le fait est en JSON sans son type. **Ajout seul, pour tout le monde** : l'application n'a que `SELECT` et `INSERT` ; des déclencheurs refusent `UPDATE`, `DELETE` et `TRUNCATE` au propriétaire de la base lui-même. `received_at` est posée par un déclencheur, quoi qu'envoie le client.
+> **Choix à relire** : une contre-déclaration ou une annulation ne peut nommer qu'un événement déjà au journal de son élevage (clé étrangère) — cohérent avec « corriger et annuler se font en ligne », mais l'ingestion (F.1) devra insérer une déclaration avant ce qui la corrige dans un même lot. Une contrainte donne la forme d'une ligne (une annulation n'a ni type ni fait ; tout autre événement a les deux) et interdit à un événement de se nommer lui-même. La date de réception est l'heure de début de la transaction d'insertion. Pas d'index de lecture pour l'instant : il viendra avec le premier lecteur (F.1, F.3).
+> **Passage de `/security-engineer` le 2026-11-06** (commun avec D.2) : `INSERT … ON CONFLICT DO UPDATE`, désactivation des déclencheurs, remplacement de leur fonction, `TRUNCATE … CASCADE` depuis une table parente — tous refusés. **Reste ouvert** (R-8) : la table ne garde pas l'appareil d'où vient l'événement ; la colonne s'ajoutera avec les sessions par appareil (E.4) et l'ingestion (F.1), avant toute donnée réelle.
 
-- [ ] Un événement s'insère avec son UUID, unique par tenant
-- [ ] Une mise à jour d'un événement est refusée par la base
-- [ ] Une suppression d'un événement est refusée par la base
-- [ ] Le même UUID inséré deux fois dans le même tenant ne crée qu'une ligne
-- [ ] Chaque événement garde, à côté de sa date de saisie venue du client, la date de sa réception posée par la base ; elle ne se modifie pas
+- [x] Un événement s'insère avec son UUID, unique par tenant ; le même UUID sert dans deux élevages sans se gêner
+- [x] Une mise à jour d'un événement est refusée par la base, à l'application comme au propriétaire
+- [x] Une suppression d'un événement est refusée par la base ; vider la table aussi
+- [x] Le même UUID inséré deux fois dans le même tenant ne crée qu'une ligne, et la première reste
+- [x] Chaque événement garde, à côté de sa date de saisie venue du client, la date de sa réception posée par la base ; elle ne se modifie pas, et celle qu'enverrait un client est ignorée
+- [x] Une contre-déclaration ou une annulation ne nomme qu'un événement du journal de son élevage, jamais elle-même
+- [x] Une annulation ne porte aucun fait ; tout autre événement porte son type, pris dans la liste fermée, et son fait
 
 ### D.4 — Un élevage s'amorce par un script · **S**
+> **En attente de E.1** (2026-11-06) : le premier admin a besoin d'un PIN haché, que E.1 apporte. Le script tournera sous le rôle propriétaire de la base, le seul qui peut créer un élevage (D.2).
 > Spec : CdC « Onboarding assisté » (tenants créés manuellement en V1) · Zone : `apps/api/scripts/`
 > Dépend de : D.2, E.1 · Revue : rien n'est ouvert au self-signup.
 
 - [ ] Le script crée un tenant, son premier site et son premier admin
+- [ ] Le fuseau du site est vérifié par `TimeZone` du domaine avant d'être écrit : un nom inconnu est refusé
 - [ ] Relancé avec le même numéro, il refuse au lieu de créer un doublon
 - [ ] Aucune route publique ne permet de créer un tenant
 
@@ -458,6 +481,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
 - [ ] L'auteur, le tenant et l'appareil viennent de la session ; ceux du corps sont ignorés
+- [ ] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` avec les sessions par appareil (E.4) — elle manque depuis D.3 (réserve R-8)
+- [ ] Dans un lot, une déclaration s'insère avant ce qui la corrige ou l'annule : la base refuse de nommer un événement absent (D.3)
 - [ ] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre : incohérence à lever ici, où les deux sont appelées ensemble)
 - [ ] Un événement refusé par la politique de déclaration donne un motif typé
 - [ ] « Rien perdu » est jugé contre le journal du jour (`validateAgainstDay`) : refusé si des morts ont été écrits avant lui
@@ -1392,6 +1417,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Caddy sert l'application en HTTPS avec un certificat persistant
 - [ ] Les en-têtes de sécurité sont en place (HSTS, CSP, anti-encadrement)
 - [ ] Aucun secret n'est présent dans une image ni dans le dépôt
+- [ ] Les images de base sont épinglées par empreinte, et PostgreSQL ne journalise pas les ordres qui portent un mot de passe (réserve R-10)
+- [ ] La sonde `/api/v1/health/ready` n'est pas offerte à Internet sans limite de débit (réserve R-9)
 - [ ] Le tableau des réserves ouvertes de `docs/cahier-de-recette.md` est vide : chaque réserve est levée, ou acceptée par le fondateur
 - [ ] La recette manuelle sur appareil du même cahier a été rejouée en entier
 

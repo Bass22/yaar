@@ -21,8 +21,11 @@ services:
       POSTGRES_USER: yaar
       POSTGRES_DB: yaar
       POSTGRES_PASSWORD: ${DB_PASSWORD:?définir DB_PASSWORD dans infra/.env avant de démarrer}
+      # Read by the init script below, once, to give the application role its login.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?définir APP_DB_PASSWORD dans infra/.env avant de démarrer}
     volumes:
       - db-data:/var/lib/postgresql/data
+      - ./postgres/init-app-role.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
     networks:
       - data
     healthcheck:
@@ -31,6 +34,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot task: applies the committed migrations as the owner of the database, then exits.
+  # The API starts only once it has succeeded, so it never serves on a schema it does not know.
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    restart: 'no'
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']
+    environment:
+      DATABASE_URL: postgresql://yaar:${DB_PASSWORD:?DB_PASSWORD manquant}@db:5432/yaar
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+
   api:
     build:
       context: ..
@@ -38,14 +57,21 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
+      # The application role: it owns no table and is bound by row-level security. The owner
+      # role and its password never reach this container.
+      DATABASE_URL: postgresql://yaar_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant}@db:5432/yaar
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     networks:
       - edge
       - data
+    # Readiness, not liveness: Caddy only gets an API whose database answers.
     healthcheck:
       test:
         - CMD-SHELL
         - >-
-          node -e "fetch('http://localhost:3000/api/v1/health')
+          node -e "fetch('http://localhost:3000/api/v1/health/ready')
           .then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
       interval: 10s
       timeout: 3s

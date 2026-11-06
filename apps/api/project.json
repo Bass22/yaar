@@ -6,8 +6,19 @@
   "tags": [
     "scope:api"
   ],
-  "implicitDependencies": ["domain", "contracts", "kit"],
+  "implicitDependencies": [
+    "domain",
+    "contracts",
+    "kit"
+  ],
   "targets": {
+    "prisma-generate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "prisma generate --schema apps/api/prisma/schema.prisma"
+      }
+    },
     "build": {
       "executor": "nx:run-commands",
       "outputs": [
@@ -15,7 +26,10 @@
       ],
       "options": {
         "command": "node apps/api/build.mjs"
-      }
+      },
+      "dependsOn": [
+        "prisma-generate"
+      ]
     },
     "serve": {
       "continuous": true,
@@ -31,19 +45,28 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "jest --config apps/api/jest.config.js"
-      }
+      },
+      "dependsOn": [
+        "prisma-generate"
+      ]
     },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
         "command": "tsc -p apps/api/tsconfig.spec.json"
-      }
+      },
+      "dependsOn": [
+        "prisma-generate"
+      ]
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "command": "eslint apps/api"
-      }
+      },
+      "dependsOn": [
+        "prisma-generate"
+      ]
     }
   }
 }

@@ -106,7 +106,7 @@ Rien à construire en V1, mais ne pas fermer :
 |---|---|
 | Élevage (tenant) ; site (poulailler) | `Tenant`, `tenant_id` ; `Site` |
 | Campagne, bande | `Campaign` |
-| Gardien ; titulaire du site ; remplaçant ; équipe du site | `Caretaker` ; `primaryCaretaker` ; `substitute` ; `SiteStaff` |
+| Gardien ; titulaire du site ; remplaçant ; équipe du site ; affectation à un site (en base) | `Caretaker` ; `primaryCaretaker` ; `substitute` ; `SiteStaff` ; `SiteAssignment` (`isPrimary`) |
 | Mode strict (seul le titulaire déclare) | `strictMode` |
 | Événement du journal ; déclaration ; contre-déclaration ; annulation (admin seul, définitive) | `JournalEvent` ; `Declaration` ; `CounterDeclaration` (`corrects`) ; `Retraction` (`retracts`) |
 | Ligne du journal effectif | `JournalLine` (`effectiveJournal`) |
@@ -144,7 +144,7 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 - Cycle strict 🔴 → 🟢 → 🔵, une règle à la fois. Une règle sans test n'existe pas ; si la règle change, le test change avant le code.
 - `describe` / `it` en **français métier**, corps en Given / When / Then, builders métier (`uneCommandeAnnoncee()`), référence à la spec en tête (`// Spec: Cahier des charges — Commandes`).
 - Le gros du volume vit dans `packages/domain` (pur, sans mock, property-based sur les invariants d'argent et d'idempotence). Cas d'usage : ports en stub mémoire. Infrastructure : PostgreSQL réel (RLS, tenant). E2E : quelques parcours dorés, hors-ligne compris, avec les montants attendus **calculés à la main en commentaire**.
-- Outils : **Vitest** pour le web et les packages, **Jest** pour l'API (décision du 2026-11-05), **fast-check** pour les propriétés (importé par les seuls fichiers de test). Testcontainers et Playwright s'ajouteront avec la première tranche qui en a besoin.
+- Outils : **Vitest** pour le web et les packages, **Jest** pour l'API (décision du 2026-11-05), **fast-check** pour les propriétés (importé par les seuls fichiers de test). Les tests d'infrastructure (`*.integration.spec.ts`) tournent sur un PostgreSQL 16 réel et jetable, démarré par **Testcontainers** comme dans build-track (décision du 2026-11-06) : un conteneur par processus de test, et pour chaque fichier une base neuve où les migrations du dépôt sont rejouées (`apps/api/src/testing/test-database.ts`). Il faut donc un Docker qui tourne pour lancer les tests de l'API. Playwright s'ajoutera avec la première tranche qui en a besoin.
 
 ## 8. Conventions de code
 
@@ -152,14 +152,14 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 - **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` ni de `Date.now()` (le lint les refuse : l'instant est un paramètre, lu par l'application sur le port `Clock` du kit). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun. Un événement se construit par `Declaration(envelope, fact)` , `CounterDeclaration(envelope, corrects, fact)` ou `Retraction(envelope, retracts)` depuis des valeurs déjà vérifiées : seuls les champs du schéma sont recopiés, et le résultat est gelé.
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
-- **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.
+- **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle, et une clé étrangère passe par `(tenant_id, id)` : une ligne ne référence que des lignes de son élevage. Schéma et migrations dans `apps/api/prisma/` ; une migration se produit par `prisma migrate diff`, se relit, et ce que Prisma ne sait pas décrire (index partiel, RLS, déclencheur) s'y écrit à la main. Le client se génère par la cible Nx `prisma-generate`, dont dépendent tests, typage, lint et build de l'API. **Cloisonnement** : l'API se connecte sous le rôle `yaar_app`, qui ne possède aucune table et subit la RLS ; toute lecture ou écriture d'un élevage passe par `PrismaService.runInTenant(tenantId, …)`, qui fixe le tenant pour la transaction — hors de lui, aucune ligne n'est visible. Une nouvelle table reçoit dans sa migration ses droits (table par table, jamais `DELETE` sans raison), sa RLS activée et forcée et sa politique : des tests lus dans le catalogue PostgreSQL échouent sinon. Aucun SQL assemblé comme un texte dans l'API (`$queryRawUnsafe`, `$executeRawUnsafe`, `Prisma.raw` : le lint les refuse hors des tests) : la base fait confiance à l'API pour nommer le tenant, une injection traverserait la RLS.
 - **Projet propriétaire** (`LICENSE`) : tout `package.json` porte `"private": true` et `"license": "SEE LICENSE IN LICENSE"`. Aucune dépendance sous licence GPL ou AGPL, ni sans licence connue (`tools/licenses.mjs` le vérifie sur tout le verrou), et aucun code tiers recopié sans licence permissive vérifiée.
 - **Dépendances : le strict nécessaire, et sûres.** Un paquet ne s'installe que pour un besoin de la tranche en cours, jamais « pour plus tard » ; ce que la plateforme ou une dépendance déjà présente sait faire ne justifie pas un paquet de plus. Avant d'ajouter : paquet officiel et maintenu, licence permissive, moteur Node compatible, puis `npm audit` — aucune vulnérabilité haute ou critique, et zéro dans les dépendances d'exécution (`npm audit --omit=dev`). Une sous-dépendance vulnérable se corrige par `overrides` dans `package.json` quand une version corrigée existe. Les scripts d'installation sont bloqués par `.npmrc` (`ignore-scripts=true`) : n'en autorise aucun sans le demander. Les paquets qui ne servent qu'à générer du code (plugins et schematics Nx, Angular, NestJS) ne restent pas installés.
-- **Versions : la stable recommandée, pas la dernière.** On prend la version stable maintenue que le Node en place supporte officiellement ; à défaut, celle de build-track. Ni bêta, ni option expérimentale, ni majeure que l'outillage ne suit pas encore. En place : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Vitest 4, Jest 29, ESLint 9, Nx 24. Une montée de version est une tranche à part.
+- **Versions : la stable recommandée, pas la dernière.** On prend la version stable maintenue que le Node en place supporte officiellement ; à défaut, celle de build-track. Ni bêta, ni option expérimentale, ni majeure que l'outillage ne suit pas encore. En place : Angular 21 (LTS), NestJS 11, TypeScript 5.9, Vitest 4, Jest 29, ESLint 9, Nx 24, Prisma 6.19 (celle de build-track ; sa sous-dépendance `deepmerge-ts` est forcée en 8 par `overrides`, la branche 6 ne recevant plus ce correctif — passage à Prisma 7 à planifier), Testcontainers 11.14 (la dernière que Node 22.14 accepte ; `uuid` et `glob` forcés en version corrigée sous elle). Une montée de version est une tranche à part.
 
 ## 9. Commandes
 
-Prérequis : Node 22.12 ou plus, Docker pour la pile complète. Le verrou `package-lock.json` fait foi : installe toujours avec `npm ci`. **Toute modification du verrou passe par npm 11** — modifie `package.json`, puis `npx npm@11 install --package-lock-only`, puis `npm ci`. npm 10 plante s'il recrée le verrou (défaut de résolution autour de `vitest` 4.1) et, s'il le retouche, en retire les champs `libc`.
+Prérequis : Node 22.12 ou plus, et un Docker qui tourne — pour les tests de l'API (Testcontainers) comme pour la pile complète. Le verrou `package-lock.json` fait foi : installe toujours avec `npm ci`. **Toute modification du verrou passe par npm 11** — modifie `package.json`, puis `npx npm@11 install --package-lock-only`, puis `npm ci`. npm 10 plante s'il recrée le verrou (défaut de résolution autour de `vitest` 4.1) et, s'il le retouche, en retire les champs `libc`.
 
 ```bash
 npm ci                                # installer depuis le verrou
@@ -170,8 +170,9 @@ npm run build                         # web (dist/apps/web) et API (apps/api/dis
 npx nx test domain                    # un seul projet : web, api, domain, contracts, design-system, kit
 npx nx affected -t lint test build    # ce que la modification touche
 npx nx serve web                      # Angular, en développement
-npx nx serve api                      # NestJS, après build (PORT, défaut 3000)
-cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD
+npx nx serve api                      # NestJS, après build (DATABASE_URL exigé ; PORT, défaut 3000)
+npx nx prisma-generate api            # régénérer le client Prisma après un changement de schéma
+cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD et APP_DB_PASSWORD
 docker compose -f infra/docker-compose.yml up --build   # la pile : http://localhost:8080
 ```
 

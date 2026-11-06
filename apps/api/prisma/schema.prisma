@@ -1,0 +1,167 @@
+// Yaar — schema of the operational database (an infrastructure detail: the domain ignores it).
+//
+// Tenancy: `tenants` is the root, and every other table carries `tenant_id` NOT NULL with an
+// index starting with it (CLAUDE.md §4 rule 5). A row only ever references rows of its own
+// tenant: foreign keys go through (tenant_id, id), so the database itself refuses a campaign
+// attached to the site of another farm.
+//
+// An identifier never changes and no row is erased: every foreign key refuses both (Restrict),
+// so a tenant_id rewritten by mistake cannot cascade to the rows that depend on it.
+//
+// Identifiers are UUIDs given by the caller — created on the device for whatever is written
+// offline — and never a server sequence (rule 2). Instants are stored with their time zone.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  collaborator
+
+  @@map("user_role")
+}
+
+// The closed list of facts of the journal (`Fact` in packages/domain). It only grows.
+enum JournalEventType {
+  Death
+  BagOpened
+  NoLoss
+  Loss
+  Delivery
+  Weighing
+  TaskDone
+  VoiceMessage
+  Photo
+
+  @@map("journal_event_type")
+}
+
+model Tenant {
+  id        String   @id @db.Uuid
+  name      String
+  // ISO 4217 code of the money this farm counts in: never hard-coded (rule 7).
+  currency  String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  users           User[]
+  sites           Site[]
+  siteAssignments SiteAssignment[]
+  campaigns       Campaign[]
+  journalEvents   JournalEvent[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  // The phone number is the login, written in international form (E.164).
+  phone     String
+  name      String
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignments   SiteAssignment[]
+  journalEvents JournalEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, phone])
+  @@map("users")
+}
+
+model Site {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  name       String
+  // IANA name ("Africa/Dakar"): it says which business day an instant falls on.
+  timeZone   String   @map("time_zone")
+  // Only the primary caretaker declares when the admin turns this on.
+  strictMode Boolean  @default(false) @map("strict_mode")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignments   SiteAssignment[]
+  campaigns     Campaign[]
+  journalEvents JournalEvent[]
+
+  @@unique([tenantId, id])
+  @@map("sites")
+}
+
+// A collaborator allowed to write in the notebook of a site: its primary caretaker, or a
+// substitute. At most one primary per site (partial unique index, in the migration).
+model SiteAssignment {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  siteId    String   @map("site_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  isPrimary Boolean  @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site   Site   @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([siteId, userId])
+  @@index([tenantId, userId])
+  @@map("site_assignments")
+}
+
+model Campaign {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  siteId       String    @map("site_id") @db.Uuid
+  // The business day the animals were placed: day 0 of the campaign.
+  placementDay DateTime  @map("placement_day") @db.Date
+  closedAt     DateTime? @map("closed_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site          Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  journalEvents JournalEvent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, siteId])
+  @@map("campaigns")
+}
+
+// The journal: append-only. A row is one event exactly as it was written on a device — a
+// declaration, a counter-declaration (`corrects`) or a retraction (`retracts`, no fact).
+// The migration adds what Prisma cannot describe: no UPDATE, no DELETE, no TRUNCATE, for
+// anyone; `received_at` set by the database whatever the client sends; and the shape of a row.
+model JournalEvent {
+  tenantId     String            @map("tenant_id") @db.Uuid
+  // Created on the device: unique within its tenant, which makes ingestion idempotent.
+  id           String            @db.Uuid
+  siteId       String            @map("site_id") @db.Uuid
+  campaignId   String            @map("campaign_id") @db.Uuid
+  authorId     String            @map("author_id") @db.Uuid
+  businessDate DateTime          @map("business_date") @db.Date
+  // Read on the clock of the device when the event was written.
+  recordedAt   DateTime          @map("recorded_at") @db.Timestamptz(3)
+  // Read on the clock of the database when the row was inserted. Never taken from the client.
+  receivedAt   DateTime          @default(now()) @map("received_at") @db.Timestamptz(3)
+  type         JournalEventType?
+  // The fields of the fact, without its type.
+  fact         Json?
+  corrects     String?           @db.Uuid
+  retracts     String?           @db.Uuid
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site        Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  campaign    Campaign       @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  author      User           @relation(fields: [tenantId, authorId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrected   JournalEvent?  @relation("Corrections", fields: [tenantId, corrects], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrections JournalEvent[] @relation("Corrections")
+  retracted   JournalEvent?  @relation("Retractions", fields: [tenantId, retracts], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  retractions JournalEvent[] @relation("Retractions")
+
+  @@id([tenantId, id])
+  @@map("journal_events")
+}

@@ -44,9 +44,45 @@ describe('Pile de conteneurs', () => {
   const compose = read('infra/docker-compose.yml');
   const services = composeServices(compose);
 
-  it('le compose démarre le web derrière Caddy, l’API et PostgreSQL', () => {
-    assert.deepEqual([...services.keys()].sort(), ['api', 'db', 'web']);
+  it('le compose démarre le web derrière Caddy, l’API et PostgreSQL, plus une tâche de migration', () => {
+    assert.deepEqual([...services.keys()].sort(), ['api', 'db', 'migrate', 'web']);
     assert.match(services.get('db').lines.join('\n'), /image: postgres:\d+/);
+  });
+
+  // Spec: backlog D.1 — la migration s'applique avant l'API ; le compose fournit DATABASE_URL
+  it('les migrations s’appliquent par une tâche à part, qui s’arrête, avant que l’API ne démarre', () => {
+    const migrate = services.get('migrate').lines.join('\n');
+    const api = services.get('api').lines.join('\n');
+
+    assert.match(migrate, /migrate.*deploy/s, 'la tâche applique les migrations du dépôt');
+    assert.match(migrate, /restart: 'no'/, 'une tâche finie ne redémarre pas');
+    assert.match(migrate, /db:\n\s+condition: service_healthy/);
+    assert.match(api, /migrate:\n\s+condition: service_completed_successfully/);
+  });
+
+  it('l’API et la tâche de migration reçoivent l’adresse de la base, mot de passe exigé de l’environnement', () => {
+    for (const name of ['api', 'migrate']) {
+      const service = services.get(name).lines.join('\n');
+
+      assert.match(service, /DATABASE_URL: postgresql:\/\/\w+:\$\{[A-Z_]+:\?[^}]+\}@db:5432\/\w+/, name);
+    }
+  });
+
+  // Spec: backlog D.2 — le rôle applicatif n'est pas propriétaire des tables
+  it('l’API se connecte sous le rôle applicatif, les migrations sous le propriétaire : deux mots de passe', () => {
+    const urlOf = (name) => /DATABASE_URL: (\S+)/.exec(services.get(name).lines.join('\n'))[1];
+    const db = services.get('db').lines.join('\n');
+
+    assert.match(urlOf('api'), /^postgresql:\/\/yaar_app:\$\{APP_DB_PASSWORD:\?/);
+    assert.match(urlOf('migrate'), /^postgresql:\/\/yaar:\$\{DB_PASSWORD:\?/);
+    assert.match(db, /APP_DB_PASSWORD: \$\{APP_DB_PASSWORD:\?[^}]+\}/, 'la base reçoit le mot de passe du rôle applicatif');
+    assert.match(db, /init-app-role\.sh:\/docker-entrypoint-initdb\.d\/[\w.-]+:ro/, 'le rôle reçoit son accès à la création de la base');
+    assert.match(read('infra/postgres/init-app-role.sh'), /CREATE ROLE yaar_app LOGIN PASSWORD :'app_password'/);
+    assert.match(read('infra/.env.example'), /^APP_DB_PASSWORD=$/m);
+  });
+
+  it('l’API n’est déclarée saine que si la base lui répond', () => {
+    assert.match(services.get('api').lines.join('\n'), /\/api\/v1\/health\/ready/);
   });
 
   it('une seule porte sur l’extérieur : seul le web publie un port', () => {
@@ -66,6 +102,7 @@ describe('Pile de conteneurs', () => {
         .filter(Boolean);
 
     assert.deepEqual(networksOf('db'), ['data']);
+    assert.deepEqual(networksOf('migrate'), ['data']);
     assert.deepEqual(networksOf('web'), ['edge']);
     assert.deepEqual(networksOf('api').sort(), ['data', 'edge']);
     assert.match(compose, /^ {2}data:\n(?: {4}#.*\n)* {4}internal: true$/m);
@@ -119,6 +156,8 @@ describe('Pile de conteneurs', () => {
 
     assert.match(api, /^USER node$/m, "l'API ne tourne pas en root");
     assert.match(api, /npm ci --omit=dev/, "l'image de l'API n'embarque pas les dépendances de développement");
+    assert.match(api, /prisma generate/, "l'image de l'API embarque le client de la base, généré au build");
+    assert.ok(api.indexOf('prisma generate') < api.indexOf('USER node'), 'rien ne se télécharge une fois les privilèges rendus');
     assert.match(web, /^FROM caddy:/m, 'le web livré ne contient que Caddy et des fichiers statiques');
   });
 });

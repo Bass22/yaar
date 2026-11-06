@@ -28,6 +28,8 @@ jobs:
     env:
       NX_DAEMON: 'false'
       NX_NO_CLOUD: 'true'
+    # Les tests d'infrastructure démarrent eux-mêmes un PostgreSQL jetable (Testcontainers) :
+    # le Docker de la machine de CI suffit, aucun service ni secret n'est à déclarer.
     steps:
       # Les actions sont épinglées par empreinte de commit : une étiquette peut être déplacée.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

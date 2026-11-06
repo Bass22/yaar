@@ -1,6 +1,7 @@
 import { Controller, Get, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module';
+import { APP_CONFIG } from './config/app-config';
 import { configureApp } from './create-app';
 
 // A route nobody opened: it stands for any future route written without `@Public()`.
@@ -23,7 +24,11 @@ describe("Démarrage de l'API", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [UnopenedController],
-    }).compile();
+    })
+      // No database is reached by these routes: the address only has to be well formed.
+      .overrideProvider(APP_CONFIG)
+      .useValue({ port: 0, databaseUrl: 'postgresql://nobody@127.0.0.1:1/none' })
+      .compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.listen(0, '127.0.0.1');
     origin = await app.getUrl();
