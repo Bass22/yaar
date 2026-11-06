@@ -16,7 +16,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "prisma generate --schema apps/api/prisma/schema.prisma"
+        "command": "prisma generate --config apps/api/prisma.config.ts"
       }
     },
     "build": {

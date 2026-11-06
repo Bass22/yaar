@@ -76,11 +76,57 @@ describe('Migrations', () => {
     );
   });
 
+  it("les identifiants sont des UUID fournis par l'appelant : aucune clé primaire n'a de valeur par défaut, aucune séquence n'existe", async () => {
+    const keys = await db.owner.$queryRaw<{ column_name: string; type: string; has_default: boolean }[]>`
+      SELECT c.relname || '.' || a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS type, (d.adbin IS NOT NULL) AS has_default
+        FROM pg_index i
+        JOIN pg_class c ON c.oid = i.indrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY (i.indkey)
+        LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+       WHERE i.indisprimary AND n.nspname = 'public' AND c.relname <> '_prisma_migrations'
+       ORDER BY 1`;
+    const [sequences] = await db.owner.$queryRaw<{ count: number }[]>`
+      SELECT count(*)::int AS count FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'S'`;
+
+    expect(keys).toEqual(
+      [
+        'campaigns.id',
+        'journal_events.id',
+        'journal_events.tenant_id',
+        'site_assignments.site_id',
+        'site_assignments.user_id',
+        'sites.id',
+        'tenants.id',
+        'users.id',
+      ].map((column_name) => ({ column_name, type: 'uuid', has_default: false })),
+    );
+    expect(sequences).toEqual({ count: 0 });
+  });
+
+  it("la base ne fabrique aucune valeur métier : ses seuls défauts sont l'heure de création ou de réception et un drapeau éteint", async () => {
+    const defaults = await db.owner.$queryRaw<{ column_name: string; column_default: string }[]>`
+      SELECT table_name || '.' || column_name AS column_name, column_default::text
+        FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name <> '_prisma_migrations' AND column_default IS NOT NULL
+       ORDER BY 1`;
+
+    expect(defaults).toEqual([
+      { column_name: 'campaigns.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'journal_events.received_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'site_assignments.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'sites.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'sites.strict_mode', column_default: 'false' },
+      { column_name: 'tenants.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'users.created_at', column_default: 'CURRENT_TIMESTAMP' },
+    ]);
+  });
+
   it("la base ne fabrique pas d'identifiant : une ligne écrite sans identifiant est refusée", async () => {
     const withoutId = db.owner.$executeRaw`INSERT INTO sites (tenant_id, name, time_zone) VALUES (${TENANT_A}::uuid, 'Sans identifiant', 'Africa/Dakar')`;
 
     // 23502 : PostgreSQL refuse une valeur absente dans une colonne obligatoire
-    await expect(withoutId).rejects.toThrow(/Code: `23502`[\s\S]*Failing row contains \(null,/);
+    await expect(withoutId).rejects.toThrow(/Code: `23502`[\s\S]*column \\?"id\\?"/);
     expect(await db.owner.site.count({ where: { name: 'Sans identifiant' } })).toBe(0);
   });
 

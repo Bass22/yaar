@@ -54,8 +54,10 @@ describe('Pile de conteneurs', () => {
     const migrate = services.get('migrate').lines.join('\n');
     const api = services.get('api').lines.join('\n');
 
-    assert.match(migrate, /migrate.*deploy/s, 'la tâche applique les migrations du dépôt');
+    assert.match(migrate, /target: migrate/, 'la tâche a sa propre étape de l’image');
+    assert.match(read('infra/docker/api.Dockerfile'), /^CMD \[.*"migrate", "deploy".*\]$/m, 'elle applique les migrations du dépôt');
     assert.match(migrate, /restart: 'no'/, 'une tâche finie ne redémarre pas');
+    assert.match(api, /target: runtime/);
     assert.match(migrate, /db:\n\s+condition: service_healthy/);
     assert.match(api, /migrate:\n\s+condition: service_completed_successfully/);
   });
@@ -154,10 +156,18 @@ describe('Pile de conteneurs', () => {
     const api = read('infra/docker/api.Dockerfile');
     const web = read('infra/docker/web.Dockerfile');
 
-    assert.match(api, /^USER node$/m, "l'API ne tourne pas en root");
-    assert.match(api, /npm ci --omit=dev/, "l'image de l'API n'embarque pas les dépendances de développement");
-    assert.match(api, /prisma generate/, "l'image de l'API embarque le client de la base, généré au build");
-    assert.ok(api.indexOf('prisma generate') < api.indexOf('USER node'), 'rien ne se télécharge une fois les privilèges rendus');
+    const stage = (name) => new RegExp(`^FROM \\S+ AS ${name}$[\\s\\S]*?(?=^FROM |\\Z)`, 'm').exec(api + '\nFROM end')[0];
+    const [builder, migrate, runtime] = ['builder', 'migrate', 'runtime'].map(stage);
+
+    for (const [name, text] of [['migrate', migrate], ['runtime', runtime]]) {
+      assert.match(text, /^USER node$/m, `l'étape ${name} ne tourne pas en root`);
+    }
+    assert.match(runtime, /npm ci --omit=dev --omit=optional/, "l'image de l'API n'embarque ni les dépendances de développement ni les facultatives");
+    assert.match(builder, /prisma generate/, 'le client de la base est généré au build');
+    assert.match(runtime, /COPY --from=builder \S*node_modules\/\.prisma/, "l'image de l'API reçoit le client généré");
+    // Spec: backlog D.5 — la ligne de commande Prisma (et ce qu'elle embarque) reste hors de l'image livrée
+    assert.doesNotMatch(runtime, /prisma (generate|migrate)|npx/, "l'image de l'API n'exécute ni n'embarque la ligne de commande Prisma");
+    assert.ok(migrate.indexOf('migrate diff') < migrate.indexOf('USER node'), 'rien ne se télécharge une fois les privilèges rendus');
     assert.match(web, /^FROM caddy:/m, 'le web livré ne contient que Caddy et des fichiers statiques');
   });
 });

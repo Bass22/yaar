@@ -58,6 +58,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ?~~ ✅ tranché le 2026-11-06 : toujours les poussins réellement reçus, bonus compris ; des poussins manquants constatés après comptage sont déclarés plus tard par l'admin comme des pertes | CdC, cas du bonus poussins | ~~C.5~~ |
 | ~~Sous quel type l'admin déclare-t-il les poussins manquants après comptage : des morts, ou un type à part ?~~ ✅ tranché le 2026-11-06 : un type à part — une perte en poussins n'est pas une mort. Manquants et dons diminuent les vivants, mais ne comptent ni ne s'affichent parmi les morts | CdC « Architecture des données », référentiel des types de pertes | ~~C.5, O.4~~ |
 | ~~Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ?~~ ✅ tranché le 2026-11-06 : la déclaration est acceptée et l'admin est alerté — un refus créerait un trou de donnée | CdC « Architecture des données » | ~~C.5, K.1~~ |
+| ~~Longueur du PIN~~ ✅ tranché le 2026-11-06 : 4 chiffres pour un gardien, 6 pour l'admin | CdC « Identité » | ~~E.1~~ |
+| ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
 | Stockage du jeton dans la PWA ; sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
@@ -349,7 +351,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### D.1 — Le schéma initial porte le tenant partout · **M** ✅
 > Spec : Archi §6 · Zone : `apps/api/prisma/`, `apps/api/src/{config,database,health,testing}/`, `infra/`
 > Dépend de : A.3 · Revue : le schéma Prisma, pas le SQL généré.
-> Livré le 2026-11-06. **Dépendances ajoutées** : `prisma` et `@prisma/client` 6.19.3 (Apache-2.0, la version de build-track). L'audit a trouvé une vulnérabilité haute dans une sous-dépendance de la ligne de commande (`deepmerge-ts` < 8, via `@prisma/config`), corrigée seulement en Prisma 7.10.1 : elle est levée par un `overrides` vers `deepmerge-ts` 8.0.2, et l'audit est de nouveau à zéro. Prisma 7 a été écarté pour l'instant : sa ligne de commande embarque `mysql2`, un studio et un serveur de développement dont on n'a pas besoin. **À planifier** : la branche 6 ne reçoit visiblement plus ce correctif, le passage à Prisma 7 est une tranche à part.
+> Livré le 2026-11-06. **Dépendances ajoutées** : `prisma` et `@prisma/client` 6.19.3 (Apache-2.0, la version de build-track). L'audit a trouvé une vulnérabilité haute dans une sous-dépendance de la ligne de commande (`deepmerge-ts` < 8, via `@prisma/config`), corrigée seulement en Prisma 7.10.1 : elle est levée par un `overrides` vers `deepmerge-ts` 8.0.2, et l'audit est de nouveau à zéro. Prisma 7 a été écarté pour l'instant : sa ligne de commande embarque `mysql2`, un studio et un serveur de développement dont on n'a pas besoin. La branche 6 ne recevant visiblement plus ce correctif, le passage à Prisma 7 a été fait le jour même (D.5).
 > **Schéma** : `tenants`, `users`, `sites`, `site_assignments`, `campaigns`. UUID fournis par l'appelant, aucun défaut en base. `tenant_id` obligatoire et indexé partout ; une clé étrangère passe par `(tenant_id, id)`, donc la base refuse elle-même une campagne attachée au site d'un autre élevage. Un seul titulaire par site (index partiel écrit à la main). Le rôle est un type énuméré PostgreSQL (`admin`, `collaborator`). Rien de plus que ce que les tranches livrées demandent : ni PIN (E.1), ni avatar (E.5), ni langue du site (I).
 > **Tests sur PostgreSQL réel, avec Testcontainers, comme dans build-track** (décision du 2026-11-06, après un premier essai sans) : `@testcontainers/postgresql` 11.14 en dépendance de développement (MIT ; la 12 exige Node 22.22). Elle apportait neuf alertes modérées, levées par deux `overrides` (`uuid` 11.1.1 sous `dockerode`, `glob` 14.0.4 sous `archiver-utils`). Un conteneur par processus de test, une base neuve et migrée par fichier ; le superutilisateur du conteneur reçoit un mot de passe tiré au hasard.
 > **Choix à relire** : les migrations sont appliquées par une tâche à part du compose (`migrate`), pas par l'API au démarrage — l'API n'aura ainsi jamais besoin du rôle propriétaire (D.2). L'API se connecte à la base à la première requête, pas au démarrage : une base qui redémarre ne la fait pas tomber, et la sonde `/api/v1/health/ready` dit si elle répond. Un même numéro de téléphone peut exister dans deux élevages : la connexion (E.2) devra dire dans lequel.
@@ -408,6 +410,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Le fuseau du site est vérifié par `TimeZone` du domaine avant d'être écrit : un nom inconnu est refusé
 - [ ] Relancé avec le même numéro, il refuse au lieu de créer un doublon
 - [ ] Aucune route publique ne permet de créer un tenant
+
+### D.5 — Passer à Prisma 7 · **S** ✅
+> Spec : `CLAUDE.md` §8 (versions : la stable maintenue) · Zone : `package.json`, `apps/api/prisma.config.ts`, `apps/api/src/{database,testing}/`, `infra/docker/api.Dockerfile`
+> Dépend de : D.1 à D.3 · Revue : aucune règle ne change, seulement l'outil ; les mêmes tests et les mêmes sabotages doivent tenir.
+> Livré le 2026-11-06, sur décision du fondateur : la vulnérabilité haute de Prisma 6 (`deepmerge-ts`) n'était levée que par un `overrides`, et la branche 6 ne reçoit plus ce correctif. **Dépendances** : `prisma` et `@prisma/client` 7.10.1, plus `@prisma/adapter-pg` 7.10.1 (qui apporte le pilote `pg`) ; l'`overrides` de `deepmerge-ts` est retiré. Audit à zéro, licences conformes.
+> **Ce qui change** : l'adresse de la base quitte le schéma pour `apps/api/prisma.config.ts` ; le client se connecte par un adaptateur ; il n'y a plus de moteur natif à télécharger pour l'API. La ligne de commande devient une dépendance de développement : elle embarque un pilote MySQL, un studio et un serveur de développement dont on ne veut pas en production. **L'image de l'API ne la contient donc pas** (`npm ci --omit=dev --omit=optional` : 152 paquets, 536 Mo) ; la tâche `migrate` a sa propre étape du Dockerfile (925 Mo).
+> **Tests adaptés, sans changer de règle** : Prisma 7 n'expose plus dans ses métadonnées le caractère obligatoire, le type natif ni la valeur par défaut d'un champ. Ces vérifications (identifiants UUID sans défaut, aucune séquence, liste fermée des valeurs par défaut) se lisent maintenant dans le catalogue de PostgreSQL — ce qui couvre aussi les tables écrites à la main.
+> **Vérifié** : 62 tests de l'API sur Testcontainers ; les 45 sabotages de D.1 à D.3 rejoués ; image construite et pile complète démarrée à la main (trois migrations appliquées, API saine sous `yaar_app`).
+> **Sécurité** : les tests d'isolation qui dépendent du client (tenant fixé dans la transaction, requêtes concurrentes, connexion rendue au pool) passent avec l'adaptateur. Les quinze tentatives d'attaque du passage de D.2 portaient sur les droits PostgreSQL, que ce changement ne touche pas : elles n'ont pas été rejouées.
+> **Écart assumé avec build-track**, qui reste en Prisma 6 : ses briques se reprennent encore, à l'adaptateur près.
+
+- [x] Les 62 tests d'infrastructure passent sans qu'aucune règle n'ait changé
+- [x] Les sabotages de D.1, D.2 et D.3 sont toujours détectés
+- [x] L'audit est à zéro sans correctif forcé pour Prisma
+- [x] L'image de l'API n'embarque pas la ligne de commande Prisma ; la tâche de migration a son étape
+- [x] La pile complète démarre : migrations appliquées, API saine
 
 ## E — Identité et sessions
 

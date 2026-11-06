@@ -40,8 +40,8 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/api.Dockerfile
+      target: migrate
     restart: 'no'
-    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']
     environment:
       DATABASE_URL: postgresql://yaar:${DB_PASSWORD:?DB_PASSWORD manquant}@db:5432/yaar
     depends_on:
@@ -54,6 +54,7 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/api.Dockerfile
+      target: runtime
     restart: unless-stopped
     environment:
       PORT: 3000

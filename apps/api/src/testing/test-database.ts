@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { execFileSync } from 'node:child_process';
@@ -27,7 +28,8 @@ const POSTGRES_IMAGE = 'postgres:16';
 const APP_ROLE = 'yaar_app';
 const APP_ROLE_PASSWORD = 'test-only';
 
-const schemaPath = resolve(__dirname, '../../prisma/schema.prisma');
+const prismaConfig = resolve(__dirname, '../../prisma.config.ts');
+const clientFor = (url: string): PrismaClient => new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
 // The CLI installed in node_modules, not `npx`: no package lookup, no network.
 const prismaCli = createRequire(__filename).resolve('prisma/build/index.js');
 
@@ -36,7 +38,7 @@ let container: Promise<StartedPostgreSqlContainer> | null = null;
 let created = 0;
 
 async function onCluster<T>(clusterUrl: string, work: (cluster: PrismaClient) => Promise<T>): Promise<T> {
-  const cluster = new PrismaClient({ datasources: { db: { url: clusterUrl } } });
+  const cluster = clientFor(clusterUrl);
   try {
     return await work(cluster);
   } finally {
@@ -62,7 +64,7 @@ function startContainer(): Promise<StartedPostgreSqlContainer> {
 }
 
 export function migrate(databaseUrl: string): void {
-  execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--schema', schemaPath], {
+  execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--config', prismaConfig], {
     env: { ...process.env, DATABASE_URL: databaseUrl },
     stdio: 'pipe',
   });
@@ -83,7 +85,7 @@ export async function createTestDatabase(options: { migrated?: boolean } = {}): 
   const asApp = new URL(url);
   asApp.username = APP_ROLE;
   asApp.password = APP_ROLE_PASSWORD;
-  const owner = new PrismaClient({ datasources: { db: { url } } });
+  const owner = clientFor(url);
 
   return {
     url,
