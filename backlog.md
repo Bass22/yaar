@@ -72,9 +72,10 @@ Avant d'écrire une brique générique, on la reprend de l'ERP Travaux avec ses 
 | Brique dans build-track | Fichiers d'origine | Tranche | Destination |
 |---|---|---|---|
 | Résultat typé, identifiants typés | `domain/shared/result.ts`, `ids.ts` | B.3 ✅ | `packages/kit` (`Result`, `Brand`) ; les identifiants eux-mêmes dans `packages/domain` |
-| Montants, devise | `domain/shared/money.ts`, `signed-money.ts`, `currency-code.ts`, `currency.ts` | B.1 | `packages/kit` |
+| Montants, devise | `domain/shared/money.ts`, `signed-money.ts`, `currency-code.ts` | B.1 ✅ | `packages/kit/src/money/` |
+| Table des devises, formatage d'un montant | `domain/shared/currency.ts` | P.4 | `packages/kit` |
 | Arrondi explicite, taux | `domain/shared/rounding-policy.ts`, `rate.ts`, `basis-points.ts` | P.1 (coût par poulet) | `packages/kit`, quand P.1 en a besoin |
-| Horloge injectée | `workflows/ports/clock.ts`, `infrastructure/clock/` | B.4 | `packages/kit` |
+| Horloge injectée | `workflows/ports/clock.ts`, `infrastructure/clock/` | B.4 ✅ (port `Clock`), F.1 (horloge système) | `packages/kit` pour le port ; `apps/api` pour l'horloge système, qui dépend de NestJS |
 | Tenant fixé par transaction, RLS | `infrastructure/database/prisma.service.ts`, migration `0002_row_level_security` | D.2 | `apps/api`, à adapter |
 | Hachage argon2 | `infrastructure/auth/argon2-password-hasher.ts` | E.1 | `apps/api` |
 | Garde fermée par défaut, `@Public` | `infrastructure/auth/jwt-auth.guard.ts`, `public.decorator.ts` | A.3 (`@Public`, refus par défaut) ✅, E.3 (session) | `apps/api`, à adapter (téléphone + PIN) |
@@ -160,25 +161,29 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## B — Fondations du domaine
 
-### B.1 — Un montant ne connaît pas l'erreur d'arrondi · **S**
+### B.1 — Un montant ne connaît pas l'erreur d'arrondi · **S** ✅
 > Spec : `CLAUDE.md` §4 règle 7 · Zone : `packages/kit/src/money/`
 > Dépend de : A.5, B.3 · Revue : **reprise de build-track** (`money.ts`, `signed-money.ts`, `currency-code.ts` et leurs tests) — relire les écarts avec l'original, pas le code entier.
+> Livré le 2026-11-06. **Une dépendance de développement ajoutée** : `fast-check` 4.10.2 (MIT, tests de propriétés, une sous-dépendance `pure-rand`) ; audit inchangé, zéro à l'exécution. Seuls les fichiers de test l'importent (lint). Écarts avec build-track, détaillés dans `packages/kit/README.md` : ajout de `times` et du refus au-delà de l'entier exact (2^53 − 1), jamais arrondi ; `sum`, `isZero`, `isGreaterThan`, `DEFAULT_CURRENCY` et la table des devises (`currency.ts`, formatage) ne sont pas repris tant que rien ne s'en sert.
 
-- [ ] Un montant entier en FCFA est valide ; une fraction de franc est refusée
-- [ ] Un montant négatif est refusé ; une différence qui peut l'être vit dans `SignedMoney`
-- [ ] Deux montants de même devise s'additionnent ; deux devises différentes ne s'additionnent pas
-- [ ] Un montant multiplié par une quantité entière reste un entier exact
-- [ ] Un montant nul est distinct d'un montant absent
-- [ ] Pour tous montants `a` et `b`, `(a + b) − b = a` (property-based)
+- [x] Un montant entier en FCFA est valide ; une fraction de franc est refusée
+- [x] Un montant négatif est refusé ; une différence qui peut l'être vit dans `SignedMoney`
+- [x] Deux montants de même devise s'additionnent ; deux devises différentes ne s'additionnent pas
+- [x] Un montant multiplié par une quantité entière reste un entier exact
+- [x] Un montant, une somme ou un produit trop grand pour rester exact est refusé, jamais arrondi
+- [x] Un montant nul est distinct d'un montant absent
+- [x] Pour tous montants `a` et `b`, `(a + b) − b = a` (property-based)
 
-### B.2 — Les quantités et les poids sont entiers · **S**
+### B.2 — Les quantités et les poids sont entiers · **S** ✅
 > Spec : `CLAUDE.md` §4 règle 7 ; CdC « Demande de pesée » · Zone : `packages/domain/src/journal/{quantity,weight}.ts`
 > Dépend de : A.2 · Revue : le gardien ne manipule jamais de fraction.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `Quantity` et `Weight` sont des types marqués : un nombre non vérifié ne passe pas pour eux, et l'un ne passe pas pour l'autre. Trois motifs rejoignent la liste fermée (`InvalidQuantity`, `InvalidWeight`, `WeightOutOfScale`). La balance (`Scale`) ne porte ici que sa capacité en grammes, fournie par l'appelant : les modèles de balance restent la décision ouverte de T.3. **Un poids s'enregistre au gramme près** (décision du 2026-11-06) : le pas de 50 g n'est qu'une aide à la saisie sur le cadran (T.3), le domaine et le serveur ne le vérifient pas — une lecture depuis une photo ou une balance digitale tombe entre deux graduations.
 
-- [ ] Une quantité déclarée est un entier strictement positif
-- [ ] Zéro n'est pas une quantité : il se déclare par un événement dédié
-- [ ] Un poids s'exprime en grammes entiers, au pas de 50 g
-- [ ] Un poids hors de l'échelle de la balance du site est refusé
+- [x] Une quantité déclarée est un entier strictement positif
+- [x] Zéro n'est pas une quantité : il se déclare par un événement dédié
+- [x] Un poids s'exprime en grammes entiers, au gramme près ; le pas de 50 g du cadran n'est pas une règle du domaine
+- [x] Un poids nul ou négatif est refusé
+- [x] Un poids hors de l'échelle de la balance du site est refusé ; sans capacité connue, aucun poids n'est accepté
 
 ### B.3 — Identifiants typés et résultat typé · **S** ✅
 > Spec : `CLAUDE.md` §4 règle 2, §8 · Zone : `packages/kit/src/` (`result.ts`, `brand.ts`), identifiants et motifs de refus du métier dans `packages/domain/src/journal/` (`ids.ts`, `refusal.ts`)
@@ -191,14 +196,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un refus métier est un résultat typé, jamais une exception
 - [x] Les motifs de refus forment une liste fermée : un motif ajouté sans son test, ou un motif inconnu, ne se compile pas
 
-### B.4 — Le jour métier et l'âge de la bande · **S**
-> Spec : CdC « Jour J », « deux dates » · Zone : `packages/domain/src/journal/business-day.ts`
+### B.4 — Le jour métier et l'âge de la bande · **S** ✅
+> Spec : CdC « Jour J », « deux dates » · Zone : `packages/domain/src/journal/business-day.ts`, `packages/kit/src/clock.ts`, `eslint.config.mjs`
 > Dépend de : B.3 · Revue : aucun `new Date()` ; l'heure vient d'un port horloge.
+> Livré le 2026-11-06, aucune dépendance ajoutée (le fuseau passe par `Intl`, présent sur le serveur comme sur le téléphone). Le port `Clock` est repris de build-track dans le kit ; le domaine, lui, reçoit un instant en paramètre, et **le lint refuse désormais `new Date()` sans argument et `Date.now()` dans le domaine et le kit**. `BusinessDay` est une chaîne `AAAA-MM-JJ` marquée, et non la classe `CalendarDate` de build-track (dont la validation est reprise) : un événement se stocke et s'envoie tel quel. Deux motifs rejoignent la liste fermée (`InvalidBusinessDay`, `InvalidTimeZone`).
+> **À confirmer** : le jour de la mise en place est **J0**, comme la table Cobb 500 (J0 à J49) ; la maquette affiche « Jour 23 » sans dire si le premier jour s'affiche 0 ou 1. Un jour antérieur à la mise en place donne un J négatif : c'est C.2 qui le refusera. Le fuseau d'un site est un nom IANA (`Africa/Dakar`) à porter par le site (D.1).
 
-- [ ] Un jour métier est une date sans heure, dans le fuseau du site
-- [ ] Le jour J d'une campagne se déduit de sa date de mise en place et du jour métier
-- [ ] « Aujourd'hui », « hier » et « avant-hier » se déduisent de l'horloge fournie
-- [ ] À minuit passé, « aujourd'hui » change sans que la date de saisie d'un événement déjà créé change
+- [x] Un jour métier est une date sans heure, dans le fuseau du site
+- [x] Une date qui n'existe pas au calendrier, ou un fuseau inconnu, est refusé
+- [x] Le jour J d'une campagne se déduit de sa date de mise en place et du jour métier (mise en place = J0)
+- [x] « Aujourd'hui », « hier » et « avant-hier » se déduisent de l'horloge fournie
+- [x] À minuit passé, « aujourd'hui » change sans que la date de saisie d'un événement déjà créé change
+- [x] Le domaine et le kit ne lisent jamais l'heure eux-mêmes (lint)
 
 ## C — Le journal (domaine)
 
@@ -269,6 +278,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : A.3 · Revue : le schéma Prisma, pas le SQL généré.
 
 - [ ] Les modèles tenant, utilisateur, site, affectation et campagne existent
+- [ ] Un site porte son fuseau horaire (nom IANA, vérifié par `TimeZone` du domaine)
 - [ ] Tout modèle porte `tenant_id` ; un test échoue si un nouveau modèle l'oublie
 - [ ] Les identifiants sont des UUID fournis par l'appelant, sans séquence serveur
 - [ ] La migration initiale s'applique sur une base vide

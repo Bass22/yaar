@@ -6,7 +6,7 @@ Nov 1, 2026 · @Bass
 
 > **Décisions postérieures (2026-11-05)** — elles priment sur le texte ci-dessous, voir `CLAUDE.md` :
 > - **Langue du code** : identifiants, fichiers et dossiers en anglais, comme l'ERP Travaux. Le « langage omniprésent » du §4 reste celui du métier, mais il s'écrit en anglais dans le code (table de correspondance : `CLAUDE.md` §6). Les noms de modules du §4 se lisent comme des noms métier.
-> - **Arborescence (§10)** : `packages/design-cahier` s'appelle `packages/design-system` ; `packages/kit` accueille les briques communes aux produits de la maison, reprises de l'ERP Travaux.
+> - **Arborescence (§10)** : `packages/design-cahier` s'appelle `packages/design-system` ; `packages/shared` s'appelle `packages/contracts`, comme dans l'ERP Travaux (2026-11-06) ; `packages/kit` accueille les briques communes aux produits de la maison, reprises de l'ERP Travaux.
 > - **Domaine partagé (§4)** : `packages/domain` a deux points d'entrée, `journal` (partagé avec le téléphone) et `finance` (jamais dans les routes gardien).
 > - **Conteneurs (§9)** : trois conteneurs et non quatre — Caddy sert lui-même le web statique (image `web`), comme dans l'ERP Travaux. Deux réseaux : `edge` (Caddy ↔ API) et `data` (API ↔ base, sans sortie) ; seul `web` publie un port. Le mot de passe de la base s'appelle `DB_PASSWORD` et il est exigé. Fichiers : `infra/docker-compose.yml`, `infra/caddy/Caddyfile`, `infra/docker/*.Dockerfile`.
 > - **Versions** : stables recommandées — Angular 21 (LTS), NestJS 11, Vitest pour le web et les packages, Jest pour l'API.
@@ -47,7 +47,7 @@ Recommandation : **la stack de l'ERP Travaux, reprise à l'identique**, avec tro
 **Pourquoi cette stack** :
 
 1. **Mutualisation de portefeuille** : tu construis deux produits (ERP Travaux, pilotage avicole) qui partagent FCFA, accessibilité non-lecteurs, tenancy, PWA. Une seule stack = des packages partagés, un seul CI, des modèles de déploiement identiques, et chaque leçon apprise sert deux fois.
-2. **Types partagés front/back** (packages/shared) : les contrats d'événements (déclaration, écart, pesée) sont la colonne vertébrale du produit — les avoir typés une fois pour Angular et NestJS élimine toute dérive de schéma entre l'outbox du téléphone et l'API.
+2. **Types partagés front/back** (packages/contracts) : les contrats d'événements (déclaration, écart, pesée) sont la colonne vertébrale du produit — les avoir typés une fois pour Angular et NestJS élimine toute dérive de schéma entre l'outbox du téléphone et l'API.
 3. **L'investissement existe déjà** : architecture éprouvée, compose, Caddyfile, conventions — le coût marginal du second produit chute.
 
 **Pourquoi pas Django/Python, honnêtement** : c'est ton terrain personnel (admin gratuite, ORM mûr), et ce serait le bon choix si tu codais seul l'application à long terme. Mais il couperait ton portefeuille en deux stacks, sans partage de types ni d'infra — et ta force Python n'est pas sacrifiée : **la couche analytics reste en Python/dbt quelle que soit la stack applicative**, car dbt attaque Postgres directement. La vraie question n'est donc pas « Python ou TypeScript » mais « qui maintient le code applicatif » — décision §12.
@@ -92,7 +92,7 @@ Organisation en **modules NestJS**, un par domaine :
 Règles transverses (reprises de l'ERP) :
 
 - Le **moteur métier est un domaine pur**, sans dépendance à la base ni au framework : calcul des soldes tiers, coût engagé et coût/poulet à date, écarts signés (manque/bonus), moyenne et courbe de poids, verdicts d'alerte. C'est le cœur de valeur → couverture de tests unitaires prioritaire.
-- **API REST versionnée** (`/api/v1/...`), DTO validés (class-validator ou Zod), contrats partagés dans `packages/shared`.
+- **API REST versionnée** (`/api/v1/...`), DTO validés (class-validator ou Zod), contrats partagés dans `packages/contracts`.
 - Toute action sensible est **journalisée**.
 
 ## 5. Hors-ligne & synchronisation
@@ -195,7 +195,7 @@ pilotage-avicole/
 │  └─ api/                 # NestJS
 ├─ packages/
 │  ├─ domain/              # cœur métier pur (argent, journal, courbes) — consommé par web ET api
-│  ├─ shared/              # types & DTO des événements, contrats d'API
+│  ├─ contracts/           # types & DTO des événements, contrats d'API
 │  └─ design-cahier/       # design system « cahier » : tokens, pictos SVG, tampons
 ├─ analytics/
 │  └─ dbt/                 # projet dbt (staging événements → fct_campagne → marts)
@@ -230,5 +230,5 @@ Les lots 1–3 donnent un produit mono-éleveur complet ; le multi-tenant étant
 - [ ] Hébergeur et région (résidence des données comme argument commercial ?).
 - [ ] Compression/format des clips audio et taille du précache par langue.
 - [ ] Stratégie de versionnement du schéma d'événements (champ `version` dès le lot 1 ?).
-- [ ] Champs spécifiques par type de coût (schémas de saisie dynamiques) — déjà pointé au cahier des charges, impacte DTO et `packages/shared`.
+- [ ] Champs spécifiques par type de coût (schémas de saisie dynamiques) — déjà pointé au cahier des charges, impacte DTO et `packages/contracts`.
 - [ ] Seuils de bascule vers stockage objet et vers réplique analytics dédiée.

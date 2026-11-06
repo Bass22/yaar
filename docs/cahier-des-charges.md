@@ -61,7 +61,7 @@ Un seul écran, tout visible sans défiler jusqu'aux gestes ; PWA hors-ligne sur
 **Cartes contextuelles** (apparaissent et disparaissent selon les événements) :
 
 - *Livraison annoncée* : créée par la commande de l'admin ; comptage pré-rempli avec la quantité attendue ; écart signé dans les deux sens — manque (« le chef en attendait 40 ») ou **bonus** (« 50 de plus que la commande », cas réel des écloseries) ; puis **photo du PV de réception** (ou « pas de papier », sans blocage) ; une commande livrée en plusieurs fois garde sa carte ouverte — « reste 20 sacs à venir » — jusqu'à complétude ou clôture par l'admin.
-- *Demande de pesée* : planifiée par l'admin ; 5 poulets, consigne anti-biais dans l'audio (« dans des coins différents, pas seulement les gros ») ; saisie à **l'aiguille** qui réplique la balance du site, pas de 50 g, la voix relit chaque poids ; correction par case avant envoi ; moyenne calculée par l'app.
+- *Demande de pesée* : planifiée par l'admin ; 5 poulets, consigne anti-biais dans l'audio (« dans des coins différents, pas seulement les gros ») ; saisie à **l'aiguille** qui réplique la balance du site, pas de 50 g (une aide à la saisie : le poids s'enregistre au gramme près, pour accueillir plus tard une lecture exacte depuis la photo de la pesée), la voix relit chaque poids ; correction par case avant envoi ; moyenne calculée par l'app.
 - *Rappel d'oubli* : si hier est vide — « Rien perdu hier » (zéro explicite) ou « Écrire pour hier ».
 
 **Tâches du jour** : pastilles 1 tap = fait ; protocole sanitaire configuré par l'admin (vaccins par âge) + tâches déclenchées par la météo ; haut-parleur qui lit la liste.

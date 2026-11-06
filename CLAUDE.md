@@ -109,6 +109,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Gardien ; titulaire du site | `Caretaker` ; `primaryCaretaker` |
 | Événement du journal ; déclaration ; contre-déclaration | `JournalEvent` ; `Declaration` ; `CounterDeclaration` |
 | Date métier ; date de saisie | `businessDate` ; `recordedAt` |
+| Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
 | Mort, perte ; sac ouvert ; « rien perdu » | `Death`, `Loss` ; `BagOpened` ; `NoLoss` |
 | Vivants | `liveCount` |
 | Tâche ; protocole sanitaire | `Task` ; `HealthProtocol` |
@@ -118,10 +119,11 @@ Rien à construire en V1, mais ne pas fermer :
 | Facturable ; paiement d'une commande | `billable` ; `Payment` |
 | Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
 | Tiers ; grand livre des tiers | `Counterparty` ; `Ledger` |
-| Montant ; différence signée | `Money` ; `SignedMoney` |
+| Montant ; différence signée | `Money` ; `SignedMoney` (du kit) |
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
+| Quantité déclarée ; poids lu (grammes) ; balance du site | `Quantity` ; `Weight` ; `Scale` |
 | Vente ; prêt de poulets | `Sale` ; `BirdLoan` |
 | Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
@@ -135,12 +137,12 @@ Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture se
 - Cycle strict 🔴 → 🟢 → 🔵, une règle à la fois. Une règle sans test n'existe pas ; si la règle change, le test change avant le code.
 - `describe` / `it` en **français métier**, corps en Given / When / Then, builders métier (`uneCommandeAnnoncee()`), référence à la spec en tête (`// Spec: Cahier des charges — Commandes`).
 - Le gros du volume vit dans `packages/domain` (pur, sans mock, property-based sur les invariants d'argent et d'idempotence). Cas d'usage : ports en stub mémoire. Infrastructure : PostgreSQL réel (RLS, tenant). E2E : quelques parcours dorés, hors-ligne compris, avec les montants attendus **calculés à la main en commentaire**.
-- Outils : **Vitest** pour le web et les packages, **Jest** pour l'API (décision du 2026-11-05). fast-check, Testcontainers et Playwright s'ajouteront avec la première tranche qui en a besoin.
+- Outils : **Vitest** pour le web et les packages, **Jest** pour l'API (décision du 2026-11-05), **fast-check** pour les propriétés (importé par les seuls fichiers de test). Testcontainers et Playwright s'ajouteront avec la première tranche qui en a besoin.
 
 ## 8. Conventions de code
 
 - **TypeScript strict** (`strict`, `noUncheckedIndexedAccess`) ; pas de `any`, `unknown` + narrowing aux frontières. Immutabilité par défaut. Un refus métier est une valeur — `Result<T, Refusal>`, `Result` venant du kit et les motifs d'une liste fermée (`domain/journal/refusal.ts`), chacun ajouté avec son test ; les exceptions sont réservées aux pannes d'infrastructure.
-- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` (l'heure vient d'un port horloge). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun.
+- **Domaine** : fonctions pures, pas de `Promise`, pas de décorateur, pas de `new Date()` ni de `Date.now()` (le lint les refuse : l'instant est un paramètre, lu par l'application sur le port `Clock` du kit). Un état invalide n'est pas représentable. Un identifiant est un type marqué (`SiteId`, `CampaignId`) construit depuis un UUID fourni par l'appelant, en minuscules ; le domaine n'en génère aucun.
 - **API** : REST versionnée `/api/v1`, DTO validés aux bords (liste blanche), aucune logique métier dans un contrôleur, un DTO ou une requête. Une seule origine derrière Caddy : CORS jamais activé. Une route est fermée par défaut (garde globale) : seule `@Public()` l'ouvre, et chaque ouverture a son test.
 - **Angular** : composants standalone, signals + `computed()`, `OnPush`, control flow natif (`@if`, `@for` avec `track`), `inject()`, routes paresseuses, reactive forms. La vue gardien est un bundle minimal : PrimeNG et CDK lourds restent dans les routes admin. Styles par tokens de `packages/design-system`, aucune couleur en dur.
 - **Prisma** confiné à l'infrastructure et aux lectures simples ; `tenant_id` sur chaque modèle.

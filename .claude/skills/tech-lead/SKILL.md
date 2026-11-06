@@ -1,7 +1,7 @@
 ---
 name: tech-lead
 description: "Tech lead full-stack de Yaar (Angular, NestJS, Prisma, PostgreSQL, PWA hors-ligne). Cadre une fonctionnalité, décide où va le code, l'implémente en TDD ou relit une modification, avec un parti pris pragmatique : le plus simple qui rend la donnée fiable et l'argent juste. À utiliser pour toute implémentation, tout choix d'architecture, toute revue de code, tout refactor ou ajout de dépendance."
-when_to_use: "Demandes du type « implémente la réception partielle », « où mettre cette règle ? », « relis ce code », « comment structurer le module commandes ? », « faut-il une lib pour ça ? », « pose le socle Nx », « refactore ». Travail sur apps/web, apps/api, packages/domain ou packages/shared."
+when_to_use: "Demandes du type « implémente la réception partielle », « où mettre cette règle ? », « relis ce code », « comment structurer le module commandes ? », « faut-il une lib pour ça ? », « pose le socle Nx », « refactore ». Travail sur apps/web, apps/api, packages/domain ou packages/contracts."
 argument-hint: "[fonctionnalité à cadrer ou implémenter, code à relire, ou question d'architecture]"
 ---
 
@@ -27,7 +27,7 @@ Les règles du projet sont dans `CLAUDE.md` ; elles s'appliquent, ce skill ne le
 | Orchestration d'une écriture (déclarer, réceptionner, régler, clôturer) | cas d'usage côté `apps/api` | Appelle le domaine à travers des ports |
 | Accès base, fichiers, push | infrastructure | Seule couche qui change entre cloud et on-premise |
 | CRUD de référentiel, lecture d'un tableau de bord | module NestJS, Prisma en direct | Sans cérémonie ; filtre tenant quand même |
-| Ce qui traverse le réseau | `packages/shared` | Déclaré une fois, importé des deux côtés, jamais recopié |
+| Ce qui traverse le réseau | `packages/contracts` | Déclaré une fois, importé des deux côtés, jamais recopié |
 | Affichage, navigation, état d'écran, outbox | `apps/web` | N'écrit aucune règle : importe `journal` ; `finance` côté admin seulement, pour prévisualiser une saisie en cours |
 
 Le test qui tranche un doute : *si cette règle change demain, combien d'endroits dois-je modifier ?* Si la réponse est deux, il y a un doublon à supprimer.

@@ -38,6 +38,16 @@ const noDynamicImport = {
   message: 'Pure packages load nothing lazily.',
 };
 
+// CLAUDE.md §8: pure code never reads the time; the instant comes from a clock port.
+const noClockReading = [
+  'NewExpression[callee.name="Date"][arguments.length=0]',
+  'CallExpression[callee.name="Date"]',
+  'CallExpression[callee.object.name="Date"][callee.property.name="now"]',
+].map((selector) => ({
+  selector,
+  message: 'Pure packages never read the time: take the instant as a parameter (clock port).',
+}));
+
 const noLazyFinance = {
   selector: 'ImportExpression[source.value=/^@domain\\/finance/]',
   message: financeAlias.message,
@@ -47,11 +57,11 @@ const typesOnly = [
   {
     selector:
       'Program > :not(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSInterfaceDeclaration, TSTypeAliasDeclaration)',
-    message: 'packages/shared holds types only: no executable code.',
+    message: 'packages/contracts holds types only: no executable code.',
   },
   {
     selector: 'ExportNamedDeclaration > :not(TSInterfaceDeclaration, TSTypeAliasDeclaration, ExportSpecifier, Literal)',
-    message: 'packages/shared holds types only: export interfaces and type aliases.',
+    message: 'packages/contracts holds types only: export interfaces and type aliases.',
   },
 ];
 
@@ -59,19 +69,21 @@ const restrictImports = (...patterns) => ({
   '@typescript-eslint/no-restricted-imports': ['error', { patterns }],
 });
 
-// A pure package: shipped files import only what is allowed; spec files may also use Vitest.
+const testTools = ['vitest', 'fast-check'];
+
+// A pure package: shipped files import only what is allowed; spec files may also use the test tools.
 const purePackage = ({ folder, allowed = [], alsoRefused = [], syntax = [] }) => [
   {
     files: [`${folder}/**/*.ts`],
     ignores: ['**/*.spec.ts'],
     rules: {
       ...restrictImports(crossProject, onlyOwnFilesAnd(allowed), ...alsoRefused),
-      'no-restricted-syntax': ['error', noDynamicImport, ...syntax],
+      'no-restricted-syntax': ['error', noDynamicImport, ...noClockReading, ...syntax],
     },
   },
   {
     files: [`${folder}/**/*.spec.ts`],
-    rules: restrictImports(crossProject, onlyOwnFilesAnd([...allowed, 'vitest']), ...alsoRefused),
+    rules: restrictImports(crossProject, onlyOwnFilesAnd([...allowed, ...testTools]), ...alsoRefused),
   },
 ];
 
@@ -98,7 +110,7 @@ export default tseslint.config(
     },
   },
   ...purePackage({ folder: 'packages/kit' }),
-  ...purePackage({ folder: 'packages/shared', syntax: typesOnly }),
+  ...purePackage({ folder: 'packages/contracts', syntax: typesOnly }),
   ...purePackage({ folder: 'packages/domain', allowed: ['@kit'] }),
   ...purePackage({ folder: 'packages/domain/src/journal', allowed: ['@kit'], alsoRefused: [financeFolder] }),
 );

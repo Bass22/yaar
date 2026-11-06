@@ -52,11 +52,13 @@ describe('Frontières de dépendance', () => {
       await assertRefused(file, `export const lazy = () => import('./rule');\n`);
     });
 
-    it('seuls les tests du domaine importent Vitest', async () => {
-      const source = `import { it } from 'vitest';\nexport const used = it;\n`;
+    it('seuls les tests du domaine importent Vitest et fast-check', async () => {
+      for (const tool of ['vitest', 'fast-check']) {
+        const source = `import { anything } from '${tool}';\nexport const used = anything;\n`;
 
-      await assertAccepted('packages/domain/src/journal/declaration.spec.ts', source);
-      await assertRefused(file, source);
+        await assertAccepted('packages/domain/src/journal/declaration.spec.ts', source);
+        await assertRefused(file, source);
+      }
     });
 
     it("le journal n'importe jamais la finance, ni par l'alias ni par un chemin relatif", async () => {
@@ -170,9 +172,43 @@ describe('Frontières de dépendance', () => {
       }
     });
 
-    it('le kit importe ses propres fichiers, et Vitest dans ses tests', async () => {
+    it('le kit importe ses propres fichiers, et Vitest et fast-check dans ses seuls tests', async () => {
       await assertAccepted(file, `import { ok } from './result';\nexport const used = ok;\n`);
-      await assertAccepted('packages/kit/src/money.spec.ts', `import { it } from 'vitest';\nexport const used = it;\n`);
+
+      for (const tool of ['vitest', 'fast-check']) {
+        const source = `import { anything } from '${tool}';\nexport const used = anything;\n`;
+
+        await assertAccepted('packages/kit/src/money.spec.ts', source);
+        await assertRefused(file, source);
+      }
+    });
+  });
+
+  describe('heure courante', () => {
+    // Spec: CLAUDE.md §8 — pas de `new Date()` dans le domaine : l'heure vient d'un port horloge
+    const pureFiles = ['packages/domain/src/journal/business-day.ts', 'packages/kit/src/clock.ts'];
+
+    it("le domaine et le kit ne lisent jamais l'heure eux-mêmes", async () => {
+      const readings = ['new Date()', 'Date.now()', 'Date()', 'new Date'];
+
+      for (const file of pureFiles) {
+        for (const reading of readings) {
+          await assertRefused(file, `export const now = ${reading};\n`);
+        }
+      }
+    });
+
+    it("le domaine et le kit calculent sur un instant qu'on leur fournit", async () => {
+      for (const file of pureFiles) {
+        await assertAccepted(
+          file,
+          `export const dayAfter = (instant: Date): Date => new Date(instant.getTime() + 86_400_000);\nexport const ordinal = Date.UTC(2026, 0, 1);\n`,
+        );
+      }
+    });
+
+    it("un test fabrique librement ses instants", async () => {
+      await assertAccepted('packages/domain/src/journal/business-day.spec.ts', `export const now = new Date();\n`);
     });
   });
 

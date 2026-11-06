@@ -24,6 +24,7 @@ function findFiles(dir, matches) {
 const named = (expected) => (name) => name === expected;
 const isTypeScript = (name) => name.endsWith('.ts');
 const isSpec = (file) => file.endsWith('.spec.ts');
+const TEST_TOOLS = new Set(['vitest', 'fast-check']);
 
 function importedModules(file) {
   const source = readFileSync(file, 'utf8');
@@ -97,7 +98,7 @@ describe('Kit maison', () => {
     for (const file of sources) {
       // When
       const outsiders = importedModules(file).filter((specifier) => {
-        if (isSpec(file) && specifier === 'vitest') {
+        if (isSpec(file) && TEST_TOOLS.has(specifier)) {
           return false;
         }
         const target = join(dirname(file), specifier);
