@@ -29,7 +29,7 @@ describe('Cloisonnement entre élevages', () => {
       const userId = `00000000-0000-4000-8000-0000000000${suffix}2`;
       await db.owner.tenant.create({ data: { id: tenantId, name: `Élevage ${suffix.toUpperCase()}`, currency: 'XOF' } });
       await db.owner.site.create({ data: { id: siteId, tenantId, name: `Poulailler ${suffix.toUpperCase()}`, timeZone: 'Africa/Dakar' } });
-      await db.owner.user.create({ data: { id: userId, tenantId, phone: '+221770000001', name: 'Gardien', role: 'collaborator' } });
+      await db.owner.user.create({ data: { id: userId, tenantId, phone: `+22177000000${suffix === 'a' ? 1 : 2}`, name: 'Gardien', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
       await db.owner.siteAssignment.create({ data: { tenantId, siteId, userId, isPrimary: true } });
       const campaignId = `00000000-0000-4000-8000-0000000000${suffix}3`;
       await db.owner.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });

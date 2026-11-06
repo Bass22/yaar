@@ -60,10 +60,13 @@ model Tenant {
 model User {
   id        String   @id @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
-  // The phone number is the login, written in international form (E.164).
-  phone     String
+  // The phone number is the login, written in international form (E.164): one account per
+  // number on the whole service, so that a sign-in needs no tenant to find its user.
+  phone     String   @unique
   name      String
   role      UserRole
+  // argon2id digest of the PIN (E.1). Never the PIN, never shown to anyone.
+  pinHash   String   @map("pin_hash")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -71,7 +74,6 @@ model User {
   journalEvents JournalEvent[]
 
   @@unique([tenantId, id])
-  @@unique([tenantId, phone])
   @@map("users")
 }
 

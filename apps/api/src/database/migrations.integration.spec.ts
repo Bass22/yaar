@@ -38,6 +38,7 @@ describe('Migrations', () => {
         phone: `+22177000000${rank}`,
         name: `Gardien ${rank}`,
         role: 'collaborator' as const,
+        pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg',
       })),
     });
   });
@@ -172,14 +173,20 @@ describe('Migrations', () => {
     ).resolves.toMatchObject({ isPrimary: false });
   });
 
-  it('deux élevages peuvent avoir le même numéro de téléphone, pas deux comptes du même élevage', async () => {
-    const samePhone = { phone: '+221770000000', name: 'Homonyme', role: 'admin' as const };
+  it("un numéro de téléphone n'a qu'un compte sur tout le service, quel que soit l'élevage", async () => {
+    const samePhone = { phone: '+221770000099', name: 'Homonyme', role: 'admin' as const, pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' };
 
     await expect(
       db.owner.user.create({ data: { id: '00000000-0000-4000-8000-0000000000b2', tenantId: TENANT_B, ...samePhone } }),
     ).resolves.toMatchObject({ tenantId: TENANT_B });
-    await expect(
-      db.owner.user.create({ data: { id: '00000000-0000-4000-8000-0000000000a5', tenantId: TENANT_A, ...samePhone } }),
-    ).rejects.toThrow(/Unique constraint/i);
+    for (const [id, tenantId] of [['00000000-0000-4000-8000-0000000000a5', TENANT_A], ['00000000-0000-4000-8000-0000000000b5', TENANT_B]] as const) {
+      await expect(db.owner.user.create({ data: { id, tenantId, ...samePhone } })).rejects.toThrow(/Unique constraint/i);
+    }
+  });
+
+  it("un compte porte toujours l'empreinte de son PIN : sans elle, il ne s'enregistre pas", async () => {
+    const withoutPin = db.owner.$executeRaw`INSERT INTO users (id, tenant_id, phone, name, role) VALUES ('00000000-0000-4000-8000-0000000000a6'::uuid, ${TENANT_A}::uuid, '+221770000009', 'Sans PIN', 'admin')`;
+
+    await expect(withoutPin).rejects.toThrow(/Code: `23502`/);
   });
 });

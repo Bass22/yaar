@@ -44,6 +44,11 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY apps/api/prisma ./apps/api/prisma
 
+# The provisioning script (a farm, its first site and admin) runs here, as the owner:
+#   docker compose run --rm -it migrate node dist/bootstrap-tenant.js --tenant … (the PIN is asked)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/apps/api/dist ./dist
+
 # Install scripts are blocked, so the migration engine has not been fetched yet. Computing the
 # migration script (no database involved) fetches it here, at build time: at run time this
 # container has no route to the internet and no right to write in node_modules.

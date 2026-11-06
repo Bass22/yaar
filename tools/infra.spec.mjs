@@ -168,6 +168,9 @@ describe('Pile de conteneurs', () => {
     // Spec: backlog D.5 — la ligne de commande Prisma (et ce qu'elle embarque) reste hors de l'image livrée
     assert.doesNotMatch(runtime, /prisma (generate|migrate)|npx/, "l'image de l'API n'exécute ni n'embarque la ligne de commande Prisma");
     assert.ok(migrate.indexOf('migrate diff') < migrate.indexOf('USER node'), 'rien ne se télécharge une fois les privilèges rendus');
+    // Spec: backlog D.4 — le script d'amorçage tourne dans la tâche de migration, sous le rôle propriétaire
+    assert.match(migrate, /COPY --from=builder \S*dist \.\/dist/, "l'image de migration embarque le script d'amorçage");
+    assert.match(migrate, /COPY --from=builder \S*node_modules\/\.prisma/, 'et le client généré dont il a besoin');
     assert.match(web, /^FROM caddy:/m, 'le web livré ne contient que Caddy et des fichiers statiques');
   });
 });

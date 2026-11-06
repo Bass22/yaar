@@ -45,7 +45,7 @@ describe('Table du journal', () => {
       const { siteId, authorId, campaignId } = scoped(tenantId);
       await db.owner.tenant.create({ data: { id: tenantId, name: 'Élevage', currency: 'XOF' } });
       await db.owner.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
-      await db.owner.user.create({ data: { id: authorId, tenantId, phone: '+221770000001', name: 'Ousmane', role: 'collaborator' } });
+      await db.owner.user.create({ data: { id: authorId, tenantId, phone: `+22177000000${tenantId === TENANT_A ? 1 : 2}`, name: 'Ousmane', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
       await db.owner.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
     }
     api = new PrismaService({ port: 0, databaseUrl: db.appUrl });

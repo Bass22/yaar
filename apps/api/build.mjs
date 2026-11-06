@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import ts from 'typescript';
 
-// Production build of the API: one runnable file, `apps/api/dist/main.js`.
+// Production build of the API: `apps/api/dist/main.js` (the server) and
+// `apps/api/dist/bootstrap-tenant.js` (the provisioning script run by the operator).
 // esbuild bundles the application code only, resolving the workspace aliases (`@kit`,
 // `@domain/…`) at build time, so no resolver is needed at runtime. `packages: 'external'`
 // leaves node_modules out of the bundle: NestJS and native modules load normally.
@@ -43,7 +44,7 @@ const transpileWithTypeScript = {
 await rm(outdir, { recursive: true, force: true });
 await build({
   absWorkingDir: root,
-  entryPoints: ['apps/api/src/main.ts'],
+  entryPoints: { main: 'apps/api/src/main.ts', 'bootstrap-tenant': 'apps/api/src/bootstrap-tenant.ts' },
   outdir,
   bundle: true,
   platform: 'node',

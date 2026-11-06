@@ -58,6 +58,32 @@ describe("Démarrage de l'API", () => {
     expect(await response.text()).not.toContain('leaked');
   });
 
+  // Spec: backlog D.4 — rien n'est ouvert au self-signup : un élevage se crée par le script, jamais par une route
+  it("les seules routes ouvertes sans session sont les deux sondes : aucune ne crée un élevage ni un compte", async () => {
+    // Given toutes les routes que le serveur connaît, lues dans son routeur
+    type Layer = { route?: { path: string; methods: Record<string, boolean> } };
+    const instance = app.getHttpAdapter().getInstance() as { router?: { stack: Layer[] }; _router?: { stack: Layer[] } };
+    const router = instance.router ?? instance._router;
+    expect(router).toBeDefined();
+    const routes = (router?.stack ?? [])
+      .filter((layer) => layer.route !== undefined)
+      .flatMap((layer) => Object.keys(layer.route?.methods ?? {}).map((method) => ({ method: method.toUpperCase(), path: layer.route?.path ?? '' })));
+    expect(routes.length).toBeGreaterThanOrEqual(3);
+
+    // When on les appelle toutes sans session
+    const open: string[] = [];
+    for (const { method, path } of routes) {
+      const response = await fetch(`${origin}${path}`, { method });
+      if (response.status !== 401) {
+        open.push(`${method} ${path}`);
+      }
+    }
+
+    // Then seules les sondes répondent, et aucune route ne parle d'élevage ou de compte
+    expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready']);
+    expect(routes.map((route) => route.path).filter((path) => /tenant|elevage|signup|register|user/i.test(path))).toEqual([]);
+  });
+
   it("CORS n'est jamais activé : une origine étrangère n'obtient aucune autorisation", async () => {
     // When un autre site interroge l'API, puis demande la permission d'écrire
     const read = await fetch(`${origin}/api/v1/health`, { headers: { Origin: 'https://ailleurs.example' } });
