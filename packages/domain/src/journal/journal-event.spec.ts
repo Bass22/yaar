@@ -12,7 +12,7 @@ import {
   WeighingRequestId,
 } from './ids';
 import { Instant } from './instant';
-import { JournalEvent, type EventEnvelope, type EventType, type Fact } from './journal-event';
+import { Declaration, type EventEnvelope, type EventType, type Fact, type JournalEvent } from './journal-event';
 import { MediaFingerprint } from './media-fingerprint';
 import { Quantity } from './quantity';
 import { Weight } from './weight';
@@ -61,7 +61,7 @@ const facts: { readonly [Type in EventType]: Extract<Fact, { type: Type }> } = {
 };
 
 // Total function over the closed list: a type added without its `case` fails the typecheck.
-function tell(event: JournalEvent): string {
+function tell(event: Declaration): string {
   switch (event.type) {
     case 'Death':
       return `${event.quantity} morts`;
@@ -113,7 +113,7 @@ describe('Événement du journal', () => {
   describe('un fait signé', () => {
     it('un événement porte son identifiant, le tenant, le site, la campagne, son type, son auteur et ses deux dates', () => {
       // When le gardien déclare trois morts
-      const event = JournalEvent(signeParLeGardien(), facts.Death);
+      const event = Declaration(signeParLeGardien(), facts.Death);
 
       // Then
       expect(event).toEqual({
@@ -137,7 +137,7 @@ describe('Événement du journal', () => {
       });
 
       // When
-      const event = JournalEvent(signed, facts.BagOpened);
+      const event = Declaration(signed, facts.BagOpened);
 
       // Then
       expect(event.businessDate).toBe('2026-11-05');
@@ -148,7 +148,7 @@ describe('Événement du journal', () => {
       const { authorId, recordedAt, ...anonymous } = signeParLeGardien();
 
       // @ts-expect-error il manque l'auteur et la date de saisie
-      const event = JournalEvent(anonymous, facts.NoLoss);
+      const event = Declaration(anonymous, facts.NoLoss);
 
       expect(event.type).toBe('NoLoss');
       expect([authorId, recordedAt]).toHaveLength(2);
@@ -171,7 +171,7 @@ describe('Événement du journal', () => {
 
     it('chaque type se construit, garde ses faits et se lit par une fonction totale', () => {
       for (const fact of Object.values(facts)) {
-        const event = JournalEvent(signeParLeGardien(), fact);
+        const event = Declaration(signeParLeGardien(), fact);
 
         expect(event).toEqual({ ...signeParLeGardien(), ...fact });
         expect(tell(event)).toMatch(/\S/);
@@ -188,51 +188,51 @@ describe('Événement du journal', () => {
     it("un type inconnu qui contournerait le typage n'entre pas dans le journal", () => {
       const smuggled = { type: 'Sale', quantity: quantite(200) } as unknown as Fact;
 
-      expect(() => JournalEvent(signeParLeGardien(), smuggled)).toThrow(TypeError);
+      expect(() => Declaration(signeParLeGardien(), smuggled)).toThrow(TypeError);
     });
   });
 
   describe('des faits, jamais une valeur calculée', () => {
     it('une pesée porte ses cinq poids, pas leur moyenne', () => {
       // When
-      const event = JournalEvent(signeParLeGardien(), facts.Weighing);
+      const event = Declaration(signeParLeGardien(), facts.Weighing);
 
       // Then
       expect(event).toMatchObject({ weights: [1_850, 1_900, 1_795, 2_010, 1_843] });
       // @ts-expect-error la moyenne se recalcule, elle ne se stocke pas
       const withAverage: Fact = { ...facts.Weighing, average: 1_879.6 };
-      expect(JournalEvent(signeParLeGardien(), withAverage)).not.toHaveProperty('average');
+      expect(Declaration(signeParLeGardien(), withAverage)).not.toHaveProperty('average');
     });
 
     it("une réception porte la quantité comptée, ni la quantité attendue ni l'écart", () => {
       // When
-      const event = JournalEvent(signeParLeGardien(), facts.Delivery);
+      const event = Declaration(signeParLeGardien(), facts.Delivery);
 
       // Then
       expect(event).toMatchObject({ receivedQuantity: 40 });
       // @ts-expect-error l'écart se déduit de la commande, il ne se déclare pas
       const withVariance: Fact = { ...facts.Delivery, expectedQuantity: quantite(50), variance: -10 };
-      const recorded = JournalEvent(signeParLeGardien(), withVariance);
+      const recorded = Declaration(signeParLeGardien(), withVariance);
       expect(recorded).not.toHaveProperty('expectedQuantity');
       expect(recorded).not.toHaveProperty('variance');
     });
 
     it('le papier du livreur est photographié, ou déclaré absent : jamais laissé vide', () => {
       // When
-      const withPaper = JournalEvent(signeParLeGardien(), facts.Delivery);
-      const withoutPaper = JournalEvent(signeParLeGardien(), { ...facts.Delivery, deliveryNote: { kind: 'NoPaper' } });
+      const withPaper = Declaration(signeParLeGardien(), facts.Delivery);
+      const withoutPaper = Declaration(signeParLeGardien(), { ...facts.Delivery, deliveryNote: { kind: 'NoPaper' } });
 
       // Then
       expect(withPaper).toMatchObject({ deliveryNote: { kind: 'Photographed', media: 'a'.repeat(64) } });
       expect(withoutPaper).toMatchObject({ deliveryNote: { kind: 'NoPaper' } });
       // @ts-expect-error un papier ni photographié ni déclaré absent
       const unknownPaper: Fact = { ...facts.Delivery, deliveryNote: null };
-      expect(() => JournalEvent(signeParLeGardien(), unknownPaper)).toThrow(TypeError);
+      expect(() => Declaration(signeParLeGardien(), unknownPaper)).toThrow(TypeError);
     });
 
     it('« rien perdu » est un événement à part entière, pas une mort de quantité zéro', () => {
       // When
-      const event = JournalEvent(signeParLeGardien(), facts.NoLoss);
+      const event = Declaration(signeParLeGardien(), facts.NoLoss);
 
       // Then
       expect(event.type).toBe('NoLoss');
@@ -245,7 +245,7 @@ describe('Événement du journal', () => {
       const fact = { ...facts.Death, cause: 'chaleur' };
 
       // When
-      const event = JournalEvent(signed, fact);
+      const event = Declaration(signed, fact);
 
       // Then
       expect(event).toEqual({ ...signeParLeGardien(), ...facts.Death });
@@ -255,7 +255,7 @@ describe('Événement du journal', () => {
   describe('immuable', () => {
     it('un événement construit ne peut plus être modifié', () => {
       // Given
-      const event = JournalEvent(signeParLeGardien(), facts.Death);
+      const event = Declaration(signeParLeGardien(), facts.Death);
 
       // Then
       expect(Object.isFrozen(event)).toBe(true);
@@ -271,8 +271,8 @@ describe('Événement du journal', () => {
 
     it('ni ses poids ni le papier du livreur ne peuvent être modifiés', () => {
       // Given
-      const weighing = JournalEvent(signeParLeGardien(), facts.Weighing);
-      const delivery = JournalEvent(signeParLeGardien(), facts.Delivery);
+      const weighing = Declaration(signeParLeGardien(), facts.Weighing);
+      const delivery = Declaration(signeParLeGardien(), facts.Delivery);
 
       // Then
       expect(() => (weighing as unknown as { weights: Weight[] }).weights.push(poids(3_000))).toThrow(TypeError);
@@ -286,7 +286,7 @@ describe('Événement du journal', () => {
       // Given
       const signed = signeParLeGardien();
       const weights = cinqPoids();
-      const event = JournalEvent(signed, { ...facts.Weighing, weights });
+      const event = Declaration(signed, { ...facts.Weighing, weights });
 
       // When l'appelant retouche ses propres objets
       weights[0] = poids(4_000);
@@ -310,7 +310,7 @@ describe('Événement du journal', () => {
       const moneyLike = /amount|price|cost|money|currency|debt|billable|payment|xof|fcfa/i;
 
       for (const fact of Object.values(facts)) {
-        const names = fieldNames(JournalEvent(signeParLeGardien(), fact));
+        const names = fieldNames(Declaration(signeParLeGardien(), fact));
 
         expect(names.filter((name) => moneyLike.test(name))).toEqual([]);
       }

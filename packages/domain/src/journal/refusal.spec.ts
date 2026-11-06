@@ -22,6 +22,12 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   RoleCannotDeclare: { kind: 'RoleCannotDeclare' },
   NotAssignedToSite: { kind: 'NotAssignedToSite' },
   StrictModePrimaryOnly: { kind: 'StrictModePrimaryOnly' },
+  CorrectsACounterDeclaration: { kind: 'CorrectsACounterDeclaration' },
+  CorrectsEventElsewhere: { kind: 'CorrectsEventElsewhere' },
+  CorrectionChangesBusinessDate: { kind: 'CorrectionChangesBusinessDate' },
+  CorrectionChangesType: { kind: 'CorrectionChangesType' },
+  CorrectionChangesReference: { kind: 'CorrectionChangesReference' },
+  CorrectsItself: { kind: 'CorrectsItself' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -59,6 +65,18 @@ function explain(refusal: Refusal): string {
       return "l'auteur n'est pas affecté à ce site";
     case 'StrictModePrimaryOnly':
       return 'mode strict : seul le titulaire déclare';
+    case 'CorrectsACounterDeclaration':
+      return "une correction vise la déclaration d'origine";
+    case 'CorrectsEventElsewhere':
+      return "l'événement corrigé est dans un autre cahier";
+    case 'CorrectionChangesBusinessDate':
+      return 'une correction ne change pas le jour';
+    case 'CorrectionChangesType':
+      return 'une correction ne change pas le type';
+    case 'CorrectionChangesReference':
+      return "une correction ne change pas ce que la déclaration vise";
+    case 'CorrectsItself':
+      return "une correction ne porte pas l'identifiant de sa déclaration";
     default:
       return assertNever(refusal);
   }

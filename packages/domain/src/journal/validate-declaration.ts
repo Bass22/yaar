@@ -14,12 +14,16 @@ export type DeclarationContext = {
 };
 
 /**
- * Refuses a declaration that its campaign cannot take. Every rule is judged at the moment the
- * event was written (`recordedAt`), never at the moment it is read: the function takes no
- * clock, so a declaration kept offline for a week gets the same answer on the server as on
- * the phone.
+ * Refuses an event that its campaign cannot take. Every rule is judged at the moment the
+ * event was written (`recordedAt`, the clock of its author), never at the moment it is read:
+ * the function takes no clock, so a declaration kept offline for a week gets the same answer
+ * on the server as on the phone. A counter-declaration is judged the same way; what makes it
+ * a correction is checked by `validateCounterDeclaration`, which ends here.
  */
-export const validateDeclaration = (event: JournalEvent, context: DeclarationContext): Result<JournalEvent, Refusal> => {
+export const validateDeclaration = <Event extends JournalEvent>(
+  event: Event,
+  context: DeclarationContext,
+): Result<Event, Refusal> => {
   const { campaign, timeZone, authorRole } = context;
   if (campaign.id !== event.campaignId) {
     throw new TypeError('A declaration is validated against its own campaign.');

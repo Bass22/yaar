@@ -28,10 +28,10 @@ export type DeclarationPolicyContext = {
  * belongs to the site: its primary caretaker and its substitutes declare alike, unless the
  * admin turned strict mode on. The admin always may, and signs with their own name.
  */
-export const authorizeDeclaration = (
-  event: JournalEvent,
+export const authorizeDeclaration = <Event extends JournalEvent>(
+  event: Event,
   context: DeclarationPolicyContext,
-): Result<JournalEvent, Refusal> => {
+): Result<Event, Refusal> => {
   const { author, site } = context;
   if (author.id !== event.authorId || site.siteId !== event.siteId) {
     throw new TypeError('A declaration is judged with its own author and the staff of its own site.');

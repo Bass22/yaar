@@ -35,7 +35,19 @@ export type Refusal =
   /** The author is neither the primary caretaker of the site nor one of its substitutes. */
   | { readonly kind: 'NotAssignedToSite' }
   /** The admin turned strict mode on for the site: only its primary caretaker declares. */
-  | { readonly kind: 'StrictModePrimaryOnly' };
+  | { readonly kind: 'StrictModePrimaryOnly' }
+  /** A counter-declaration names the declaration itself, never another counter-declaration. */
+  | { readonly kind: 'CorrectsACounterDeclaration' }
+  /** The corrected event belongs to another tenant, site or campaign. */
+  | { readonly kind: 'CorrectsEventElsewhere' }
+  /** A counter-declaration keeps the business date of the declaration it corrects. */
+  | { readonly kind: 'CorrectionChangesBusinessDate' }
+  /** A counter-declaration keeps the type of the declaration it corrects. */
+  | { readonly kind: 'CorrectionChangesType' }
+  /** A counter-declaration keeps what the declaration is about: order line, weighing request, task, media. */
+  | { readonly kind: 'CorrectionChangesReference' }
+  /** A counter-declaration has its own identifier: under the one of its declaration it would be dropped as a duplicate. */
+  | { readonly kind: 'CorrectsItself' };
 
 export type RefusalKind = Refusal['kind'];
 

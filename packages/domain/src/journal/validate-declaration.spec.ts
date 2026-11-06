@@ -5,7 +5,7 @@ import { addDays, BusinessDay, TimeZone } from './business-day';
 import type { Campaign } from './campaign';
 import { CampaignId, JournalEventId, SiteId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
-import { JournalEvent } from './journal-event';
+import { Declaration } from './journal-event';
 import { Quantity } from './quantity';
 import type { Role } from './role';
 import { validateDeclaration, type DeclarationContext } from './validate-declaration';
@@ -30,8 +30,8 @@ function uneCampagneEnCours(overrides: Partial<Campaign> = {}): Campaign {
 }
 
 // Three deaths written down on November 5th at 18:30 in Dakar, for the day given.
-function troisMortsPourLe(businessDate: string, recordedAt = '2026-11-05T18:30:00.000Z'): JournalEvent {
-  return JournalEvent(
+function troisMortsPourLe(businessDate: string, recordedAt = '2026-11-05T18:30:00.000Z'): Declaration {
+  return Declaration(
     {
       id: unwrap(JournalEventId(uuid(1))),
       tenantId: unwrap(TenantId(uuid(2))),

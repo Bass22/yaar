@@ -12,6 +12,12 @@ export {
 } from './business-day';
 export type { Campaign } from './campaign';
 export {
+  effectiveJournal,
+  validateCounterDeclaration,
+  type CounterDeclarationContext,
+  type JournalLine,
+} from './counter-declaration';
+export {
   authorizeDeclaration,
   type Author,
   type DeclarationPolicyContext,
@@ -28,7 +34,16 @@ export {
   WeighingRequestId,
 } from './ids';
 export { Instant, instantOf } from './instant';
-export { JournalEvent, type DeliveryNote, type EventEnvelope, type EventType, type Fact } from './journal-event';
+export {
+  CounterDeclaration,
+  Declaration,
+  isCounterDeclaration,
+  type DeliveryNote,
+  type EventEnvelope,
+  type EventType,
+  type Fact,
+  type JournalEvent,
+} from './journal-event';
 export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';

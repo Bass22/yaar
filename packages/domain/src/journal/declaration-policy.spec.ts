@@ -5,7 +5,7 @@ import { BusinessDay } from './business-day';
 import { authorizeDeclaration, type Author, type SiteStaff } from './declaration-policy';
 import { CampaignId, JournalEventId, SiteId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
-import { JournalEvent } from './journal-event';
+import { Declaration } from './journal-event';
 import { Quantity } from './quantity';
 import type { Role } from './role';
 
@@ -33,8 +33,8 @@ function lEquipeDuSite(overrides: Partial<SiteStaff> = {}): SiteStaff {
 
 const enModeStrict = (overrides: Partial<SiteStaff> = {}): SiteStaff => lEquipeDuSite({ strictMode: true, ...overrides });
 
-function troisMortsDeclaresPar(authorId: UserId): JournalEvent {
-  return JournalEvent(
+function troisMortsDeclaresPar(authorId: UserId): Declaration {
+  return Declaration(
     {
       id: unwrap(JournalEventId(uuid(1))),
       tenantId: unwrap(TenantId(uuid(2))),

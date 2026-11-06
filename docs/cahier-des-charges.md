@@ -49,14 +49,14 @@ L'app remplace **le cahier et la mémoire**, pas Excel. Chaque principe ci-desso
 - **Affichage par phase de campagne** : un élément n'apparaît que lorsqu'il devient pertinent — carte livraison si une commande existe, demande de pesée si l'admin l'a planifiée, marge dès la première vente, bilan à la clôture.
 - **Le zéro est une déclaration** : « Rien perdu hier » se déclare d'un tap (qualité de donnée : distinguer « zéro mort » de « pas de déclaration »).
 - **La confiance est visible** : pastille de synchro (en attente → tampon « bien envoyé »), tampon animé à chaque validation, compteur de vivants décrémenté en direct.
-- **Corrections** : libres avant envoi (toucher une case, un crayon) ; après envoi, uniquement par contre-déclaration tracée — jamais d'effacement.
+- **Corrections** : libres sur le téléphone tant que la déclaration ne l'a jamais quitté (toucher une case, un crayon) ; si un envoi est en cours ou en doute, la ligne est verrouillée jusqu'à la réponse du serveur. Après envoi, uniquement par contre-déclaration tracée — jamais d'effacement — et **en ligne** (décision du 2026-11-06), pour le gardien comme pour l'admin : sans réseau, le crayon d'une ligne déjà envoyée est indisponible, et il le dit par picto et audio. Le gardien corrige les **trois jours de son cahier** (aujourd'hui, hier, avant-hier), comptés d'après la date de saisie de la correction, comme pour une déclaration : c'est l'horloge du téléphone qui compte (décision du 2026-11-06, prise pour un seul gardien par site ; à revoir si plusieurs téléphones corrigent le même cahier) ; l'admin corrige tout jour depuis la mise en place. Une contre-déclaration vise la déclaration d'origine (même site, même campagne, même jour, même type, même objet : ligne de commande, demande de pesée, tâche, média) et n'en remplace que les valeurs mesurées — quantité, poids, papier du livreur ; si plusieurs corrections se suivent, **la dernière écrite fait foi**, d'après la date de saisie des téléphones (décision du 2026-11-06). Le gardien peut corriger une ligne que l'admin a écrite à sa place : rien n'est modifié, la ligne de l'admin et la correction du gardien restent toutes deux au journal, chacune avec son auteur et ses deux dates. Chaque correction est signalée à l'admin avec l'ancienne et la nouvelle valeur, et une déclaration écrite pour un jour passé est marquée comme tardive. **Pas d'annulation pour le moment** (décision du 2026-11-06) : une déclaration faite par erreur ne se retire pas encore (voir « Points ouverts »).
 - **Design signé** : métaphore du cahier (pages lignées, couverture kraft, étiquettes scotchées, tampons encreurs), polices Andika (conçue pour les nouveaux lecteurs) + Shantell Sans (manuscrite), bande tissée aux couleurs locales, traits « tremblés », coins de carte en tampon. Les pictos sont **validés sur photo du terrain** (méthode éprouvée : sac, abreuvoir) — chaque objet dessiné doit être reconnu au premier regard par son utilisateur.
 
 ## Module V1 — le cahier du gardien
 
 Un seul écran, tout visible sans défiler jusqu'aux gestes ; PWA hors-ligne sur Android bas de gamme.
 
-**En-tête et contexte** : avatar + site ; Jour J avec jauge poussin→poule ; compteur de vivants (décrémenté à chaque mort confirmé) ; pastille de synchro ; météo du jour avec conseil vocal (la chaleur déclenche la tâche bicarbonate).
+**En-tête et contexte** : avatar + site ; Jour J avec jauge poussin→poule ; compteur de vivants (les poussins réellement reçus, moins chaque mort confirmé) ; pastille de synchro ; météo du jour avec conseil vocal (la chaleur déclenche la tâche bicarbonate).
 
 **Cartes contextuelles** (apparaissent et disparaissent selon les événements) :
 
@@ -108,15 +108,17 @@ Même langage visuel, pensé pour un utilisateur qui lit : chiffres, saisies dir
 
 &#91;embedded content: voyage d'un événement · 5 étapes, 1 retour\]
 
-Une déclaration devient un événement signé qui fait un seul voyage ; une correction après coup repart du bureau comme contre-déclaration, jamais comme modification.
+Une déclaration devient un événement signé qui fait un seul voyage ; une correction après coup repart comme contre-déclaration, écrite en ligne, jamais comme modification.
 
-- **Événement immuable** : UUID, auteur, site, campagne, type, quantité, **deux dates** (date métier choisie + date de saisie automatique).
+- **Événement immuable** : UUID, auteur, site, campagne, type, quantité, **deux dates** (date métier choisie + date de saisie automatique, lue sur l'appareil). Le serveur y ajoute sa **date de réception**, posée à l'enregistrement en base (décision du 2026-11-06) : une date côté client, une date côté serveur, et aucune ne remplace l'autre.
 - **Outbox hors-ligne** : les événements s'empilent localement (stockage persistant demandé), synchronisation dès le retour du réseau ; envoi **idempotent** — un doublon de synchro est ignoré grâce à l'UUID.
+- **Corriger une ligne déjà envoyée demande le réseau** (décision du 2026-11-06) : une contre-déclaration ne passe pas par la file d'attente. Les trois jours du gardien et l'ordre des corrections se lisent à la date de saisie ; la date de réception du serveur reste à côté, pour la trace.
 - Pas de réplication bidirectionnelle : on synchronise un **journal**, pas un état — deux déclarants produisent deux faits, jamais un conflit. C'est aussi ce qui réserve, pour une version ultérieure (décision fondateur, nov. 2026), un mode 100 % hors-ligne — consultation et calculs compris — sur les téléphones et ordinateurs des clients : il suffira de répliquer le journal dans les deux sens (borné par le rôle, need-to-know) et de calculer les vues localement avec le même code métier.
 - Cache minimal côté gardien : référentiels du site, campagne en cours, clips audio — jamais de données financières.
 - **L'admin ne perd pas une saisie faute de réseau** (décision du 2026-11-06) : un coût, un paiement, une vente ou une déclaration à la place du gardien s'enregistrent sur l'appareil et partent au retour du réseau. Le bureau dit de quand datent ses chiffres et distingue ce qui est en attente. Le reste (référentiels, modification d'une commande, clôture de campagne, création de comptes) demande le réseau. Pour le permettre, une écriture d'argent ne se modifie jamais : elle se corrige par une contre-écriture, comme une déclaration.
 - Multi-tenant : cloisonnement par identifiant de tenant sur toutes les tables dès le premier jour, schéma partagé ; modules activés par feature flags.
 - Les écarts (reçu vs commandé) sont **signés**, jamais bridés : un bonus est un écart positif.
+- **Les vivants partent des poussins réellement reçus**, bonus compris, jamais de l'effectif commandé (décision du 2026-11-06). Si un recomptage révèle ensuite des poussins manquants, l'admin les déclare plus tard comme des pertes : la réception n'est pas réécrite. Des morts déclarés en nombre supérieur aux vivants sont **acceptés, et l'admin est alerté** (décision du 2026-11-06) : un refus créerait un trou dans la donnée de terrain.
 - Le choix de la stack est détaillé dans le document d'architecture technique ; cette architecture logique n'impose rien, hormis une PWA côté client (hors-ligne + push).
 
 ## Médias & confidentialité
@@ -187,6 +189,7 @@ Posture statistique : avec peu de campagnes par tenant, descriptif honnête (mé
 
 - [ ] **Champs spécifiques par type de coût** : chaque type porte son schéma de saisie (Aliments = nb de sacs × prix unitaire ; Poussins = effectif × PU ; Vétérinaires = produit + doses…) — à spécifier au démarrage du dev.
 - [ ] Réseau chez les éleveurs pilotes : où font-ils leurs comptes, sur quel appareil, et combien de temps restent-ils sans aucun réseau (heures ou jours) ? La réponse décide si le bureau doit aller jusqu'au calcul local complet de ses chiffres.
+- [ ] Retirer une déclaration faite par erreur (3 morts déclarés alors qu'il n'y en a aucun) : une quantité ne descend pas à zéro et une correction ne change pas le type, donc rien ne la neutralise aujourd'hui. L'annulation par l'admin a été écartée « pour le moment » le 2026-11-06 ; à reprendre avant l'écran où l'admin corrige le cahier.
 - [ ] Modèles de balance par site : recenser les cadrans courants (peson 0–5 kg, 0–10 kg, digitale) pour que l'aiguille réplique fidèlement chaque modèle.
 - [ ] Clips audio wolof : écrire le script complet des phrases de l'interface, enregistrer un locuteur, règle de composition des nombres.
 - [ ] Import Excel : mapping des onglets existants (Couts, Pertes, Ventes, Commandes, Réceptions, Investissements, Capital, Résultats) vers les événements ; traiter les pièges connus (agrégats incrustés dans les commentaires, dates en série Excel, quantités négatives de report).

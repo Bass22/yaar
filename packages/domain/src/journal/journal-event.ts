@@ -56,16 +56,34 @@ export type Fact =
 
 export type EventType = Fact['type'];
 
-/** A signed, immutable fact of the journal. */
-export type JournalEvent = EventEnvelope & Fact;
+/** A signed, immutable fact of the journal, as its author declared it. */
+export type Declaration = EventEnvelope & Fact;
 
 /**
- * Builds an event from verified parts. Only the fields of the schema are copied and the result
+ * Builds a declaration from verified parts. Only the fields of the schema are copied and the result
  * is frozen in depth: whatever else the caller passed, or changes afterwards, never reaches the
  * journal. An unknown type can only come from bypassed typing: it is a fault and throws.
  */
-export const JournalEvent = (envelope: EventEnvelope, fact: Fact): JournalEvent =>
-  Object.freeze({
+export const Declaration = (envelope: EventEnvelope, fact: Fact): Declaration =>
+  Object.freeze({ ...envelopeOf(envelope), ...factOf(fact) });
+
+/**
+ * A correction made after sending: a new signed event that names the declaration it corrects
+ * and carries the fact that replaces the declared one. The declaration itself is never touched.
+ */
+export type CounterDeclaration = EventEnvelope & { readonly corrects: JournalEventId } & Fact;
+
+/** Builds a counter-declaration the way a declaration is built: schema fields only, frozen. */
+export const CounterDeclaration = (envelope: EventEnvelope, corrects: JournalEventId, fact: Fact): CounterDeclaration =>
+  Object.freeze({ ...envelopeOf(envelope), corrects, ...factOf(fact) });
+
+/** Everything the journal holds. */
+export type JournalEvent = Declaration | CounterDeclaration;
+
+export const isCounterDeclaration = (event: JournalEvent): event is CounterDeclaration => 'corrects' in event;
+
+function envelopeOf(envelope: EventEnvelope): EventEnvelope {
+  return {
     id: envelope.id,
     tenantId: envelope.tenantId,
     siteId: envelope.siteId,
@@ -73,10 +91,11 @@ export const JournalEvent = (envelope: EventEnvelope, fact: Fact): JournalEvent 
     authorId: envelope.authorId,
     businessDate: envelope.businessDate,
     recordedAt: envelope.recordedAt,
-    ...factOf(fact),
-  });
+  };
+}
 
-function factOf(fact: Fact): Fact {
+/** The fact alone, without the envelope that may come with it. */
+export function factOf(fact: Fact): Fact {
   switch (fact.type) {
     case 'Death':
     case 'BagOpened':

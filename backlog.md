@@ -46,12 +46,15 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 |---|---|---|
 | ~~Outil de test du domaine et du web (Jest ou Vitest)~~ ✅ tranché le 2026-11-05 : Vitest pour le web et les packages, Jest pour l'API | `CLAUDE.md` §7 | ~~A.1~~ |
 | ~~Champ `version` dans le schéma d'événements dès le lot 1 ?~~ ✅ tranché le 2026-11-06 : non — le schéma n'évolue que par ajout, le sens d'un champ ne change jamais ; le contrat d'échange est versionné par `/api/v1` | Archi §12 | ~~C.1~~ |
-| Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture sur la date de saisie) | CdC (non précisé) | F.1 |
+| Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture d'une **déclaration** sur sa date de saisie ; une correction se juge de même, C.4). Chaque événement ayant une date côté client et une date côté serveur, l'écart entre les deux est mesurable — et pour une correction, écrite en ligne, il devrait être de quelques secondes) | CdC (non précisé) | F.1 |
 | ~~L'admin doit-il pouvoir travailler hors-ligne dès la V1 ?~~ ✅ tranché le 2026-11-06 : oui pour la saisie, en trois volets — écritures d'argent ajoutées et jamais modifiées (identifiant créé sur l'appareil) ; coût, paiement, vente et déclaration à la place du gardien en file d'attente ; référentiels, modification de commande, clôture et comptes restent en ligne | Archi, décisions postérieures | ~~O.3, P.1, P.7~~ |
 | Combien de temps les éleveurs pilotes restent-ils sans aucun réseau (heures ou jours) ? La réponse décide du calcul local complet des chiffres du bureau | CdC « Points ouverts » | Rien en V1 |
 | Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
-| Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ? | CdC, cas du bonus poussins | C.5 |
-| Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ? (un refus crée un trou de donnée) | CdC (non précisé) | C.5, K.1 |
+| Retirer une déclaration faite par erreur (3 morts déclarés alors qu'il n'y en a aucun, ou « rien perdu » déclaré à tort) : une quantité ne descend pas à zéro et une correction ne change pas le type. L'annulation par l'admin a été écartée « pour le moment » le 2026-11-06 | CdC « Points ouverts » | C.6 (un jour qui porte à la fois « rien perdu » et des morts), l'écran où l'admin corrige le cahier |
+| ~~Le gardien peut-il corriger une ligne que l'admin a écrite à sa place ?~~ ✅ tranché le 2026-11-06 : oui, dans ses trois jours, du moment que c'est tracé — la ligne de l'admin et la correction restent au journal, et la correction est signalée à l'admin | CdC « Corrections » | ~~K.5, F.1~~ |
+| ~~Base de départ des vivants : effectif commandé ou poussins réellement reçus (bonus compris) ?~~ ✅ tranché le 2026-11-06 : toujours les poussins réellement reçus, bonus compris ; des poussins manquants constatés après comptage sont déclarés plus tard par l'admin comme des pertes | CdC, cas du bonus poussins | ~~C.5~~ |
+| Sous quel type l'admin déclare-t-il les poussins manquants après comptage : des morts (`Death`), au risque de gonfler la mortalité et son alerte, ou un type à part ? | CdC (non précisé) | O.4 (alerte de mortalité) ; C.5 démarre avec les morts seuls |
+| ~~Morts déclarés supérieurs aux vivants : refuser, ou accepter et alerter l'admin ?~~ ✅ tranché le 2026-11-06 : la déclaration est acceptée et l'admin est alerté — un refus créerait un trou de donnée | CdC « Architecture des données » | ~~C.5, K.1~~ |
 | JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
 | Stockage du jeton dans la PWA ; sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
@@ -65,7 +68,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Une vente diminue-t-elle le compteur de vivants vu par le gardien ? | CdC (non précisé) | W.1 |
 | Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale) | CdC « Points ouverts » | T.3 |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
-| Que devient un événement synchronisé après la clôture de la campagne ? | CdC (non précisé) | X.3 |
+| Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
 | Correspondance des onglets Excel vers les événements | CdC « Points ouverts » | Z.6 |
 
@@ -218,7 +221,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### C.1 — Un événement est un fait signé et immuable · **M** ✅
 > Spec : CdC « Architecture des données » ; `CLAUDE.md` §4 règles 1 et 2 · Zone : `packages/domain/src/journal/{journal-event,instant,media-fingerprint,ids}.ts`
 > Dépend de : B.2, B.3, B.4 · Revue : la liste des types d'événements et leurs champs — c'est le contrat le plus durable du produit.
-> Livré le 2026-11-06, aucune dépendance ajoutée. **Pas de champ `version`** (décision du 2026-11-06) : le schéma n'évolue que par ajout. `JournalEvent(envelope, fact)` assemble des valeurs déjà vérifiées, ne recopie que les champs du schéma et gèle le résultat en profondeur ; un type hors liste ne se compile pas et, s'il contourne le typage, lève une panne. La date de saisie est un `Instant` (texte en temps universel, à la milliseconde) et non un `Date`, qui resterait modifiable. Un média est désigné par son empreinte SHA-256 (`MediaFingerprint`). Six identifiants et deux motifs de refus (`InvalidInstant`, `InvalidMediaFingerprint`) s'ajoutent.
+> Livré le 2026-11-06, aucune dépendance ajoutée. **Pas de champ `version`** (décision du 2026-11-06) : le schéma n'évolue que par ajout. `JournalEvent(envelope, fact)` (renommé `Declaration(envelope, fact)` en C.4) assemble des valeurs déjà vérifiées, ne recopie que les champs du schéma et gèle le résultat en profondeur ; un type hors liste ne se compile pas et, s'il contourne le typage, lève une panne. La date de saisie est un `Instant` (texte en temps universel, à la milliseconde) et non un `Date`, qui resterait modifiable. Un média est désigné par son empreinte SHA-256 (`MediaFingerprint`). Six identifiants et deux motifs de refus (`InvalidInstant`, `InvalidMediaFingerprint`) s'ajoutent.
 > **Champs par type, à relire** : mort et sac ouvert → `quantity` ; rien perdu → aucun champ ; réception → `orderLineId`, `receivedQuantity`, `deliveryNote` (photographié avec son empreinte, ou « pas de papier ») ; pesée → `weighingRequestId`, `weights` ; tâche faite → `taskId` ; vocal et photo → `media`.
 > **Reporté** : le nombre de poids d'une pesée (cinq) est la règle de T.1 ; l'appareil vient de la session (F.1) et n'est pas dans l'événement du domaine ; **rien n'est écrit dans `packages/contracts`** — le DTO d'échange et le décodage d'un événement reçu en JSON arrivent avec leur premier consommateur (F.1).
 
@@ -253,25 +256,40 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'admin peut toujours déclarer à la place du gardien, et l'événement le nomme comme auteur
 - [x] Sans mode strict, un remplaçant déclare comme le titulaire
 
-### C.4 — La contre-déclaration corrige sans effacer · **M** · 🧪
-> Spec : CdC « Corrections » · Zone : `packages/domain/src/journal/counter-declaration.ts`
-> Dépend de : C.1 · Revue : l'événement d'origine reste intact, quoi qu'il arrive.
+### C.4 — La contre-déclaration corrige sans effacer · **M** · 🧪 ✅
+> Spec : CdC « Corrections » · Zone : `packages/domain/src/journal/{counter-declaration,journal-event,validate-declaration}.ts`
+> Dépend de : C.1, C.2 · Revue : l'événement d'origine reste intact, quoi qu'il arrive.
+> Livré le 2026-11-06, aucune dépendance ajoutée. Une contre-déclaration est un événement signé comme un autre, qui nomme la déclaration qu'elle corrige (`corrects`) et porte le fait qui la remplace. `validateCounterDeclaration(counter, { corrected, campaign, timeZone, authorRole })` rend six motifs propres (`CorrectsItself`, `CorrectsACounterDeclaration`, `CorrectsEventElsewhere`, `CorrectionChangesBusinessDate`, `CorrectionChangesType`, `CorrectionChangesReference`) ou l'un de ceux de C.2. `effectiveJournal(events)` rend une ligne par déclaration (`JournalLine` : la déclaration telle qu'écrite, la correction qui fait foi, le fait qui compte).
+> **Décisions du 2026-11-06, ajoutées au CdC et à l'architecture** : (1) **pas d'annulation pour le moment** — `Retraction` est retiré du code ; (2) **une correction après envoi s'écrit en ligne**, pour le gardien comme pour l'admin ; (3) le gardien corrige **les trois jours de son cahier**, l'admin tout jour depuis la mise en place ; (4) chaque correction est signalée à l'admin, et une déclaration tardive est marquée (O.4, Y.2) ; (5) **une correction se juge à l'horloge du gardien**, comme une déclaration — on part d'un seul gardien par site, la règle se reverra si plusieurs téléphones corrigent le même cahier ; (6) **chaque événement a une date côté client et une date côté serveur** (`recordedAt`, et `receivedAt` posée à l'enregistrement en base : D.3, F.1) ; (7) **la dernière correction écrite fait foi**, d'après les dates côté client ; (8) **le gardien peut corriger une ligne écrite par l'admin**, du moment que c'est tracé — la ligne de l'admin et la correction du gardien restent toutes deux au journal.
+> **Dans le domaine** : `validateCounterDeclaration` vérifie ce qui fait une correction, puis finit par `validateDeclaration` — les trois jours du gardien et la clôture se jugent à la date de saisie de la correction, sans horloge en paramètre. Dans `effectiveJournal`, « la dernière » correction est celle dont la date de saisie est la plus récente (à égalité, le plus grand identifiant) ; les lignes sortent dans l'ordre d'écriture des déclarations ; le résultat ne dépend ni de l'ordre d'arrivée ni des doublons. Sous un même identifiant, seul le premier événement reçu compte, comme à l'ingestion. Limites connues et acceptées : un téléphone dont on recule la date corrige au-delà de trois jours, et entre deux appareils (gardien et admin) une horloge décalée peut faire perdre la correction réellement la plus récente ; l'écart entre les deux dates de chaque événement le rendra visible (décision ouverte de F.1).
+> **Choix à relire** : une correction garde l'objet de la déclaration (ligne de commande, demande de pesée, tâche, média) et ne change que les valeurs mesurées — quantité, poids, papier du livreur ; un vocal ou une photo ne se remplace donc pas. Une contre-déclaration vise toujours la déclaration d'origine, jamais une autre correction. Une correction dont l'origine est absente du journal ne crée aucune ligne. Après la clôture, une correction est refusée, pour l'admin aussi (X.3).
+> **Passages de `/qa` le 2026-11-06.** Premier passage : refusé (annulation défaite par une correction du gardien ; correction qui change la ligne de commande, la tâche ou le média ; contre-déclaration portant l'identifiant de sa déclaration ; résultat dépendant de l'ordre d'arrivée sous un même identifiant). Les quatre défauts sont levés par les décisions ci-dessus. Second passage : **validé avec réserves** — une correction identique à la déclaration est acceptée (sans effet, mais elle sera signalée à l'admin) ; `effectiveJournal` fait confiance à des événements déjà validés (une correction d'un autre type, jamais validée, remplacerait le fait) : c'est l'ingestion (F.1) qui le garantit. Une question rejoint le tableau des décisions : retirer une déclaration faite par erreur.
+> **Reporté** : la maquette `journal-gardien.html` remet encore en file d'attente la correction d'une ligne déjà envoyée — à reprendre avec K.5.
 
-- [ ] Une contre-déclaration référence un événement du même site et de la même campagne
-- [ ] L'événement d'origine reste dans le journal, inchangé
-- [ ] Le journal effectif d'un jour tient compte des contre-déclarations (3 morts corrigés en 2 comptent pour 2)
-- [ ] Une contre-déclaration peut elle-même être corrigée ; la dernière fait foi
-- [ ] Une contre-déclaration ne change ni l'auteur ni la date de saisie de l'événement d'origine
+- [x] Une contre-déclaration référence un événement du même site et de la même campagne
+- [x] L'événement d'origine reste dans le journal, inchangé
+- [x] Le journal effectif d'un jour tient compte des contre-déclarations (3 morts corrigés en 2 comptent pour 2)
+- [x] Une contre-déclaration peut elle-même être corrigée ; la dernière écrite fait foi, quel que soit l'ordre d'arrivée
+- [x] Une contre-déclaration ne change ni l'auteur ni la date de saisie de l'événement d'origine
+- [x] Une contre-déclaration garde le jour, le type et l'objet de la déclaration, et vise toujours la déclaration d'origine
+- [x] Une contre-déclaration ne porte pas l'identifiant de la déclaration qu'elle corrige
+- [x] Le gardien corrige les trois jours de son cahier, comptés à la date de saisie de la correction ; l'admin corrige au-delà
+- [x] Une correction écrite après la clôture est refusée
+- [x] Le gardien corrige une ligne écrite par l'admin : la ligne garde la signature de l'admin, la correction celle du gardien
+- [x] Le journal effectif ne dépend ni de l'ordre d'arrivée ni des doublons (property-based)
 
-### C.5 — Les vivants se recalculent depuis le journal · **M** · ⚠ · 🧪
+### C.5 — Les vivants se recalculent depuis le journal · **M** · 🧪
 > Spec : CdC « En-tête et contexte » ; `CLAUDE.md` §4 règle 8 · Zone : `packages/domain/src/journal/live-count.ts`
 > Dépend de : C.4 · Revue : les trois invariants en property-based.
+> **Décision du 2026-11-06** : les vivants partent toujours des poussins réellement reçus, bonus compris, jamais de l'effectif commandé. Le journal ne sait pas qu'une ligne de commande porte des poussins : l'appelant le lui dit. Des morts déclarés supérieurs aux vivants sont acceptés, et l'admin est alerté : le domaine rend le dépassement, il ne refuse pas. Reste ouvert, sans bloquer la tranche : le type sous lequel l'admin déclare des poussins manquants (la tranche démarre avec les morts seuls). À confirmer en livrant : ce que le compteur affiche une fois dépassé.
 
-- [ ] Les vivants valent l'effectif de départ moins les pertes déclarées
+- [ ] Les vivants valent les poussins réellement reçus (bonus compris) moins les pertes déclarées
+- [ ] Un bonus de l'écloserie augmente les vivants ; un manque à la réception les diminue : l'effectif commandé ne compte pas
+- [ ] Des poussins manquants constatés après comptage, déclarés plus tard par l'admin comme des pertes, diminuent les vivants sans réécrire la réception
 - [ ] Chaque mort confirmé diminue les vivants d'autant
 - [ ] Rejouer deux fois le même événement (même UUID) ne change pas les vivants (property-based)
 - [ ] L'ordre d'arrivée des événements ne change pas les vivants (property-based)
-- [ ] Une déclaration de morts supérieure aux vivants suit la règle décidée (voir le tableau des décisions)
+- [ ] Une déclaration de morts supérieure aux vivants est acceptée, et le dépassement est rendu pour alerter l'admin
 
 ### C.6 — Le résumé d'un jour distingue zéro et absence · **S** · 🧪
 > Spec : CdC « Le zéro est une déclaration », « Garde-fous anti-doublon » · Zone : `packages/domain/src/journal/day-summary.ts`
@@ -315,6 +333,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une mise à jour d'un événement est refusée par la base
 - [ ] Une suppression d'un événement est refusée par la base
 - [ ] Le même UUID inséré deux fois dans le même tenant ne crée qu'une ligne
+- [ ] Chaque événement garde, à côté de sa date de saisie venue du client, la date de sa réception posée par la base ; elle ne se modifie pas
 
 ### D.4 — Un élevage s'amorce par un script · **S**
 > Spec : CdC « Onboarding assisté » (tenants créés manuellement en V1) · Zone : `apps/api/scripts/`
@@ -396,7 +415,10 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
 - [ ] L'auteur, le tenant et l'appareil viennent de la session ; ceux du corps sont ignorés
+- [ ] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre : incohérence à lever ici, où les deux sont appelées ensemble)
 - [ ] Un événement refusé par la politique de déclaration donne un motif typé
+- [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base et la garde avec l'événement ; une date de réception venue du client est ignorée
+- [ ] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
 - [ ] Rejouer un lot entier ne change rien au journal (property-based)
 
 ### F.2 — L'API reçoit le journal · **M** · 🔒 · 🧪
@@ -446,7 +468,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] Une déclaration est enregistrée localement avant tout appel réseau
 - [ ] Elle survit à la fermeture de l'application et au redémarrage du téléphone
-- [ ] Chaque événement de l'outbox a un état : en attente, envoyé ou refusé
+- [ ] Chaque événement de l'outbox a un état : en attente (jamais parti), envoi en doute (tenté, sans réponse), envoyé ou refusé
 - [ ] L'UUID est généré sur le téléphone, une seule fois, à la création
 - [ ] Si le stockage local échoue, l'utilisateur en est averti et rien n'est marqué « noté »
 
@@ -455,7 +477,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : G.3, F.2 · Revue : la reprise après coupure, cas par cas.
 
 - [ ] Les événements en attente partent à l'ouverture et au retour du réseau
-- [ ] Une coupure pendant l'envoi laisse les événements en attente ; ils repartent ensuite
+- [ ] Une coupure pendant l'envoi laisse les événements en doute : ils repartent ensuite, à l'identique, et ne se modifient plus sur le téléphone (une modification locale serait ignorée comme doublon)
 - [ ] Un événement signalé comme doublon par le serveur passe à « envoyé »
 - [ ] Les événements partent dans l'ordre de leur création
 - [ ] La pastille de synchro reflète le nombre d'événements en attente
@@ -582,7 +604,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## K — Les gestes de déclaration
 
-### K.1 — Déclarer des morts en trois taps · **M** · ⚠ · 🧪
+### K.1 — Déclarer des morts en trois taps · **M** · 🧪
 > Spec : CdC « Gestes du cahier » ; `journal-gardien.html` (compteur, confirmation) · Zone : `apps/web/src/app/caretaker/gestures/death/`
 > Dépend de : J.3, H.4, I.2, G.3 · Revue : compter les taps ; le parcours entier marche hors-ligne.
 
@@ -591,7 +613,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La voix relit la déclaration avant le Oui
 - [ ] Non ferme la feuille sans rien écrire
 - [ ] Après le Oui : tampon, ligne dans le journal, vivants diminués, événement dans l'outbox
-- [ ] Une quantité supérieure aux vivants suit la règle décidée en C.5, et le gardien la comprend sans lire
+- [ ] Une quantité supérieure aux vivants est acceptée comme une autre : le gardien n'est pas bloqué, c'est l'admin qui est alerté (C.5)
 
 ### K.2 — Déclarer un sac ouvert · **S**
 > Spec : CdC « On déclare des changements d'état physiques » · Zone : `apps/web/src/app/caretaker/gestures/bag/`
@@ -619,12 +641,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] « Écrire pour hier » ouvre la saisie sur le jour d'hier
 - [ ] Le rappel disparaît dès qu'hier est déclaré
 
-### K.5 — Corriger une déclaration · **M** · 🧪
+### K.5 — Corriger une déclaration · **M** · 🎨 · 🧪
 > Spec : CdC « Corrections » · Zone : `apps/web/src/app/caretaker/journal/correction/`
-> Dépend de : J.3, C.4 · Revue : l'interface n'offre jamais d'effacer.
+> Dépend de : J.3, C.4, G.4 · Revue : l'interface n'offre jamais d'effacer, et ne met jamais une correction en file d'attente.
+> 🎨 La maquette `journal-gardien.html` donne le crayon sur une ligne « bien envoyé » et remet la correction en attente : à reprendre d'après la décision du 2026-11-06 (correction en ligne), avec l'état « crayon indisponible sans réseau ».
 
-- [ ] Avant l'envoi, le crayon modifie librement la déclaration en attente
-- [ ] Après l'envoi, le crayon crée une contre-déclaration
+- [ ] Tant que la déclaration n'a jamais quitté le téléphone, le crayon la modifie librement, sans réseau
+- [ ] Si un envoi est en doute, la ligne est verrouillée jusqu'à la réponse du serveur
+- [ ] Après l'envoi, le crayon crée une contre-déclaration, envoyée tout de suite : elle ne passe pas par l'outbox
+- [ ] Sans réseau, le crayon d'une ligne déjà envoyée est indisponible, et il le dit par picto et audio
+- [ ] Le crayon n'apparaît que sur les trois jours du cahier ; un refus du serveur (trois jours passés, campagne clôturée) est dit au gardien par picto et audio
+- [ ] Seules les valeurs mesurées se corrigent (quantité, poids, papier du livreur), jamais en dessous de 1 ; aucun geste n'annule une déclaration
 - [ ] La ligne d'origine reste visible, avec sa correction
 - [ ] Les vivants suivent la valeur corrigée
 - [ ] Aucun geste ne supprime une ligne du journal
@@ -800,6 +827,9 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Au-delà du seuil du tenant, l'alerte s'affiche avec icône, couleur et mot
 - [ ] Sous le seuil, aucune alerte
 - [ ] Sans campagne en cours, l'onglet le dit et n'affiche aucun chiffre à zéro
+- [ ] Une déclaration corrigée montre l'ancienne et la nouvelle valeur, l'auteur de chacune et les deux dates de la correction (saisie et réception)
+- [ ] Une déclaration écrite pour un jour passé est marquée comme tardive
+- [ ] Des morts déclarés supérieurs aux vivants lèvent une alerte, avec icône, couleur et mot
 
 ## P — Coûts
 
@@ -1221,6 +1251,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une livraison annoncée notifie les gardiens du site
 - [ ] Une demande de pesée notifie les gardiens du site
 - [ ] Un vocal reçu et un seuil de mortalité franchi notifient l'admin
+- [ ] Une correction du cahier notifie l'admin, avec l'ancienne et la nouvelle valeur
+- [ ] Des morts déclarés supérieurs aux vivants notifient l'admin
 - [ ] Chaque notification a sa carte dans l'application ; la carte existe même si le push échoue
 - [ ] Aucune notification ne contient de montant ni de donnée d'un autre site
 
