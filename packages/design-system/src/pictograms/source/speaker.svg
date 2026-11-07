@@ -1,0 +1,5 @@
+<!-- From journal-gardien.html, symbol "hp". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M10 26 h10 l14 -12 v36 l-14 -12 h-10z" fill="#fff"/>
+  <path d="M42 22 q8 10 0 20 M48 15 q13 17 0 34" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>

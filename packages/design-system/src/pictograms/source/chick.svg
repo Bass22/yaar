@@ -1,0 +1,10 @@
+<!-- From journal-gardien.html, symbol "poussin". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <ellipse cx="32" cy="40" rx="20" ry="17" fill="#E8B10A"/>
+  <circle cx="32" cy="20" r="12" fill="#E8B10A"/>
+  <circle cx="36.5" cy="18" r="2.4" fill="#3A3127"/>
+  <polygon points="44,20 53,22.5 44,25" fill="#D98A2B"/>
+  <path d="M18 42 q-7 -2 -9 3 q6 4 11 1z" fill="#D3A309"/>
+  <rect x="26" y="55" width="3.4" height="7" rx="1.6" fill="#D98A2B"/>
+  <rect x="34" y="55" width="3.4" height="7" rx="1.6" fill="#D98A2B"/>
+</svg>

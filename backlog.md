@@ -700,7 +700,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : G.4 · Revue : jamais un événement en attente ou en doute ne disparaît. Ajoutée le 2026-11-07 (question du fondateur : « la mémoire des téléphones est nettoyée ? »).
 > Aujourd'hui rien ne nettoie l'outbox : les événements envoyés et refusés y restent. Pas urgent — environ 300 octets par déclaration, soit 1 Mo par an pour un gardien qui en écrit dix par jour — mais à faire avant que les téléphones vivent des années.
 
-- [ ] Un événement envoyé s'efface du téléphone quelques jours après son envoi (7 jours, dans une constante) : le serveur l'a, et le cahier le reçoit de lui
+- [ ] Un événement envoyé s'efface du téléphone quelques jours après son envoi (120 jours, dans une constante) : le serveur l'a, et le cahier le reçoit de lui
 - [ ] Un événement refusé reste jusqu'à ce que son refus ait été vu, pour qu'aucune erreur ne disparaisse en silence
 - [ ] Un événement en attente ou en doute ne s'efface jamais, quel que soit son âge
 - [ ] Le nettoyage tourne au démarrage, sans retarder l'ouverture du cahier
@@ -711,51 +711,60 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## H — Design system « cahier »
 
-### H.1 — Les tokens sont la source unique du style · **S**
+### H.1 — Les tokens sont la source unique du style · **S** ✅
 > Spec : CdC « Design signé » ; `journal-gardien.html` (`:root`) · Zone : `packages/design-system/tokens`
 > Dépend de : A.1 · Revue : comparer les valeurs à celles de la maquette.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `packages/design-system/src/tokens/_tokens.scss` : propriétés CSS en anglais (`--color-shell` pour `--coquille`, etc. — `CLAUDE.md` §6), tout le `:root` de la maquette aux mêmes valeurs (un test les compare), plus le violet du jour passé, le post-it, le scotch, les ombres dures, les bords tracés à la main, les lignes du cahier, les polices, la cible tactile minimale (48 px) et la coupure des animations quand le système demande moins de mouvement. Chargé par `apps/web/src/styles.scss` (`@use 'tokens/tokens'`). Règle ESLint : une couleur littérale (`#…`, `rgb(…)`, `hsl(…)`) dans le code du web fait échouer le lint, prouvée par un essai fautif dans `tools/design-system.spec.mjs`.
 
-- [ ] Les couleurs de la maquette existent en tokens, y compris le violet du jour passé et le post-it
-- [ ] Andika et Shantell Sans sont auto-hébergées, en woff2 sous-ensemblé, et précachées
-- [ ] Ombres dures, rayons irréguliers et lignes de cahier sont des tokens réutilisables
-- [ ] Un composant qui écrit une couleur en dur fait échouer le lint
+- [x] Les couleurs de la maquette existent en tokens, y compris le violet du jour passé et le post-it
+- [x] Andika et Shantell Sans sont auto-hébergées, en woff2 sous-ensemblé, et précachées (fait en G.1)
+- [x] Ombres dures, rayons irréguliers et lignes de cahier sont des tokens réutilisables
+- [x] Un composant qui écrit une couleur en dur fait échouer le lint
 
-### H.2 — Les pictos sont pré-cuits au build · **M**
+### H.2 — Les pictos sont pré-cuits au build · **M** ✅
 > Spec : Archi §4 « Performances » · Zone : `packages/design-system/pictograms`, script de build
 > Dépend de : H.1 · Revue : le rendu à côté de la maquette ; aucun filtre à l'exécution.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. Les 30 pictos de la maquette gardien sont des sources SVG (`src/pictograms/source/`, noms anglais : `dead-chicken`, `open-bag`…) ; la marque Yaar (`y-mini`) reste à part, sans tremblé. `tools/bake-pictograms.mjs`, sans dépendance, découpe chaque forme (cercles, ellipses, rectangles, polygones, tracés avec courbes et arcs) en points rapprochés et les déplace d'un bruit déterministe, germé par le nom du picto, qui reprend le tremblé du filtre `#rough` de la maquette ; il écrit `generated/pictograms.svg` (un symbole par picto, 74 Ko) et la liste typée des noms. `--check` dit si le fichier livré est à jour. Noms accessibles en français dans `labels.ts` : un picto ajouté sans nom fait échouer le typage. Fichier servi par l'application et précaché. Comparé visuellement, picto par picto, à la maquette : fidèle, tremblé discret. Alias `@design-system`.
+> **Commande** : `node packages/design-system/tools/bake-pictograms.mjs` après avoir modifié une source.
 
-- [ ] Chaque picto de la maquette gardien existe en SVG au tremblé déjà appliqué
-- [ ] Aucun composant n'utilise de filtre SVG à l'exécution
-- [ ] Le même picto source donne toujours le même tracé (build reproductible)
-- [ ] Chaque picto porte un nom accessible
+- [x] Chaque picto de la maquette gardien existe en SVG au tremblé déjà appliqué
+- [x] Aucun composant n'utilise de filtre SVG à l'exécution
+- [x] Le même picto source donne toujours le même tracé (build reproductible)
+- [x] Chaque picto porte un nom accessible
 
-### H.3 — Boutons, cartes et étiquettes · **M**
+### H.3 — Boutons, cartes et étiquettes · **M** ✅
 > Spec : `journal-gardien.html` (`.geste`, `.sticker`, `.livraison`, `.nudge`) · Zone : `packages/design-system/components`
 > Dépend de : H.2 · Revue : cibles tactiles et état d'appui.
 
-- [ ] Le bouton-geste affiche picto, couleur et libellé, et s'enfonce à l'appui
-- [ ] La carte scotchée et le post-it reprennent la matière de la maquette
-- [ ] Toute cible tactile fait au moins 48 px, crayon et haut-parleur compris
-- [ ] Le focus est visible sur chaque composant
-- [ ] Les animations se coupent quand le système demande moins de mouvement
+> Livrée le 2026-11-07, avec H.4 et H.5. **Choix à relire** : les composants Angular vivent dans `apps/web/src/app/ui/` et non dans `packages/design-system/components` — le paquet n'a pas l'outillage pour compiler et tester des composants Angular, et il reste sans framework (jetons, pictos, script de cuisson). `Pictogram` (le picto pré-cuit, son nom ou silencieux s'il décore), `GestureButton` (quatre tons : morts, sac, voix, photo), `TapedCard` (carte scotchée, bord papier, vert ou bleu), `PostIt`. Styles écrits avec les seuls jetons ; une règle d'outillage vérifie qu'on n'anime que `transform` et `opacity`, que les cibles tactiles tiennent 48 px et que le focus est visible. Le crayon et le haut-parleur viendront avec leurs écrans (J.3, I) et suivront la même règle.
 
-### H.4 — Feuille, compteur et pile · **M**
+- [x] Le bouton-geste affiche picto, couleur et libellé, et s'enfonce à l'appui
+- [x] La carte scotchée et le post-it reprennent la matière de la maquette
+- [x] Toute cible tactile fait au moins 48 px, crayon et haut-parleur compris (pour les cibles existantes ; crayon et haut-parleur avec leurs écrans)
+- [x] Le focus est visible sur chaque composant
+- [x] Les animations se coupent quand le système demande moins de mouvement
+
+### H.4 — Feuille, compteur et pile · **M** ✅
 > Spec : `journal-gardien.html` (`.feuille`, `.compteur`, `.pile`) · Zone : `packages/design-system/components`
 > Dépend de : H.3 · Revue : on n'anime que `transform` et `opacity`.
 
-- [ ] La feuille monte du bas et se ferme en touchant le voile
-- [ ] Le compteur augmente et diminue par gros boutons, sans descendre sous un
-- [ ] La pile dessine un objet par unité comptée ; au-delà de douze, elle affiche le reste en « +n »
-- [ ] La pile de réception range par paquets de 4, cinq paquets par ligne
+> Livrée le 2026-11-07. `Sheet` (monte par `transform`, se ferme en touchant le voile ou par Échap, inerte fermée), `Counter` (jamais sous un, même quand les appuis vont plus vite que l'écran — défaut trouvé par le test et corrigé), `Pile` et `pileLayout` (12 objets puis « +n » ; réception par paquets de 4, cinq par ligne, 15 paquets puis « +n », comme la maquette).
 
-### H.5 — Tampon et pastille de synchro · **S**
+- [x] La feuille monte du bas et se ferme en touchant le voile
+- [x] Le compteur augmente et diminue par gros boutons, sans descendre sous un
+- [x] La pile dessine un objet par unité comptée ; au-delà de douze, elle affiche le reste en « +n »
+- [x] La pile de réception range par paquets de 4, cinq paquets par ligne
+
+### H.5 — Tampon et pastille de synchro · **S** ✅
 > Spec : CdC « La confiance est visible » · Zone : `packages/design-system/components`
 > Dépend de : H.3 · Revue : la pulsation n'utilise pas `box-shadow`.
 
-- [ ] Le tampon « C'est noté » s'abat puis disparaît
-- [ ] La pastille montre le nombre d'envois en attente
-- [ ] La pastille passe à « bien envoyé » quand plus rien n'attend
-- [ ] L'état de synchro se comprend sans la couleur seule
+> Livrée le 2026-11-07. `Stamp` (s'abat par `transform`, annoncé à un lecteur d'écran) ; `SyncBadge` (le nombre en attente, ou une coche et « Tout est bien envoyé » ; il se branchera sur `JournalSync.waiting`, G.4).
+
+- [x] Le tampon « C'est noté » s'abat puis disparaît
+- [x] La pastille montre le nombre d'envois en attente
+- [x] La pastille passe à « bien envoyé » quand plus rien n'attend
+- [x] L'état de synchro se comprend sans la couleur seule
 
 ## I — Audio
 

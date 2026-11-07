@@ -2,7 +2,24 @@
 // the notebook must open without network. Latin subset only: French and Wolof (é, ë, ñ, à).
 // Andika for reading, Shantell Sans for the handwritten touch (bureau-admin.html,
 // journal-gardien.html). Weights as in the mockups.
+@use 'tokens/tokens';
 @use '@fontsource/andika/latin-400' as andika-regular;
 @use '@fontsource/andika/latin-700' as andika-bold;
 @use '@fontsource/shantell-sans/latin-500' as shantell-medium;
 @use '@fontsource/shantell-sans/latin-700' as shantell-bold;
+
+// The page itself, in the « cahier » tokens.
+body {
+  margin: 0;
+  font-family: var(--font-reading);
+  color: var(--color-ink);
+  background: var(--color-shell);
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-hand);
+}

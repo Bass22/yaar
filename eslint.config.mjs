@@ -87,6 +87,15 @@ const purePackage = ({ folder, allowed = [], alsoRefused = [], syntax = [] }) =>
   },
 ];
 
+// The « cahier » design has one source of colour, the tokens of packages/design-system (H.1): a
+// component reads `var(--color-…)`, never writes `#3E7C4F`, `rgb(…)` or `hsl(…)`.
+const colourLiteral = '/#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?\\b|\\b(?:rgba?|hsla?)\\(/';
+const colourMessage = 'No colour written in a component: use a token of packages/design-system (var(--color-…)).';
+const noHardcodedColour = [
+  { selector: `Literal[value=${colourLiteral}]`, message: colourMessage },
+  { selector: `TemplateElement[value.raw=${colourLiteral}]`, message: colourMessage },
+];
+
 // The database trusts the API to name the tenant of a transaction: an SQL injection in the
 // API would walk through row-level security. Queries are parameterised, never assembled.
 const noAssembledSql = [
@@ -121,6 +130,17 @@ export default tseslint.config(
       ...restrictImports(crossProject, financeAlias, adminCode),
       'no-restricted-syntax': ['error', noLazyFinance],
     },
+  },
+  {
+    // No colour written in a component, in either view (tests may name one to check it).
+    files: ['apps/web/src/**/*.ts'],
+    ignores: ['apps/web/src/**/*.spec.ts', 'apps/web/src/app/admin/**'],
+    rules: { 'no-restricted-syntax': ['error', noLazyFinance, ...noHardcodedColour] },
+  },
+  {
+    files: ['apps/web/src/app/admin/**/*.ts'],
+    ignores: ['apps/web/src/**/*.spec.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...noHardcodedColour] },
   },
   {
     files: ['apps/api/src/**/*.ts'],

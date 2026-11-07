@@ -18,6 +18,7 @@
     "paths": {
       "@kit": ["./packages/kit/src/index.ts"],
       "@contracts": ["./packages/contracts/src/index.ts"],
+      "@design-system": ["./packages/design-system/src/index.ts"],
       "@domain/journal": ["./packages/domain/src/journal/index.ts"],
       "@domain/finance": ["./packages/domain/src/finance/index.ts"]
     }

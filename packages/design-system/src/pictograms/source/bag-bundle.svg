@@ -1,0 +1,7 @@
+<!-- From journal-gardien.html, symbol "sacs-x4". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <use href="#closed-bag" x="8" y="0" width="24" height="29"/>
+  <use href="#closed-bag" x="32" y="0" width="24" height="29"/>
+  <use href="#closed-bag" x="4" y="26" width="27" height="33"/>
+  <use href="#closed-bag" x="33" y="26" width="27" height="33"/>
+</svg>

@@ -1,0 +1,15 @@
+<!-- From journal-gardien.html, symbol "poulet-mort". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64">
+  <ellipse cx="50" cy="57" rx="40" ry="5" fill="#6B4A2E" opacity=".14"/>
+  <g stroke="#D98A2B" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M30 40 L12 33"/><path d="M31 48 L10 46"/>
+    <path d="M12 33 l-5 -4 M12 33 l-6 1"/><path d="M10 46 l-6 -4 M10 46 l-5 3"/>
+  </g>
+  <path d="M30 36 q-9 -5 -8 -13 q9 1 14 9" fill="#E8DCC8" stroke="#8C7B63" stroke-width="2.4"/>
+  <ellipse cx="52" cy="42" rx="26" ry="16" fill="#F5EDDD" stroke="#8C7B63" stroke-width="3"/>
+  <path d="M44 36 q14 -5 23 3 q-10 10 -25 4z" fill="#E8DCC8" stroke="#8C7B63" stroke-width="2.4"/>
+  <circle cx="81" cy="50" r="10" fill="#F5EDDD" stroke="#8C7B63" stroke-width="3"/>
+  <path d="M75 42 q-1 -7 5 -7 q2 -4 6 -1 q0 6 -6 7z" fill="#C97A6B"/>
+  <path d="M78 49 q3.5 3 7 0" fill="none" stroke="#5a4f3f" stroke-width="2.4" stroke-linecap="round"/>
+  <polygon points="90,51 96,54 90,57" fill="#D99C3F"/>
+</svg>

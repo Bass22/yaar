@@ -1,0 +1,4 @@
+<!-- From journal-gardien.html, symbol "lune". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M42 8 a26 26 0 1 0 14 46 a22 22 0 0 1 -14 -46z" fill="#8C86B8"/>
+</svg>

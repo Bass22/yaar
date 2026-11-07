@@ -1,0 +1,7 @@
+<!-- From journal-gardien.html, symbol "photo". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="8" y="18" width="48" height="34" rx="6" fill="#fff" stroke="#6B4A2E" stroke-width="3.5"/>
+  <path d="M22 18 l4 -6 h12 l4 6" fill="none" stroke="#6B4A2E" stroke-width="3.5" stroke-linejoin="round"/>
+  <circle cx="32" cy="35" r="10" fill="none" stroke="#6B4A2E" stroke-width="3.5"/>
+  <circle cx="32" cy="35" r="4" fill="#6B4A2E"/>
+</svg>

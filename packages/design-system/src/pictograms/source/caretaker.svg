@@ -1,0 +1,6 @@
+<!-- From journal-gardien.html, symbol "gardien". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="24" r="13" fill="#8C6D3E"/>
+  <path d="M12 56 q4 -18 20 -18 q16 0 20 18z" fill="#3E7C4F"/>
+  <path d="M18 20 q14 -10 28 0 l-2 -8 q-12 -8 -24 0z" fill="#E8B10A" stroke="#6B4A2E" stroke-width="2"/>
+</svg>

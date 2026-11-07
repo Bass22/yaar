@@ -1,0 +1,7 @@
+<!-- From journal-gardien.html, symbol "papier". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M16 6 h24 l10 10 v42 h-34z" fill="#FFFDF6" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M40 6 v10 h10" fill="none" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M22 24 h20 M22 31 h20 M22 38 h13" stroke="#8d8270" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M22 48 q5 -6 9 0 t9 -2" fill="none" stroke="#3E6E8C" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

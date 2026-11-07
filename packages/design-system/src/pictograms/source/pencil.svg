@@ -1,0 +1,5 @@
+<!-- From journal-gardien.html, symbol "crayon". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M14 44 L38 20 l8 8 L22 52 l-11 3z" fill="#E8B10A" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M38 20 l5 -5 q3 -3 6 0 t0 6 l-5 5" fill="#C84B38" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+</svg>

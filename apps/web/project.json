@@ -29,11 +29,21 @@
           {
             "glob": "**/*",
             "input": "apps/web/public"
+          },
+          {
+            "glob": "pictograms.svg",
+            "input": "packages/design-system/src/pictograms/generated",
+            "output": "/"
           }
         ],
         "styles": [
           "apps/web/src/styles.scss"
-        ]
+        ],
+        "stylePreprocessorOptions": {
+          "includePaths": [
+            "packages/design-system/src"
+          ]
+        }
       },
       "configurations": {
         "production": {

@@ -1,0 +1,8 @@
+<!-- From journal-gardien.html, symbol "seringue". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="14" y="26" width="30" height="14" rx="4" fill="#fff" stroke="#3E6E8C" stroke-width="3.5"/>
+  <rect x="6" y="29" width="8" height="8" rx="2" fill="#3E6E8C"/>
+  <path d="M44 33 h12" stroke="#3E6E8C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M20 30 v6 M27 30 v6 M34 30 v6" stroke="#3E6E8C" stroke-width="2.5"/>
+  <path d="M50 24 q4 5 0 9" fill="none" stroke="#5FA8D3" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,17 @@
+<!-- From journal-gardien.html, symbol "sacs-recus". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 64">
+  <path d="M5 25 q11 -5 22 0 l3 27 q-14 7 -28 0z" fill="#E3BC25" stroke="#8C6D3E" stroke-width="2.6"/>
+  <path d="M12 19 q4 -7 9 0 l-2 6 q-3 -2 -6 0z" fill="#D9AD1F" stroke="#8C6D3E" stroke-width="2"/>
+  <path d="M26 29 q15 -6 30 0 l3 29 q-18 8 -36 0z" fill="#F2CB2E" stroke="#8C6D3E" stroke-width="3"/>
+  <path d="M36 21 q5 -8 11 0 l-2.5 7 q-3.5 -2 -7 0z" fill="#D9AD1F" stroke="#8C6D3E" stroke-width="2.4"/>
+  <path d="M34 24 q7 3 14 0" fill="none" stroke="#8C6D3E" stroke-width="2.4" stroke-linecap="round"/>
+  <g stroke="#D9AD1F" stroke-width="1" opacity=".9">
+    <path d="M28 39 q13 4 26 0 M28 50 q13 4 27 0"/>
+    <path d="M35 32 l1 24 M45 32 l0 25"/>
+  </g>
+  <path d="M31 35 h6 M41 35 h7" stroke="#2F8C4F" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="41" cy="45" r="6.5" fill="#2E86B8"/>
+  <ellipse cx="40" cy="46.5" rx="3.4" ry="2.8" fill="#D8EEFA"/>
+  <circle cx="43" cy="43" r="2.2" fill="#D8EEFA"/>
+  <polygon points="45,42.5 47.5,43.3 45,44.3" fill="#D8EEFA"/>
+</svg>

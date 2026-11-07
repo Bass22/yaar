@@ -1,0 +1,78 @@
+// The tokens of the « cahier » design — the single source of every colour, shadow, radius and
+// line of the screens (backlog H.1). Taken from the validated mockup journal-gardien.html: its
+// `:root` names are given in comments. A component never writes a colour: it reads a token
+// (the lint refuses a colour literal in apps/web).
+:root {
+  // ---- papers and inks (mockup :root) ----
+  --color-shell: #FBF6EA; // --coquille: the page of the notebook
+  --color-straw: #F5E7C6; // --paille
+  --color-corn: #E8B10A; // --mais
+  --color-pasture: #3E7C4F; // --pature: done, yes, alive
+  --color-pasture-light: #E4F0E6; // --pature-clair
+  --color-earth: #6B4A2E; // --terre: handwriting, titles
+  --color-alert: #C84B38; // --alerte: deaths
+  --color-alert-light: #F8E3DD; // --alerte-clair
+  --color-orange: #D98A2B; // --orange: waiting, minus
+  --color-orange-light: #F8EBD8; // --orange-clair
+  --color-blue: #3E6E8C; // --bleu: voice, weighing
+  --color-ink: #3A3127; // --encre
+  --color-paper: #FFFDF6; // --papier: cards, sheets
+  --color-kraft: #C09258; // --kraft: the cover
+  --color-kraft-dark: #A87B42; // --kraft-fonce
+  --color-rule: rgba(107, 74, 46, 0.14); // --ligne: the lines of the page
+  --color-margin: rgba(200, 75, 56, 0.35); // --marge
+
+  // ---- the past day (banner and sheet when writing for yesterday or before) ----
+  --color-past-day: #5F5894;
+  --color-past-day-light: #EFEAF8;
+  --color-past-day-line: #8C86B8;
+
+  // ---- paper objects ----
+  --color-post-it: #FCEFC9; // the forgetting reminder (.nudge)
+  --color-tape: rgba(234, 217, 166, 0.8); // the scotch of cards and chips
+  --color-tape-edge: rgba(140, 109, 62, 0.35);
+  --color-card-edge: rgba(107, 74, 46, 0.35);
+  --color-slot: #F2EEE2; // an empty box to fill (weighing, photo)
+  --color-slot-active: #EAF4FA;
+
+  // ---- gesture signs and buttons ----
+  --color-bag: #A5793F; // the bag gesture
+  --color-photo: #527896; // the photo gesture
+  --color-neutral: #9B8F7C; // « Non », a quiet button
+  --color-muted: #8D8270; // secondary text
+  --color-on-sign: #FFFFFF; // text and pictos on a painted sign
+  --color-veil: rgba(46, 42, 36, 0.45); // behind an open sheet
+  --color-desk: #EDE4D0; // around the notebook
+  --color-splash: #1E4530; // launch screen, application icon
+
+  // ---- hard shadows, as ink on paper ----
+  --shadow-hard-xs: 1px 1px 0 rgba(58, 49, 39, 0.3); // pressed
+  --shadow-hard-sm: 2px 3px 0 rgba(58, 49, 39, 0.15);
+  --shadow-hard: 3px 4px 0 rgba(58, 49, 39, 0.3);
+  --shadow-sheet: 0 -8px 30px rgba(0, 0, 0, 0.25);
+
+  // ---- edges traced by hand (mockup .wob1, .wob2, .wob3, and the round blobs) ----
+  --radius-wobble-1: 255px 18px 225px 18px / 18px 225px 18px 255px;
+  --radius-wobble-2: 18px 225px 18px 255px / 255px 18px 225px 18px;
+  --radius-wobble-3: 225px 18px 255px 18px / 18px 255px 18px 225px;
+  --radius-blob: 48% 52% 50% 50% / 52% 48% 53% 47%;
+
+  // ---- the lines of the notebook (mockup .fil, .compteur) ----
+  --notebook-lines: repeating-linear-gradient(0deg, transparent 0 27px, var(--color-rule) 27px 28px);
+
+  // ---- type, sizes, motion ----
+  --font-reading: 'Andika', sans-serif;
+  --font-hand: 'Shantell Sans', cursive;
+  --touch-target-min: 48px; // every tap target, pencil and speaker included
+  --focus-ring: 4px solid var(--color-corn);
+}
+
+// Less motion when the system asks for it: no animation, no transition (mockup, end of its CSS).
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

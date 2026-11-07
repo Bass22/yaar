@@ -1,0 +1,11 @@
+<!-- From journal-gardien.html, symbol "poule". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <ellipse cx="46" cy="60" rx="30" ry="24" fill="#FFFDF6" stroke="#6B4A2E" stroke-width="3"/>
+  <circle cx="70" cy="34" r="14" fill="#FFFDF6" stroke="#6B4A2E" stroke-width="3"/>
+  <path d="M62 22 q2 -8 8 -6 q0 -6 7 -4 q4 -4 7 2 q-2 8 -10 8z" fill="#C84B38"/>
+  <polygon points="83,32 94,36 83,40" fill="#E8B10A"/>
+  <circle cx="73" cy="31" r="2.6" fill="#3A3127"/>
+  <path d="M28 58 q-12 -4 -16 4 q8 8 20 4z" fill="#F5E7C6" stroke="#6B4A2E" stroke-width="2.5"/>
+  <rect x="38" y="82" width="4" height="10" rx="2" fill="#D98A2B"/>
+  <rect x="52" y="82" width="4" height="10" rx="2" fill="#D98A2B"/>
+</svg>

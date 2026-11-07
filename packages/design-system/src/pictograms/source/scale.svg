@@ -1,0 +1,15 @@
+<!-- From journal-gardien.html, symbol "balance". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <ellipse cx="30" cy="22" rx="16" ry="11" fill="#FFFDF6" stroke="#6B4A2E" stroke-width="2.6"/>
+  <circle cx="44" cy="14" r="7" fill="#FFFDF6" stroke="#6B4A2E" stroke-width="2.6"/>
+  <path d="M40 8 q1 -4 5 -3 q2 -3 5 0 q-1 4 -5 4z" fill="#C84B38"/>
+  <polygon points="51,13 57,15 51,17" fill="#E8B10A"/>
+  <circle cx="46" cy="13" r="1.5" fill="#3A3127"/>
+  <path d="M18 20 q-6 -2 -8 2 q4 4 10 2z" fill="#F5E7C6" stroke="#6B4A2E" stroke-width="2"/>
+  <rect x="24" y="31" width="3" height="6" rx="1.5" fill="#D98A2B"/>
+  <rect x="32" y="31" width="3" height="6" rx="1.5" fill="#D98A2B"/>
+  <rect x="10" y="37" width="44" height="6" rx="3" fill="#9C9C9C" stroke="#5a5a5a" stroke-width="2"/>
+  <path d="M14 43 h36 l4 14 h-44z" fill="#3E6E8C" stroke="#2E4A5E" stroke-width="2.6"/>
+  <rect x="24" y="46" width="16" height="8" rx="2" fill="#D8EEFA" stroke="#2E4A5E" stroke-width="2"/>
+  <path d="M27 50 h3 M32 50 h3 M37 50 h2" stroke="#2E4A5E" stroke-width="2" stroke-linecap="round"/>
+</svg>

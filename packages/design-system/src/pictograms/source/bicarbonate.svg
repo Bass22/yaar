@@ -1,0 +1,7 @@
+<!-- From journal-gardien.html, symbol "bicarbonate". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="16" y="14" width="32" height="40" rx="6" fill="#fff" stroke="#6B4A2E" stroke-width="3.5"/>
+  <rect x="22" y="8" width="20" height="8" rx="3" fill="#6B4A2E"/>
+  <circle cx="32" cy="36" r="9" fill="#F5E7C6" stroke="#D98A2B" stroke-width="3"/>
+  <path d="M32 31 v10 M27 36 h10" stroke="#D98A2B" stroke-width="3" stroke-linecap="round"/>
+</svg>
