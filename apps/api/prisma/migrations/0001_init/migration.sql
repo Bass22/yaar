@@ -91,6 +91,7 @@ CREATE TABLE "journal_events" (
     "business_date" DATE NOT NULL,
     "recorded_at" TIMESTAMPTZ(3) NOT NULL,
     "received_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "device_id" UUID NOT NULL,
     "type" "journal_event_type",
     "fact" JSONB,
     "corrects" UUID,

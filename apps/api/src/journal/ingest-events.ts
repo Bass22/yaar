@@ -140,5 +140,6 @@ async function judge(event: JournalEvent, context: Parameters<typeof validateDec
   if (!declared.ok) {
     return declared;
   }
-  return validateAgainstDay(event, await ports.dayJournal(event.campaignId, event.businessDate));
+  // Only "nothing lost" is judged against its day: no need to read the day for anything else.
+  return event.type === 'NoLoss' ? validateAgainstDay(event, await ports.dayJournal(event.campaignId, event.businessDate)) : declared;
 }

@@ -13,6 +13,7 @@ jest.setTimeout(180_000);
 const TENANT_A = unwrap(TenantId('00000000-0000-4000-8000-00000000000a'));
 const TENANT_B = unwrap(TenantId('00000000-0000-4000-8000-00000000000b'));
 const EVENT = '00000000-0000-4000-8000-0000000000e1';
+const TELEPHONE = '00000000-0000-4000-8000-0000000000d1';
 
 const scoped = (tenantId: TenantId) => {
   const suffix = tenantId === TENANT_A ? 'a' : 'b';
@@ -30,6 +31,7 @@ const signe = (tenantId: TenantId, id: string) => ({
   id,
   businessDate: new Date('2026-11-05'),
   recordedAt: new Date('2026-11-05T18:30:00.000Z'),
+  deviceId: TELEPHONE,
 });
 
 const troisMorts = (tenantId: TenantId, id = EVENT) => ({ ...signe(tenantId, id), type: 'Death' as const, fact: { quantity: 3 } });
@@ -95,12 +97,26 @@ describe('Table du journal', () => {
 
     it("un type hors de la liste fermée n'entre pas dans la table", async () => {
       const sale = api.runInTenant(TENANT_A, (tx) =>
-        tx.$executeRaw`INSERT INTO journal_events (tenant_id, id, site_id, campaign_id, author_id, business_date, recorded_at, type, fact)
-                       SELECT tenant_id, '00000000-0000-4000-8000-0000000000e9'::uuid, site_id, campaign_id, author_id, business_date, recorded_at, 'Sale', fact
+        tx.$executeRaw`INSERT INTO journal_events (tenant_id, id, site_id, campaign_id, author_id, business_date, recorded_at, device_id, type, fact)
+                       SELECT tenant_id, '00000000-0000-4000-8000-0000000000e9'::uuid, site_id, campaign_id, author_id, business_date, recorded_at, device_id, 'Sale', fact
                          FROM journal_events WHERE id = ${EVENT}::uuid`,
       );
 
       await expect(sale).rejects.toThrow(/journal_event_type|22P02|invalid input value/i);
+    });
+  });
+
+  // Spec: backlog F.2 ; CLAUDE.md §4 règle 14 (depuis quel appareil) — réserve R-8
+  describe("l'appareil", () => {
+    it("un événement garde l'appareil qui l'a écrit : sans lui, il n'entre pas dans la table", async () => {
+      const withoutDevice = api.runInTenant(TENANT_A, (tx) =>
+        tx.$executeRaw`INSERT INTO journal_events (tenant_id, id, site_id, campaign_id, author_id, business_date, recorded_at, type, fact)
+                       SELECT tenant_id, '00000000-0000-4000-8000-0000000000e8'::uuid, site_id, campaign_id, author_id, business_date, recorded_at, type, fact
+                         FROM journal_events WHERE id = ${EVENT}::uuid`,
+      );
+
+      await expect(withoutDevice).rejects.toThrow(/23502|device_id/);
+      expect(await db.superuser.journalEvent.findUniqueOrThrow({ where: { tenantId_id: { tenantId: TENANT_A, id: EVENT } } })).toMatchObject({ deviceId: TELEPHONE });
     });
   });
 

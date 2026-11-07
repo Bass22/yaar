@@ -100,6 +100,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/health/ready',
       'POST /api/v1/auth/choose-pin',
       'POST /api/v1/auth/sign-in',
+      // Every session, judged by the domain: the author and the farm come from the session (F.2).
+      'POST /api/v1/journal/events',
       // Always a collaborator: the request does not choose the role (E.5).
       'POST /api/v1/users',
       // Collaborators only: neither one's own account nor another admin (E.4, E.5).

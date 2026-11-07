@@ -57,8 +57,10 @@ export const declaredBefore = (summary: DaySummary, type: 'Death' | 'BagOpened',
 
 /**
  * Refuses "nothing lost" for a day on which deaths were already written. Judged, like every
- * declaration, at the instant it was written: deaths written later that day do not refuse it,
- * they prevail in the summary.
+ * declaration, at the instant it was written, against the journal as it stood then: deaths
+ * written later that day do not refuse it — they prevail in the summary — and a retraction
+ * written later does not make it valid after the fact. The answer does not depend on the order
+ * in which events reach the server.
  */
 export const validateAgainstDay = <Event extends JournalEvent>(
   event: Event,
@@ -67,10 +69,9 @@ export const validateAgainstDay = <Event extends JournalEvent>(
   if (isRetraction(event) || event.type !== 'NoLoss') {
     return ok(event);
   }
-  const deathsWrittenBefore = linesOf(journal, event).some(
-    (line) => line.fact.type === 'Death' && line.declaration.recordedAt < event.recordedAt,
-  );
-  return deathsWrittenBefore ? err({ kind: 'NoLossAfterDeaths' }) : ok(event);
+  const writtenBefore = journal.filter((earlier) => earlier.recordedAt < event.recordedAt);
+  const deathsStood = linesOf(writtenBefore, event).some((line) => line.fact.type === 'Death');
+  return deathsStood ? err({ kind: 'NoLossAfterDeaths' }) : ok(event);
 };
 
 type StandingLine = Extract<JournalLine, { readonly retraction: null }>;

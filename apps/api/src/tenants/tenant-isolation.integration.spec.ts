@@ -42,6 +42,7 @@ describe('Cloisonnement entre élevages', () => {
           authorId: userId,
           businessDate: new Date('2026-11-05'),
           recordedAt: new Date('2026-11-05T18:30:00.000Z'),
+          deviceId: '00000000-0000-4000-8000-0000000000d1',
           type: 'Death',
           fact: { quantity: 3 },
         },

@@ -47,6 +47,7 @@ export { Instant, instantOf } from './instant';
 export {
   CounterDeclaration,
   Declaration,
+  factOf,
   isCounterDeclaration,
   isRetraction,
   Retraction,

@@ -162,6 +162,8 @@ model JournalEvent {
   recordedAt   DateTime          @map("recorded_at") @db.Timestamptz(3)
   // Read on the clock of the database when the row was inserted. Never taken from the client.
   receivedAt   DateTime          @default(now()) @map("received_at") @db.Timestamptz(3)
+  // The device of the session that sent the event (UUID made on the device): from where (rule 14).
+  deviceId     String            @map("device_id") @db.Uuid
   type         JournalEventType?
   // The fields of the fact, without its type.
   fact         Json?

@@ -144,6 +144,17 @@ describe("Résumé d'un jour", () => {
 
       expect(validateAgainstDay(noLoss, [deaths, annule(2, deaths)])).toEqual({ ok: true, value: noLoss });
     });
+
+    it("une annulation écrite après « rien perdu » ne le rend pas valable après coup : il se juge au journal tel qu'il était quand il a été écrit, quel que soit l'ordre d'arrivée", () => {
+      // Given 3 morts le matin, « rien perdu » à midi, et les morts annulés le soir seulement
+      const deaths = declare(1, LE_MATIN, morts(3));
+      const noLoss = declare(2, A_MIDI, RIEN_PERDU);
+      const lateRetraction = annule(3, deaths);
+
+      // Then à midi les morts tenaient : refusé, que l'annulation soit déjà reçue ou pas
+      expect(validateAgainstDay(noLoss, [deaths])).toEqual({ ok: false, error: { kind: 'NoLossAfterDeaths' } });
+      expect(validateAgainstDay(noLoss, [deaths, lateRetraction])).toEqual({ ok: false, error: { kind: 'NoLossAfterDeaths' } });
+    });
   });
 
   describe('le gardien ne voit que les morts', () => {

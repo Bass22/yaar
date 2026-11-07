@@ -37,3 +37,21 @@ export type JournalEventPayload =
   | (EnvelopePayload & { readonly fact: FactPayload })
   | (EnvelopePayload & { readonly corrects: Uuid; readonly fact: FactPayload })
   | (EnvelopePayload & { readonly retracts: Uuid });
+
+/** Body of POST /api/v1/journal/events: exactly this field, at most 100 events. */
+export interface JournalBatchRequest {
+  readonly events: readonly JournalEventPayload[];
+}
+
+/** Why an event was refused: a kind from a closed list, with what explains it (`field`, `value`…). */
+export type JournalRefusal = { readonly kind: string } & Readonly<Record<string, unknown>>;
+
+/** The fate of an event, at its position in the batch as sent. `id` is absent when it could not be read. */
+export type JournalEventOutcome =
+  | { readonly index: number; readonly id: string; readonly status: 'Accepted' | 'Duplicate' }
+  | { readonly index: number; readonly id?: string; readonly status: 'Refused'; readonly refusal: JournalRefusal };
+
+/** Answer of POST /api/v1/journal/events: the fate of every event of the batch, in the order sent. */
+export interface JournalBatchResponse {
+  readonly outcomes: readonly JournalEventOutcome[];
+}

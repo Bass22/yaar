@@ -604,18 +604,23 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
 - [x] Rejouer un lot entier ne change rien au journal (property-based)
 
-### F.2 — L'API reçoit le journal · **M** · 🔒 · 🧪
+### F.2 — L'API reçoit le journal · **M** · 🔒 · 🧪 ✅
 > Spec : Archi §4 (`journal`), §5 · Zone : `apps/api/src/journal/` (contrôleur, dépôt Prisma)
 > Dépend de : F.4, D.3, E.3 · Revue : tests sur une vraie base ; la taille d’un lot est plafonnée.
 
-- [ ] Avant le code : modèle de menaces du journal par `/security-engineer` — trajet de la donnée (téléphone, outbox, API, base, descente, sauvegardes), tableau abus → contrôle → test ; c'est la première route qui touche le journal (recommandation du 2026-11-07)
-- [ ] `POST /api/v1/journal/evenements` accepte un lot et renvoie le sort de chaque événement
-- [ ] Le même lot envoyé deux fois ne crée aucune ligne en double
-- [ ] Un UUID déjà utilisé par un autre tenant ne révèle rien et n'écrase rien
-- [ ] Un champ inconnu dans le corps fait refuser l'événement
-- [ ] Un lot au-delà de la taille maximale est refusé
-- [ ] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` (réserve R-8) ; il vient de la session
-- [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base (déjà posée par la base depuis D.3)
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `POST /api/v1/journal/events` (chemin en anglais, comme toutes les routes — `CLAUDE.md` §6 ; le backlog d'origine disait `evenements`) reçoit exactement `{ events: [...] }`, au plus `MAX_EVENTS_PER_BATCH` = 100 événements (au-delà : 413, rien n'est écrit), et répond 200 `{ outcomes }` (types `JournalBatchRequest` et `JournalBatchResponse` dans `packages/contracts`). Toute session peut l'appeler : qui écrit quoi se juge dans le domaine. Le lot entier tient dans la transaction de la requête. Dépôt `PrismaJournal` : une ligne relue repasse par le même décodeur qu'un envoi (une ligne qui ne se décode plus est une panne) ; `factOf` du domaine sépare le fait de son enveloppe à l'écriture. Colonne `journal_events.device_id`, obligatoire (réserve R-8 levée).
+> **Relecture sécurité, allégée** (le fondateur veut rester pragmatique) : le tenant, l'auteur et l'appareil viennent de la session ; une bande d'un autre élevage est inconnue ; un identifiant déjà pris chez un autre élevage donne une ligne à soi, sans toucher à l'autre ; un gardien non affecté est refusé ; corps en liste blanche, lot plafonné ; route fermée sans session. Aucune route ne lit encore le journal (F.3).
+> **Changé en route** : la propriété « rejouer un lot ne change rien » (F.4) a trouvé un défaut du domaine sur un lot tiré au hasard — morts à 11 h, « rien perdu » à midi, annulation des morts à 20 h : refusé au premier envoi, « rien perdu » était accepté au second. `validateAgainstDay` juge désormais « rien perdu » contre le journal tel qu'il était à sa date de saisie (CdC mis à jour) ; 3 000 lots tirés ensuite sans contre-exemple.
+> **Choix à relire** : deux envois simultanés du même lot (un téléphone qui réessaie pendant que le premier envoi tourne) peuvent faire échouer le second en 500 sur la contrainte d'unicité ; rien n'est compté deux fois, et le renvoi suivant reçoit des doublons. Une fois, la suite complète de l'API a dépassé des délais dans deux fichiers sans lien avec F.2 ; non reproduit en quatre lancements depuis.
+
+- [x] Relecture sécurité avant le code (allégée, voir ci-dessus)
+- [x] `POST /api/v1/journal/events` accepte un lot et renvoie le sort de chaque événement
+- [x] Le même lot envoyé deux fois ne crée aucune ligne en double
+- [x] Un UUID déjà utilisé par un autre tenant ne révèle rien et n'écrase rien
+- [x] Un champ inconnu dans le corps fait refuser l'événement
+- [x] Un lot au-delà de la taille maximale est refusé
+- [x] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` (réserve R-8) ; il vient de la session
+- [x] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base (déjà posée par la base depuis D.3)
 
 ### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒
 > Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/contracts`
