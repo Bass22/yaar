@@ -135,6 +135,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
 | PIN (4 chiffres pour un gardien, 6 pour l'admin) ; son empreinte argon2id ; essais ratés et attente avant le suivant | `Pin` ; `pinHash` (`PinHasher`) ; `PinAttempts`, `retryAt` |
 | Amorçage d'un élevage (tenant, premier site, premier admin) | `bootstrapTenant` (`dist/bootstrap-tenant.js`) |
+| Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
 | Rattrapage (aujourd'hui, hier, avant-hier) ; rôle de l'auteur | catch-up (`CatchUpWindowPassed`) ; `Role`, `authorRole` |
 
@@ -176,7 +177,7 @@ npx nx serve web                      # Angular, en développement
 npx nx serve api                      # NestJS, après build (DATABASE_URL exigé ; PORT, défaut 3000)
 npx nx prisma-generate api            # régénérer le client Prisma après un changement de schéma
 npx prisma migrate diff --config apps/api/prisma.config.ts --from-empty --to-schema apps/api/prisma/schema.prisma --script   # le SQL du schéma entier
-cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD et APP_DB_PASSWORD
+cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD, APP_DB_PASSWORD et JWT_SECRET
 # amorcer un élevage (tenant, premier site, premier admin) : par le script, jamais par une route ; le PIN est demandé au clavier
 docker compose -f infra/docker-compose.yml run --rm -it migrate node dist/bootstrap-tenant.js --tenant "…" --site "…" --time-zone Africa/Dakar --admin-name "…" --admin-phone +221…
 docker compose -f infra/docker-compose.yml up --build   # la pile : http://localhost:8080

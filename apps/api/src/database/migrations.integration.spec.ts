@@ -105,7 +105,7 @@ describe('Migrations', () => {
     expect(sequences).toEqual({ count: 0 });
   });
 
-  it("la base ne fabrique aucune valeur métier : ses seuls défauts sont l'heure de création ou de réception et un drapeau éteint", async () => {
+  it("la base ne fabrique aucune valeur métier : ses seuls défauts sont des dates de création ou de réception, un compteur à zéro et un drapeau éteint", async () => {
     const defaults = await db.owner.$queryRaw<{ column_name: string; column_default: string }[]>`
       SELECT table_name || '.' || column_name AS column_name, column_default::text
         FROM information_schema.columns
@@ -120,6 +120,8 @@ describe('Migrations', () => {
       { column_name: 'sites.strict_mode', column_default: 'false' },
       { column_name: 'tenants.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'users.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'users.pin_failures', column_default: '0' },
+      { column_name: 'users.sessions_valid_from', column_default: 'CURRENT_TIMESTAMP' },
     ]);
   });
 

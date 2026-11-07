@@ -1,6 +1,6 @@
 import { inspect } from 'node:util';
 import { unwrap } from '@kit';
-import { Pin } from './pin';
+import { Pin, typedPin } from './pin';
 
 // Spec: Cahier des charges — « Identité » : le PIN a 4 chiffres pour un gardien, 6 pour l'admin.
 // Backlog E.1 — le PIN ne sort jamais ; CLAUDE.md §4 règle 6 (fail-closed).
@@ -56,6 +56,24 @@ describe('PIN', () => {
 
     it("un refus pour PIN trop simple ne répète pas ce qui a été tapé", () => {
       expect(JSON.stringify(Pin('1234', 'collaborator'))).not.toContain('1234');
+    });
+  });
+
+  describe('le PIN tapé à la connexion', () => {
+    it("a quatre ou six chiffres, quel que soit le rôle, et même trop simple : il n'est que comparé à une empreinte", () => {
+      for (const raw of ['4829', '0000', '482913', '123456']) {
+        expect(typedPin(raw).ok).toBe(true);
+      }
+    });
+
+    it("tout le reste est refusé, sans le répéter", () => {
+      for (const raw of ['482', '48291', '4829137', '48a9', ' 4829', '', 4829, null]) {
+        expect(typedPin(raw)).toEqual({ ok: false, error: { kind: 'InvalidPin' } });
+      }
+    });
+
+    it("ne s'écrit pas plus qu'un autre", () => {
+      expect(JSON.stringify({ pin: typedPin('4829') })).not.toContain('4829');
     });
   });
 

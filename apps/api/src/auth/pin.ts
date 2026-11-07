@@ -36,6 +36,14 @@ class SecretPin {
 
 export type Pin = SecretPin;
 
+/**
+ * A PIN as typed at sign-in: four or six digits, whatever the role and however simple. It is
+ * only ever checked against a digest — the rules of a new PIN (length by role, not trivial)
+ * apply when one is chosen, through `Pin`.
+ */
+export const typedPin = (raw: unknown): Result<Pin, { readonly kind: 'InvalidPin' }> =>
+  typeof raw === 'string' && /^(?:[0-9]{4}|[0-9]{6})$/.test(raw) ? ok(new SecretPin(raw)) : err({ kind: 'InvalidPin' });
+
 /** A refusal never echoes what was typed. */
 export const Pin = (raw: unknown, role: Role): Result<Pin, PinRefusal> => {
   const expectedDigits = Object.hasOwn(DIGITS, role) ? DIGITS[role] : 0;

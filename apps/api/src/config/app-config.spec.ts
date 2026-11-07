@@ -4,27 +4,29 @@ import { loadAppConfig } from './app-config';
 // démarrage) ; CLAUDE.md §4 règle 6 (fail-closed).
 
 const UNE_BASE = 'postgresql://yaar:s3cr3t-de-test@db:5432/yaar';
+const UN_SECRET = 'un-secret-de-test-assez-long-pour-signer-des-jetons';
+const OK = { DATABASE_URL: UNE_BASE, JWT_SECRET: UN_SECRET };
 
 describe("Configuration de l'API", () => {
   it("la configuration se lit dans l'environnement : la base, et le port (3000 par défaut)", () => {
-    expect(loadAppConfig({ DATABASE_URL: UNE_BASE })).toEqual({ databaseUrl: UNE_BASE, port: 3000 });
-    expect(loadAppConfig({ DATABASE_URL: UNE_BASE, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, port: 8081 });
+    expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000 });
+    expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081 });
   });
 
   it('sans DATABASE_URL, la configuration est refusée et le message nomme la variable', () => {
-    for (const env of [{}, { DATABASE_URL: '' }, { DATABASE_URL: '   ' }]) {
+    for (const env of [{ JWT_SECRET: UN_SECRET }, { DATABASE_URL: '', JWT_SECRET: UN_SECRET }, { DATABASE_URL: '   ', JWT_SECRET: UN_SECRET }]) {
       expect(() => loadAppConfig(env)).toThrow(/DATABASE_URL/);
     }
   });
 
   it("une adresse qui n'est pas celle d'un PostgreSQL est refusée", () => {
     for (const url of ['mysql://yaar@db/yaar', 'db:5432/yaar', 'https://db.example/yaar']) {
-      expect(() => loadAppConfig({ DATABASE_URL: url })).toThrow(/DATABASE_URL/);
+      expect(() => loadAppConfig({ DATABASE_URL: url, JWT_SECRET: UN_SECRET })).toThrow(/DATABASE_URL/);
     }
   });
 
   it('un refus ne répète jamais le mot de passe de la base', () => {
-    const attempt = (): unknown => loadAppConfig({ DATABASE_URL: 'mysql://yaar:s3cr3t-de-test@db/yaar', PORT: 'abc' });
+    const attempt = (): unknown => loadAppConfig({ DATABASE_URL: 'mysql://yaar:s3cr3t-de-test@db/yaar', JWT_SECRET: UN_SECRET, PORT: 'abc' });
 
     expect(attempt).toThrow();
     try {
@@ -34,9 +36,24 @@ describe("Configuration de l'API", () => {
     }
   });
 
+  it("sans JWT_SECRET, ou avec un secret trop court, la configuration est refusée sans le répéter", () => {
+    for (const secret of [undefined, '', 'court', 'x'.repeat(31)]) {
+      const attempt = (): unknown => loadAppConfig({ DATABASE_URL: UNE_BASE, JWT_SECRET: secret });
+
+      expect(attempt).toThrow(/JWT_SECRET/);
+      if (secret !== undefined && secret !== '') {
+        try {
+          attempt();
+        } catch (error) {
+          expect(String(error)).not.toContain(secret);
+        }
+      }
+    }
+  });
+
   it("un port qui n'est pas un port est refusé", () => {
     for (const port of ['abc', '0', '70000', '80.5', '-1']) {
-      expect(() => loadAppConfig({ DATABASE_URL: UNE_BASE, PORT: port })).toThrow(/PORT/);
+      expect(() => loadAppConfig({ ...OK, PORT: port })).toThrow(/PORT/);
     }
   });
 });

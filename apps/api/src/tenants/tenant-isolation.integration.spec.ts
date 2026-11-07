@@ -48,7 +48,7 @@ describe('Cloisonnement entre élevages', () => {
       });
     }
     // The API connects as the application role, never as the owner.
-    api = new PrismaService({ port: 0, databaseUrl: db.appUrl });
+    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' });
   });
 
   afterAll(async () => {
@@ -152,6 +152,38 @@ describe('Cloisonnement entre élevages', () => {
     });
   });
 
+  describe('la connexion trouve son utilisateur par son numéro', () => {
+    it("une transaction qui nomme un numéro voit cette ligne, et rien d'autre", async () => {
+      const seen = await api.findUserForSignIn('+221770000002');
+      const seenOfNobody = await api.findUserForSignIn('+221770000099');
+
+      expect(seen).toMatchObject({ tenantId: TENANT_B, phone: '+221770000002' });
+      expect(seenOfNobody).toBeNull();
+    });
+
+    it("nommer un numéro n'ouvre ni les autres comptes, ni une autre table, ni l'écriture", async () => {
+      const others = await api.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.sign_in_phone', ${'+221770000002'}, true)`;
+        return { users: await tx.user.count(), sites: await tx.site.count(), journal: await tx.journalEvent.count() };
+      });
+      const written = await api.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.sign_in_phone', ${'+221770000002'}, true)`;
+        return tx.user.updateMany({ where: { phone: '+221770000002' }, data: { name: 'Renommé sans élevage' } });
+      });
+
+      // PostgreSQL skips the rows an UPDATE policy hides: nothing is written, without an error
+      expect(others).toEqual({ users: 1, sites: 0, journal: 0 });
+      expect(written.count).toBe(0);
+      expect(await db.owner.user.findFirstOrThrow({ where: { phone: '+221770000002' } })).toMatchObject({ name: 'Gardien' });
+    });
+
+    it("le numéro posé ne survit pas à la transaction", async () => {
+      await api.findUserForSignIn('+221770000002');
+
+      expect(await api.user.count()).toBe(0);
+    });
+  });
+
   describe('le tenant est fixé dans la transaction', () => {
     it('deux requêtes concurrentes de tenants différents ne se mélangent pas dans le pool de connexions', async () => {
       // When quarante lectures entrelacées, chacune retenue un instant pour qu'elles se chevauchent
@@ -224,7 +256,8 @@ describe('Cloisonnement entre élevages', () => {
          WHERE n.nspname = 'public' AND t.relkind = 'r' AND t.relname <> '_prisma_migrations'
          ORDER BY t.relname`;
 
-      expect(tables).toEqual([...TABLES].sort().map((name) => ({ name, enabled: true, forced: true, policies: 1 })));
+      // `users` has a second policy: the one that lets a sign-in find its row by phone number.
+      expect(tables).toEqual([...TABLES].sort().map((name) => ({ name, enabled: true, forced: true, policies: name === 'users' ? 2 : 1 })));
     });
 
     it("n'a que les droits accordés table par table : lire et écrire, jamais supprimer ni vider, et seulement lire son élevage", async () => {

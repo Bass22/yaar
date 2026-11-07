@@ -61,8 +61,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Longueur du PIN~~ ✅ tranché le 2026-11-06 : 4 chiffres pour un gardien, 6 pour l'admin | CdC « Identité » | ~~E.1~~ |
 | ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
 | ~~Faut-il refuser les PIN trop simples (0000, 1234, 111111) à la création d'un compte ?~~ ✅ tranché le 2026-11-06 : oui — un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre | CdC « Identité » | ~~E.1~~ |
-| JWT : durée de vie et stratégie de renouvellement | Archi §12 | E.2 |
-| Stockage du jeton dans la PWA ; sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
+| ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
+| ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Reste ouvert : le sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
 | Une tâche sanitaire non faite est-elle reportée au lendemain ? | CdC (non précisé) | L.1 |
 | Source de la météo, et seuil de chaleur qui déclenche la tâche bicarbonate | CdC (non précisé) | L.3 |
@@ -80,7 +80,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 
 ## Réserves du QA à lever avant la fin de la V1
 
-Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Quatorze réserves sont ouvertes au 2026-11-06 : R-1 à R-7 (QA, de C.4 à C.7) et R-8 à R-14 (sécurité, de D.2 à E.1).
+Ce que `/qa` valide « avec réserves » est tenu dans `docs/cahier-de-recette.md` (verdicts, réserves numérotées, ce qui n'a pas pu être vérifié, recette manuelle sur appareil). Aucune réserve ne bloque la tranche où elle a été trouvée, mais chacune doit être levée, ou acceptée par le fondateur, avant la mise en production (Z.5). Seize réserves sont ouvertes au 2026-11-07 : R-1 à R-7 (QA, de C.4 à C.7) et R-8 à R-17 (sécurité, de D.2 à E.2 ; R-12 et R-13 levées par E.2).
 
 ## Reprises depuis build-track
 
@@ -452,18 +452,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Le compteur d'essais se remet à zéro après une connexion réussie
 - [x] Dans le doute (état incohérent, compteur illisible), la règle fait attendre
 
-### E.2 — Se connecter avec son numéro et son PIN · **M** · 🔒 · ⚠
-> Spec : CdC « Identité » ; Archi §6 · Zone : `apps/api/src/auth/`, `packages/contracts`
+### E.2 — Se connecter avec son numéro et son PIN · **M** · 🔒 ✅
+> Spec : CdC « Identité » ; Archi §6, §12 · Zone : `apps/api/src/auth/{sign-in,sign-in.controller,access-token,session-policy,auth.module}.ts`, `packages/contracts/src/auth.ts`
 > Dépend de : E.1, D.2 · Revue : même réponse pour « numéro inconnu » et « mauvais PIN ».
+> Livré le 2026-11-07, **aucune dépendance ajoutée** : le jeton est un JWT HS256 signé et vérifié avec `node:crypto` (une soixantaine de lignes, en-tête constant — ni « none » ni autre algorithme possible). **Décisions du 2026-11-07, ajoutées au CdC et à l'architecture** : session de **7 jours pour un gardien, 24 heures pour l'admin**, sans renouvellement, durées dans `SESSION_LIFETIME_SECONDS` ; jeton dans l'en-tête `Authorization`, pas de cookie ; en cas de vol, l'admin bloque le compte (E.4) — pas de table de sessions, deux colonnes sur `users` (`blocked_at`, `sessions_valid_from`).
+> **Ce qui est livré** : `POST /api/v1/auth/sign-in` (publique, seule route ouverte avec les sondes) reçoit exactement `{ phone, pin, deviceId }` et rend `{ token, expiresAt, role }`. 400 pour une requête mal formée, 401 pour un numéro inconnu comme pour un mauvais PIN (même corps, même travail : un numéro inconnu est vérifié contre une empreinte factice), 403 pour un compte bloqué — dit seulement à qui a tapé son PIN —, 429 avec `Retry-After` pendant l'attente, sans vérifier le PIN ni compter l'essai. Le compte se trouve par son numéro avant de connaître l'élevage grâce à une politique RLS dédiée (`sign_in_lookup`), en lecture seule : ni rôle privilégié, ni fonction à droits définis. Le jeton porte l'utilisateur, l'élevage, le rôle, l'appareil et ses dates. Nouvel alias `@contracts` pour les types de la route.
+> **Choix à relire** : à la connexion, le PIN tapé n'a que 4 ou 6 chiffres à respecter (`typedPin`) ; la règle du rôle et l'interdiction des PIN trop simples valent à la création. Un PIN de la mauvaise longueur pour le rôle est un mauvais PIN comme un autre. `sessions_valid_from` est posée mais pas encore vérifiée : c'est E.3.
+> **Passage de `/security-engineer` le 2026-11-07** — cahier de recette, R-14 à R-17 : pas de comptage par appareil ; des essais simultanés passent la fenêtre libre avant que le compteur ne bouge ; un numéro qui a un compte se reconnaît à ce qu'il finit par répondre 429, un numéro inconnu jamais ; le jeton gardé par l'application est lisible par un script injecté (accepté, borné par les durées).
 
-- [ ] Un numéro et un PIN corrects ouvrent une session liée à l'appareil
-- [ ] Un numéro inconnu et un mauvais PIN reçoivent la même réponse, dans le même délai
-- [ ] Les essais sont limités par numéro et par appareil
-- [ ] Le jeton porte le tenant, le rôle, les sites et la session, et rien d'autre
-- [ ] Le PIN n'apparaît dans aucun journal applicatif
-- [ ] Un essai fait pendant l'attente est refusé sans que le PIN soit vérifié, et ne compte pas comme un essai raté (réserve R-12)
-- [ ] Un numéro inconnu et un mauvais PIN donnent la même réponse, dans le même temps (réserve R-13)
-- [ ] Le compteur d'essais tient compte de l'appareil, pour qu'un inconnu ne ralentisse pas le gardien sur son propre téléphone (réserve R-14)
+- [x] Un numéro et un PIN corrects ouvrent une session liée à l'appareil : 7 jours pour un gardien, 24 heures pour l'admin
+- [x] Un numéro inconnu et un mauvais PIN reçoivent la même réponse, après le même travail (une vérification d'empreinte chacun)
+- [x] Les essais sont limités par numéro (par appareil : réserve R-14, reportée)
+- [x] Le jeton porte l'utilisateur, le tenant, le rôle, l'appareil et ses dates, et rien d'autre : ni numéro, ni nom, ni site (les sites se lisent en base, ils changent)
+- [x] Le PIN n'apparaît dans aucun journal applicatif, ni dans une réponse
+- [x] Un essai fait pendant l'attente est refusé sans que le PIN soit vérifié, et ne compte pas comme un essai raté (réserve R-12, levée)
+- [x] Un compte bloqué ne se connecte pas
+- [x] Un jeton expiré, falsifié, d'un autre algorithme ou au contenu inattendu est refusé à la vérification
 
 ### E.3 — Les routes sont fermées par défaut · **M** · 🔒
 > Spec : `CLAUDE.md` §4 règle 6 · Zone : `apps/api/src/auth/` (gardes globales)
@@ -475,15 +479,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une route réservée à l'admin refuse un collaborateur
 - [ ] Un collaborateur n'atteint que les ressources de ses sites
 - [ ] Un jeton expiré ou falsifié est refusé
+- [ ] Un jeton émis avant `sessions_valid_from`, ou d'un compte bloqué, est refusé (lecture du compte à chaque requête, dans la transaction de l'élevage)
 
-### E.4 — Les sessions se révoquent par appareil · **M** · 🔒
-> Spec : Archi §6 (téléphone perdu) · Zone : `apps/api/src/auth/sessions/`
-> Dépend de : E.3 · Revue : la révocation vaut dès la requête suivante.
+### E.4 — Bloquer un compte le déconnecte partout · **M** · 🔒
+> Spec : CdC « Identité » (téléphone volé) ; Archi §6 · Zone : `apps/api/src/auth/`, `apps/api/src/users/`
+> Dépend de : E.3 · Revue : le blocage vaut dès la requête suivante, synchro comprise.
+> Reformulée le 2026-11-07 : pas de révocation appareil par appareil en V1 (décision du fondateur). Bloquer un compte, changer son PIN ou le « déconnecter partout » avancent `sessions_valid_from` : tout jeton émis avant ne vaut plus rien.
 
-- [ ] L'admin voit les appareils connectés de son équipe
-- [ ] L'admin révoque la session d'un appareil
-- [ ] Une session révoquée est refusée à la requête suivante, synchro comprise
-- [ ] Révoquer un appareil ne déconnecte pas les autres appareils du même utilisateur
+- [ ] L'admin bloque un compte de son équipe, et le débloque
+- [ ] Un compte bloqué est refusé à la requête suivante, synchro comprise, sur tous ses appareils
+- [ ] Débloquer un compte n'accepte pas les jetons émis avant : il faut se reconnecter
+- [ ] « Déconnecter partout » invalide les jetons sans bloquer le compte
+- [ ] L'admin ne bloque ni son propre compte ni un compte d'un autre élevage
 
 ### E.5 — L'admin crée les comptes de son équipe · **M** · 🔒
 > Spec : CdC « Utilisateurs, rôles » · Zone : `apps/api/src/users/`

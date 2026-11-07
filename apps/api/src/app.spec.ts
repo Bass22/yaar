@@ -27,7 +27,7 @@ describe("Démarrage de l'API", () => {
     })
       // No database is reached by these routes: the address only has to be well formed.
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: 'postgresql://nobody@127.0.0.1:1/none' })
+      .useValue({ port: 0, databaseUrl: 'postgresql://nobody@127.0.0.1:1/none', jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' })
       .compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.listen(0, '127.0.0.1');
@@ -59,7 +59,7 @@ describe("Démarrage de l'API", () => {
   });
 
   // Spec: backlog D.4 — rien n'est ouvert au self-signup : un élevage se crée par le script, jamais par une route
-  it("les seules routes ouvertes sans session sont les deux sondes : aucune ne crée un élevage ni un compte", async () => {
+  it("les seules routes ouvertes sans session sont les deux sondes et la connexion : aucune ne crée un élevage ni un compte", async () => {
     // Given toutes les routes que le serveur connaît, lues dans son routeur
     type Layer = { route?: { path: string; methods: Record<string, boolean> } };
     const instance = app.getHttpAdapter().getInstance() as { router?: { stack: Layer[] }; _router?: { stack: Layer[] } };
@@ -79,8 +79,8 @@ describe("Démarrage de l'API", () => {
       }
     }
 
-    // Then seules les sondes répondent, et aucune route ne parle d'élevage ou de compte
-    expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready']);
+    // Then seules les sondes et la connexion répondent, et aucune route ne parle d'élevage ou de compte
+    expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready', 'POST /api/v1/auth/sign-in']);
     expect(routes.map((route) => route.path).filter((path) => /tenant|elevage|signup|register|user/i.test(path))).toEqual([]);
   });
 

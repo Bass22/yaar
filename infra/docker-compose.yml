@@ -61,6 +61,8 @@ services:
       # The application role: it owns no table and is bound by row-level security. The owner
       # role and its password never reach this container.
       DATABASE_URL: postgresql://yaar_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant}@db:5432/yaar
+      # Signs the session tokens. Changing it signs everyone out.
+      JWT_SECRET: ${JWT_SECRET:?définir JWT_SECRET dans infra/.env avant de démarrer}
     depends_on:
       migrate:
         condition: service_completed_successfully

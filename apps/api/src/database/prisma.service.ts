@@ -50,6 +50,21 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
   }
 
   /**
+   * The account a sign-in names, found before any tenant is known: the transaction names the
+   * phone number, and row-level security shows that one row (policy `sign_in_lookup`) — never
+   * another, and nothing without it. Read only.
+   */
+  async findUserForSignIn(phone: string) {
+    return this.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT set_config('app.sign_in_phone', ${phone}, true)`;
+      return tx.user.findUnique({
+        where: { phone },
+        select: { id: true, tenantId: true, phone: true, role: true, pinHash: true, pinFailures: true, pinLastFailureAt: true, blockedAt: true },
+      });
+    });
+  }
+
+  /**
    * Whether the role the API is connected as is the kind it must be: bound by row-level
    * security, and unable to undo it. A superuser or a BYPASSRLS role reads every farm on any
    * query that forgot its tenant; a role that owns a table, or may create one, can drop a

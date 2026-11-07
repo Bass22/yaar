@@ -8,7 +8,7 @@ describe("Module racine de l'API", () => {
     // Given le module racine de l'application
     const testingModule = Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: 'postgresql://nobody@127.0.0.1:1/none' });
+      .useValue({ port: 0, databaseUrl: 'postgresql://nobody@127.0.0.1:1/none', jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' });
 
     // When NestJS le compile
     const moduleRef = await testingModule.compile();

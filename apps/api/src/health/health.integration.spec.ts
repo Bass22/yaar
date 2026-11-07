@@ -10,6 +10,8 @@ import { createTestDatabase, type TestDatabase } from '../testing/test-database'
 // Generous: the first run pulls the PostgreSQL image, and every worker boots a container.
 jest.setTimeout(180_000);
 
+const UN_SECRET = 'un-secret-de-test-assez-long-pour-signer-des-jetons';
+
 async function startApi(config: AppConfig): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(APP_CONFIG)
@@ -35,7 +37,7 @@ describe('Sonde de disponibilité', () => {
 
   it('quand la base répond, la sonde répond 200 sans session', async () => {
     // Given l'API branchée, sous son rôle applicatif, sur une base qui tourne
-    const app = await startApi({ port: 0, databaseUrl: db.appUrl });
+    const app = await startApi({ port: 0, databaseUrl: db.appUrl, jwtSecret: UN_SECRET });
     apps.push(app);
 
     // When
@@ -49,7 +51,7 @@ describe('Sonde de disponibilité', () => {
   it("quand la base ne répond pas, la sonde répond 503 sans rien dire de la base, et l'API reste en vie", async () => {
     // Given l'API branchée sur une adresse où aucune base n'écoute
     const nowhere = 'postgresql://yaar:s3cr3t-de-test@127.0.0.1:1/yaar?connect_timeout=2';
-    const app = await startApi({ port: 0, databaseUrl: nowhere });
+    const app = await startApi({ port: 0, databaseUrl: nowhere, jwtSecret: UN_SECRET });
     apps.push(app);
     const origin = await app.getUrl();
 
@@ -67,7 +69,7 @@ describe('Sonde de disponibilité', () => {
   // Spec: backlog D.2 — le rôle de l'application n'est ni superutilisateur ni dispensé de RLS
   it("branchée par erreur sous un rôle qui échappe à la RLS, l'API ne se déclare jamais disponible", async () => {
     // Given l'API branchée sous le rôle propriétaire de la base, celui des migrations
-    const app = await startApi({ port: 0, databaseUrl: db.url });
+    const app = await startApi({ port: 0, databaseUrl: db.url, jwtSecret: UN_SECRET });
     apps.push(app);
 
     // When
@@ -82,7 +84,7 @@ describe('Sonde de disponibilité', () => {
     const misconfigured = await createTestDatabase();
     try {
       await misconfigured.owner.$executeRawUnsafe('ALTER TABLE sites OWNER TO yaar_app');
-      const app = await startApi({ port: 0, databaseUrl: misconfigured.appUrl });
+      const app = await startApi({ port: 0, databaseUrl: misconfigured.appUrl, jwtSecret: UN_SECRET });
       apps.push(app);
 
       // When

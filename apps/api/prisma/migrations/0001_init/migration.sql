@@ -33,6 +33,10 @@ CREATE TABLE "users" (
     "name" TEXT NOT NULL,
     "role" "user_role" NOT NULL,
     "pin_hash" TEXT NOT NULL,
+    "pin_failures" INTEGER NOT NULL DEFAULT 0,
+    "pin_last_failure_at" TIMESTAMPTZ(3),
+    "blocked_at" TIMESTAMPTZ(3),
+    "sessions_valid_from" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
@@ -203,6 +207,12 @@ ALTER TABLE "users" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "users"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+-- Signing in happens before any tenant is known: the transaction names the phone number it
+-- is signing in, and sees that one row — nothing else, and nothing without it (policies add
+-- up, so the tenant policy keeps applying everywhere else). Reads only: the counters are
+-- written later, under the tenant of the user found.
+CREATE POLICY sign_in_lookup ON "users" FOR SELECT
+  USING ("phone" = NULLIF(current_setting('app.sign_in_phone', true), ''));
 
 ALTER TABLE "sites" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "sites" FORCE ROW LEVEL SECURITY;

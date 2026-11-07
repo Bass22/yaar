@@ -58,16 +58,24 @@ model Tenant {
 }
 
 model User {
-  id        String   @id @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
+  id                String    @id @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
   // The phone number is the login, written in international form (E.164): one account per
   // number on the whole service, so that a sign-in needs no tenant to find its user.
-  phone     String   @unique
-  name      String
-  role      UserRole
+  phone             String    @unique
+  name              String
+  role              UserRole
   // argon2id digest of the PIN (E.1). Never the PIN, never shown to anyone.
-  pinHash   String   @map("pin_hash")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  pinHash           String    @map("pin_hash")
+  // Failed PIN attempts in a row (E.1): the wait before the next one grows with them.
+  pinFailures       Int       @default(0) @map("pin_failures")
+  pinLastFailureAt  DateTime? @map("pin_last_failure_at") @db.Timestamptz(3)
+  // A blocked account is refused on every request, on every device (E.4).
+  blockedAt         DateTime? @map("blocked_at") @db.Timestamptz(3)
+  // A session token issued before this instant is refused: blocking, a new PIN or
+  // "sign out everywhere" move it forward.
+  sessionsValidFrom DateTime  @default(now()) @map("sessions_valid_from") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignments   SiteAssignment[]
