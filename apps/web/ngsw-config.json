@@ -28,6 +28,16 @@
           "/icons/*.png"
         ]
       }
+    },
+    {
+      "name": "audio",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/audio/**"
+        ]
+      }
     }
   ]
 }

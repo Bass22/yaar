@@ -138,6 +138,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Trace d'une action sensible ; son action | `AuditEvent` (`recordAudit`) ; `AuditAction` |
 | PIN provisoire donné par l'admin ; premier choix du PIN ; PIN oublié | `provisionalPin` (`provisionalPinExpiresAt`) ; `choosePin` ; `resetPin` |
 | Le cahier du gardien et son état ; une bande vue dans le cahier (« les petits », « les grands », « Jour 12 ») ; où écrit le prochain geste ; contexte reçu du serveur | `Notebook` ; `NotebookCampaign` (`campaignsOf`) ; `declarationTarget` ; `CaretakerContext` |
+| Voix (clips pré-enregistrés) ; morceau d'une phrase ; composer une phrase ; identifiant d'un clip du script ; liste des clips enregistrés d'une langue | `Voice` (`say`) ; `PhrasePart` (`clip`, `counted`, `number`, `weight`) ; `compose` ; `ScriptClip`, `CountedFamily` ; `ClipManifest` |
 | Avatar d'un compte (liste fermée) ; langue de la voix (de la personne, sinon de son site) ; changer l'un ou l'autre ; comptes retenus par le téléphone | `AccountAvatar` (`avatar`) ; `AudioLanguage` (`audioLanguage`, `languageOf`) ; `updateAccount` ; `KnownAccount` (`knownAccounts`) |
 | Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
@@ -184,6 +185,8 @@ npx nx serve web                      # Angular, en développement
 npx nx serve api                      # NestJS, après build (DATABASE_URL exigé ; PORT, défaut 3000)
 npx nx prisma-generate api            # régénérer le client Prisma après un changement de schéma
 node packages/design-system/tools/bake-pictograms.mjs   # recuire les pictos après avoir modifié une source (--check : à jour ?)
+node tools/audio-script.mjs           # après avoir modifié audio/script.md : les identifiants que l'écran peut dire
+node tools/build-audio.mjs            # convertir les enregistrements de audio/<langue>/ en clips Opus (demande ffmpeg ; --check sans lui)
 npx prisma migrate diff --config apps/api/prisma.config.ts --from-empty --to-schema apps/api/prisma/schema.prisma --script   # le SQL du schéma entier
 cp infra/.env.example infra/.env      # une fois ; remplir DB_PASSWORD, APP_DB_PASSWORD et JWT_SECRET
 # amorcer un élevage (tenant, premier site, premier admin) : par le script, jamais par une route ; le PIN est demandé au clavier
@@ -204,4 +207,4 @@ Il n'y a pas de générateur installé : un nouveau projet se crée en copiant u
 
 ## 11. Décisions ouvertes — ne pas les trancher en silence
 
-Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, champs spécifiques par type de coût, seuils d'alerte par défaut, format des clips audio, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.
+Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, champs spécifiques par type de coût, seuils d'alerte par défaut, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.

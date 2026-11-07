@@ -772,31 +772,33 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## I — Audio
 
-### I.1 — Une phrase se compose à partir de clips · **M** · ⚠
-> Spec : CdC « Trois canaux redondants », « Points ouverts » (composition des nombres) · Zone : `packages/domain/src/journal/audio/`
+### I.1 — Une phrase se compose à partir de clips · **M** ✅
+> Spec : CdC « Trois canaux redondants », « Points ouverts » (composition des nombres) · Zone : `apps/web/src/app/core/audio/` (et non `packages/domain` : dire une phrase n'est pas une règle métier, le serveur ne parle jamais — 2026-11-07)
 > Dépend de : B.2 · Revue : fonction pure ; relire les phrases comme un locuteur les entendrait.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `compose(parts, langue, clips enregistrés)` : une suite de morceaux — un clip, une phrase comptée (`deaths-today-3`, sinon la phrase composée, le nombre à la fin), un nombre, un poids — devient la suite des clips à jouer, ou la liste de ce qui manque. Les identifiants viennent du script : `tools/audio-script.mjs` lit `audio/script.md` et écrit `script-clips.ts` ; un écran qui demande une phrase absente du script ne compile pas. **Nombres en français** jusqu'à 999 999 avec les seuls clips de l'annexe (« soixante et onze », « quatre-vingt-un », « douze mille ») ; **en wolof, aucun nombre tant que la règle n'est pas fixée avec le locuteur** : une phrase à composer y est signalée, pas inventée.
 
-- [ ] Une phrase est une suite ordonnée d'identifiants de clips
-- [ ] Un nombre se décompose en clips selon la règle de la langue
-- [ ] « Tu as écrit 3 morts » et « 1 mort » s'accordent
-- [ ] Une phrase dont un clip n'existe pas dans la langue est signalée, jamais tronquée en silence
-- [ ] **Phrase entière d'abord** (décision du 2026-11-07) : une phrase enregistrée d'un seul tenant est toujours préférée ; elle n'est composée de morceaux que si elle n'existe pas entière — toute phrase fixe est enregistrée entière, et les phrases fréquentes avec un petit nombre aussi (« 3 morts aujourd'hui », jusqu'à un seuil réglé à l'écoute avec le locuteur et les pilotes) ; au-delà (livraisons, poussins), la phrase se compose, le nombre placé en fin de phrase ou détaché, les clips enchaînés sans silence. Ajouter une phrase entière ne demande aucun code
+- [x] Une phrase est une suite ordonnée d'identifiants de clips
+- [x] Un nombre se décompose en clips selon la règle de la langue — le français ; le wolof attend son locuteur
+- [x] « Tu as écrit 3 morts » et « 1 mort » s'accordent — chaque nombre de 1 à 20 a sa phrase entière, accordée à l'enregistrement
+- [x] Une phrase dont un clip n'existe pas dans la langue est signalée, jamais tronquée en silence
+- [x] **Phrase entière d'abord** (décision du 2026-11-07) : une phrase enregistrée d'un seul tenant est toujours préférée ; elle n'est composée de morceaux que si elle n'existe pas entière — toute phrase fixe est enregistrée entière, et les phrases fréquentes avec un petit nombre aussi (« 3 morts aujourd'hui », jusqu'à un seuil réglé à l'écoute avec le locuteur et les pilotes) ; au-delà (livraisons, poussins), la phrase se compose, le nombre placé en fin de phrase ou détaché, les clips enchaînés sans silence. Ajouter une phrase entière ne demande aucun code
 
-### I.2 — Les clips se jouent hors-ligne · **M** · ⚠
+### I.2 — Les clips se jouent hors-ligne · **M** ✅
 > Spec : Archi §5 (précache des clips) ; `CLAUDE.md` §4 règle 11 · Zone : `apps/web/src/app/core/audio/`
 > Dépend de : I.1, G.1 · Revue : aucune synthèse vocale dans le bundle de production.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. **Format tranché le 2026-11-07 : Opus mono, 24 kb/s, en WebM** (environ 6 Ko pour deux secondes). `tools/build-audio.mjs` convertit les enregistrements de `audio/<langue>/` (tout format courant ; silences coupés, volume égalisé ; **ffmpeg** sur l'ordinateur) vers `apps/web/public/audio/<langue>/`, avec `manifest.json` (clips enregistrés et version) ; un fichier dont le nom n'est pas dans le script est refusé. Le service worker garde `/audio/**` dès le premier chargement (groupe « audio ») ; à la connexion, `Voice` charge une fois tous les clips de la langue de la personne (sa langue ou celle de son site, E.9), puis plus jamais tant que la version ne change pas. Lecture par Web Audio : clips décodés et posés bout à bout sur l'horloge audio. Aujourd'hui aucun clip n'est enregistré : l'écran se tait, et dit ce qui manque.
 
-- [ ] Les clips de la langue de la personne connectée sont précachés (sa langue, ou à défaut celle de son site — E.9)
-- [ ] Une phrase se joue sans réseau, clips enchaînés sans trou audible
-- [ ] Une nouvelle phrase interrompt la précédente
-- [ ] La synthèse vocale du navigateur n'est jamais appelée en production
+- [x] Les clips de la langue de la personne connectée sont précachés (sa langue, ou à défaut celle de son site — E.9)
+- [x] Une phrase se joue sans réseau, clips enchaînés sans trou audible — enchaînement par Web Audio ; **à écouter sur un vrai téléphone** dès les premiers clips
+- [x] Une nouvelle phrase interrompt la précédente
+- [x] La synthèse vocale du navigateur n'est jamais appelée en production — une règle du dépôt la cherche dans tout `apps/web/src`
 
 ### I.3 — Le script français couvre tout l'écran du gardien · **S** (script écrit)
 > Spec : CdC « Points ouverts » (script des phrases) · Zone : `audio/fr/`
 > Dépend de : I.1 · Revue : la liste des phrases, à lire à voix haute.
 
 - [x] Chaque texte de l'écran du gardien a sa phrase dans le script — `audio/script.md`, écrit le 2026-11-07 d'après la maquette et le cahier des charges : environ 375 clips par langue, selon le principe « phrase entière d'abord » ; colonne wolof à remplir par le traducteur ; guide d'enregistrement en tête
-- [ ] Un test échoue si un écran référence une phrase absente du script
+- [x] Un test échoue si un écran référence une phrase absente du script — par le typage : `script-clips.ts` est tiré du script, et une règle du dépôt vérifie qu'il est à jour (2026-11-07). Trois phrases ajoutées pour l'écran d'entrée : code déjà choisi, numéro mal écrit, service indisponible (398 clips par langue)
 - [ ] Les phrases du bureau s'ajoutent au script : questions de saisie, relectures d'argent, sens des dettes (« tu dois… à », « … te doit »), chiffres clés — le bureau parle aussi depuis le 2026-11-07
 - [ ] Les clips wolof ⏸ attendent l'enregistrement d'un locuteur
 
@@ -811,7 +813,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Le bandeau montre le jour J, la jauge poussin → poule et les vivants
 - [x] Tant qu'aucun poussin n'est reçu, le bandeau ne montre pas de vivants : ni zéro, ni nombre négatif (QA de C.5 — confirmé le 2026-11-07 : le serveur envoie « inconnu », le bandeau n'en montre rien)
 - [x] Le badge du titulaire est visible — « Titulaire » sur la couverture ; à valider sur le terrain
-- [x] Sans campagne en cours, l'écran le dit par picto (l'audio avec I)
+- [x] Sans campagne en cours, l'écran le dit par picto et audio — haut-parleur sur le post-it (I, 2026-11-07)
 - [x] Avec une seule campagne en cours, le cahier s'ouvre directement dessus : aucun choix n'est demandé (décision du 2026-11-07)
 - [x] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande à chaque ouverture du cahier, en un tap sur de grandes cartes, puis en change par des intercalaires ; la confirmation de chaque déclaration redit la bande (décisions du 2026-11-07, `journal-gardien-entree.html`) ; il la choisit simplement (picto, couleur, audio) — deux bandes s'appellent « les petits » et « les grands », la plus jeune et la plus vieille (décision du 2026-11-07) ; au-delà de deux, leur âge —, sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration. Rien ne s'écrit avant le choix ; la bande choisie devient l'intercalaire actif et le bandeau la redit. La confirmation de chaque déclaration qui redit la bande vient avec K.
 - [x] L'écran s'affiche hors-ligne avec le dernier contexte reçu
@@ -824,7 +826,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [x] Aujourd'hui, hier et avant-hier sont visibles, chacun avec son mini-résumé
 - [x] Un jour non déclaré et un jour à zéro déclaré ne se ressemblent pas — point d'interrogation pour un jour passé resté blanc, soleil pâle pour aujourd'hui pas encore écrit, tampon pour « rien perdu »
-- [ ] Choisir un jour passé affiche la bannière et la dit à voix haute — la bannière violette est faite ; la voix vient avec I
+- [x] Choisir un jour passé affiche la bannière et la dit à voix haute — « Attention : tu écris pour hier » (I, 2026-11-07) ; choisir une bande dit son nom
 - [x] Une déclaration faite sous la bannière porte la date métier du jour choisi — le cahier donne aux gestes (K) le site, la bande et le jour choisis (`declarationTarget`)
 
 ### J.3 — Le journal du jour · **M** ✅

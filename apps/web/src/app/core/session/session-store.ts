@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { AccountAvatar, SessionAccount, SessionRole, SignInResponse } from '@contracts';
+import type { AccountAvatar, AudioLanguage, SessionAccount, SessionRole, SignInResponse } from '@contracts';
 
 /** What the phone knows of who uses it. An expired session still says who: the notebook stays open offline. */
 export type SessionState =
@@ -7,7 +7,15 @@ export type SessionState =
   | { readonly status: 'active' | 'expired'; readonly userId: string; readonly role: SessionRole; readonly token: string; readonly expiresAt: string; readonly account: SessionAccount };
 
 /** An account that has signed in on this phone: shown on « who holds the notebook » (G.2, E.9). */
-export type KnownAccount = { readonly userId: string; readonly phone: string; readonly role: SessionRole; readonly name: string; readonly avatar: AccountAvatar | null };
+export type KnownAccount = {
+  readonly userId: string;
+  readonly phone: string;
+  readonly role: SessionRole;
+  readonly name: string;
+  readonly avatar: AccountAvatar | null;
+  /** The voice of the entry screen for this account (I.2); absent for an account remembered before. */
+  readonly language?: AudioLanguage;
+};
 
 const SESSION_KEY = 'yaar.session';
 const DEVICE_KEY = 'yaar.device';
@@ -43,7 +51,7 @@ export class SessionStore {
     this.storage.setItem(SESSION_KEY, JSON.stringify({ token: session.token, expiresAt: session.expiresAt, role: session.role, account: session.account }));
     const userId = subjectOf(session.token);
     if (userId !== null) {
-      const known: KnownAccount = { userId, phone, role: session.role, name: session.account.name, avatar: session.account.avatar };
+      const known: KnownAccount = { userId, phone, role: session.role, name: session.account.name, avatar: session.account.avatar, language: session.account.language };
       this.storage.setItem(ACCOUNTS_KEY, JSON.stringify([known, ...this.knownAccounts().filter((account) => account.userId !== userId)]));
     }
   }

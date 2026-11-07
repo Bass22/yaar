@@ -238,7 +238,7 @@ Les lots 1–3 donnent un produit mono-éleveur complet ; le multi-tenant étant
 - [ ] **Qui code l'application ?** C'est la décision qui valide la stack : équipe/freelances communs avec l'ERP Travaux → TypeScript confirmé ; fondateur seul sur la durée → réévaluer Django en connaissance des coûts (deux stacks, pas de types partagés).
 - [x] ~~JWT : TTL et stratégie refresh~~ — tranché le 2026-11-07 : jeton signé HS256, 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; durées dans `SESSION_LIFETIME_SECONDS`. Blocage de compte et date d'invalidation des jetons sur `users`, vérifiés à chaque requête ; pas de table de sessions. Jeton gardé par l'application (en-tête `Authorization`), pas de cookie.
 - [ ] Hébergeur et région (résidence des données comme argument commercial ?).
-- [ ] Compression/format des clips audio et taille du précache par langue.
+- [x] ~~Compression/format des clips audio et taille du précache par langue.~~ Tranché le 2026-11-07 : Opus mono à 24 kb/s en WebM, environ 6 Ko le clip, 2 à 3 Mo par langue ; le service worker garde les clips de la langue de la personne, chargés une fois à la connexion (backlog I.2).
 - [x] ~~Stratégie de versionnement du schéma d'événements (champ `version` dès le lot 1 ?)~~ — tranché le 2026-11-06 : pas de champ `version`, évolution par ajout seulement (voir « Décisions postérieures »).
 - [ ] Champs spécifiques par type de coût (schémas de saisie dynamiques) — déjà pointé au cahier des charges, impacte DTO et `packages/contracts`.
 - [ ] Seuils de bascule vers stockage objet et vers réplique analytics dédiée.

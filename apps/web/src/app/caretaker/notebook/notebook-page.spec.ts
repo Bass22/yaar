@@ -6,6 +6,7 @@ import type { CaretakerCampaign, CaretakerContext, CaretakerSite } from '@contra
 import { CLOCK } from '../../core/clock';
 import { Outbox } from '../../core/outbox/outbox';
 import { OUTBOX } from '../../core/sync/journal-sync';
+import { provideHeardVoice } from '../../core/audio/testing';
 import { Notebook } from './notebook';
 import { notebookTitle } from './notebook-cover';
 import { NotebookPage } from './notebook-page';
@@ -35,14 +36,17 @@ const contexte = (...sites: CaretakerSite[]): CaretakerContext => ({ sites });
 describe('Le cahier du gardien', () => {
   let http: HttpTestingController;
   let outbox: Outbox;
+  let heard: string[][];
 
   const connecte = (userId = OUSMANE, name = 'Ousmane') =>
     localStorage.setItem('yaar.session', JSON.stringify({ token: token(userId), expiresAt: '2099-01-01T00:00:00.000Z', role: 'collaborator', account: { name, avatar: 'baobab', language: 'wo' } }));
 
   /** Opens the notebook; `answer` is what the server says to the context request, `null` for no network. */
   const ouvre = async (answer: CaretakerContext | null) => {
+    const voice = provideHeardVoice(['day-today', 'past-day-yesterday', 'past-day-before-yesterday', 'campaign-young', 'campaign-old', 'no-campaign', 'sign-in-offline']);
+    heard = voice.heard;
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: OUTBOX, useValue: Promise.resolve(outbox) }, { provide: CLOCK, useValue: { now: () => NOW } }],
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: OUTBOX, useValue: Promise.resolve(outbox) }, { provide: CLOCK, useValue: { now: () => NOW } }, ...voice.providers],
     });
     http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(NotebookPage);
@@ -135,15 +139,18 @@ describe('Le cahier du gardien', () => {
       expect(notebook.declarationTarget()?.campaignId).toBe(PETITS);
 
       await click('.tab', 'J22');
+      expect(heard).toEqual([['wo/campaign-young'], ['wo/campaign-old']]);
       expect(element.querySelector('app-day-strip .campaign')?.textContent).toContain('Les grands · J22');
       expect(notebook.declarationTarget()?.campaignId).toBe(GRANDS);
     });
 
-    it("sans bande en cours, le cahier le dit, sans afficher de jour ni de chiffre", async () => {
-      const { element } = await ouvre(contexte(unSite({ campaigns: [] })));
+    it("sans bande en cours, le cahier le dit — picto, mots, et sa voix au haut-parleur —, sans afficher de jour ni de chiffre", async () => {
+      const { element, click } = await ouvre(contexte(unSite({ campaigns: [] })));
 
       expect(element.querySelector('.notice')?.textContent).toContain('Pas de bande en cours');
       expect(element.querySelector('app-day-strip')).toBeNull();
+      await click('.notice app-speaker-button button');
+      expect(heard).toEqual([['wo/no-campaign']]);
     });
   });
 
@@ -206,6 +213,8 @@ describe('Le cahier du gardien', () => {
       await click('.past button');
       expect(element.querySelector('.past')).toBeNull();
       expect(notebook.declarationTarget()?.businessDate).toBe('2026-11-06');
+      // Spec: backlog J.2 — la bannière se dit à voix haute, dans la langue du gardien
+      expect(heard).toEqual([['wo/past-day-yesterday'], ['wo/day-today']]);
     });
   });
 

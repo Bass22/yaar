@@ -28,9 +28,9 @@ Le code cherche d'abord la phrase entière, puis la compose si elle n'existe pas
   - **le texte exact de chaque clip** : celui de ce script, corrigé si le locuteur a changé une tournure ;
   - pas d'autorisation à faire signer tant que la voix est celle du fondateur ; si une autre voix enregistre un jour, **son autorisation écrite** est signée avant la séance, et couvre l'application *et* l'entraînement d'une IA avec sa voix ;
   - **toujours la même voix, le même micro, la même pièce calme** : des enregistrements homogènes.
-- **Ensuite** : les fichiers reviennent dans `audio/wo/` (ou `audio/fr/`) ; ils sont découpés, égalisés en volume et convertis au format retenu (décision ouverte : format et poids des clips). Un test signale tout clip manquant.
+- **Ensuite** : les fichiers reviennent dans `audio/wo/` (ou `audio/fr/`), nommés par leur identifiant, dans n'importe quel format audio courant (m4a, mp3, wav, ogg…). `node tools/build-audio.mjs` les découpe (silences du début et de la fin), égalise leur volume et les convertit en **Opus mono à 24 kb/s** (décision du 2026-11-07), dans `apps/web/public/audio/<langue>/`, avec la liste de ce qui est enregistré. Il demande **ffmpeg** sur l'ordinateur (`brew install ffmpeg`). Un fichier dont le nom n'est pas dans ce script est refusé ; une phrase que l'écran demande et qui n'est pas encore enregistrée est signalée, jamais coupée.
 
-Colonnes : **Id** — le nom du fichier ; **Phrase** — le français à dire ; **Quand** — le moment où le téléphone la dit ; **Wolof** — à remplir par le traducteur.
+Colonnes : **Id** — le nom du fichier, lu tel quel par l'outillage (`tools/audio-script.mjs`) : un identifiant entre accents graves, une liste séparée par des virgules, ou une suite `deaths-today-1` … `-20` ; **Phrase** — le français à dire ; **Quand** — le moment où le téléphone la dit ; **Wolof** — à remplir par le traducteur.
 
 ---
 
@@ -46,6 +46,9 @@ Colonnes : **Id** — le nom du fichier ; **Phrase** — le français à dire ; 
 | `sign-in-pin-too-simple` | Ce code est trop simple. Choisis-en un autre. | PIN trop simple | |
 | `sign-in-pin-expired` | Le code du chef n'est plus bon. Demande-lui un nouveau code. | PIN provisoire expiré | |
 | `sign-in-offline` | Pas de réseau. Réessaie quand le téléphone a du réseau. | Connexion sans réseau | |
+| `sign-in-pin-already-chosen` | Ton code est déjà choisi. Tape-le pour entrer. | Premier code déjà choisi | |
+| `sign-in-phone-format` | Le numéro s'écrit en entier, avec l'indicatif. | Numéro mal écrit | |
+| `server-unavailable` | Le service ne répond pas. Réessaie plus tard. | Le serveur ne répond pas | |
 
 ## 1 bis. Écrans d'entrée (conçus le 2026-11-07, `journal-gardien-entree.html`)
 
@@ -56,7 +59,7 @@ Colonnes : **Id** — le nom du fichier ; **Phrase** — le français à dire ; 
 | `sign-in-type-new-code` | Tape ton nouveau code. | Premier code, deuxième étape | |
 | `sign-in-type-new-code-again` | Tape encore ton nouveau code. | Premier code, troisième étape | |
 | `sign-in-codes-differ` | Les deux codes ne sont pas pareils. Recommence. | Les deux saisies du nouveau code diffèrent | |
-| `avatar-baobab` … `avatar-drum` | Le baobab. La mangue. La pirogue. La théière. La calebasse. Le mouton. La chèvre. La pastèque. Le poisson. L'étoile. La tortue. Le tambour. | Un avatar touché ou montré — **12 fichiers** | |
+| `avatar-baobab`, `avatar-mango`, `avatar-pirogue`, `avatar-teapot`, `avatar-calabash`, `avatar-sheep`, `avatar-goat`, `avatar-watermelon`, `avatar-fish`, `avatar-star`, `avatar-turtle`, `avatar-drum` | Le baobab. La mangue. La pirogue. La théière. La calebasse. Le mouton. La chèvre. La pastèque. Le poisson. L'étoile. La tortue. Le tambour. | Un avatar touché ou montré — **12 fichiers** | |
 | `campaign-young` | Les petits. | Carte ou onglet de la bande la plus jeune | |
 | `campaign-old` | Les grands. | Carte ou onglet de la bande la plus vieille | |
 | `weighing-type-display` | Tape le poids que montre la balance. | L'afficheur de la pesée s'ouvre (remplace `weighing-type-weight`) | |
@@ -145,7 +148,7 @@ Colonnes : **Id** — le nom du fichier ; **Phrase** — le français à dire ; 
 | `weighing-requested` | Le chef demande la pesée. Attrape cinq poulets, un par un, dans des coins différents. Pas seulement les gros ! | Carte de demande de pesée | |
 | `weighing-type-weight` | Pèse le poulet, puis tape le poids qu'affiche ta balance. | Avant chaque poulet (la balance n'est pas modélisée : décision du 2026-11-07) | |
 | `weighing-chicken-1` … `-5` | Poulet 1. … Poulet 5. | Avant le poids lu — **de 1 à 5** | |
-| `weighing-weight` | *kilos* kilo *grammes*. | Le poids relu — **composé** (annexe) | |
+| *(composé)* | *kilos* kilo *grammes*. | Le poids relu — **composé** des nombres et des unités de l'annexe, aucun fichier à lui | |
 | `weighing-next` | C'est noté. Poulet suivant. | Poids validé, il en manque | |
 | `weighing-all-done` | C'est tout bon. Appuie sur Envoyer. | Cinq poids pris | |
 | `weighing-sent` | C'est envoyé. Le chef suit la croissance. | Pesée envoyée | |
@@ -199,4 +202,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 395 fichiers par langue, dont 265 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 398 fichiers par langue, dont 265 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

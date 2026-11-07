@@ -49,7 +49,7 @@ describe('Session gardée sur le téléphone', () => {
     expect(store().deviceId()).toBe(device);
   });
 
-  it("le téléphone retient les comptes qui s'y sont connectés — nom, avatar, rôle, numéro —, le plus récent d'abord, sans doublon, même après une déconnexion (E.9)", () => {
+  it("le téléphone retient les comptes qui s'y sont connectés — nom, avatar, rôle, numéro, langue de la voix —, le plus récent d'abord, sans doublon, même après une déconnexion (E.9)", () => {
     const AWA = '00000000-0000-4000-8000-000000000052';
     store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
     store().save({ token: tokenFor({ sub: AWA }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: { name: 'Awa', avatar: 'pirogue', language: 'fr' } }, '+221770000052');
@@ -57,8 +57,8 @@ describe('Session gardée sur le téléphone', () => {
     store().clear();
 
     expect(store().knownAccounts()).toEqual([
-      { userId: OUSMANE, phone: PHONE, role: 'collaborator', name: 'Ousmane', avatar: 'baobab' },
-      { userId: AWA, phone: '+221770000052', role: 'collaborator', name: 'Awa', avatar: 'pirogue' },
+      { userId: OUSMANE, phone: PHONE, role: 'collaborator', name: 'Ousmane', avatar: 'baobab', language: 'wo' },
+      { userId: AWA, phone: '+221770000052', role: 'collaborator', name: 'Awa', avatar: 'pirogue', language: 'fr' },
     ]);
   });
 

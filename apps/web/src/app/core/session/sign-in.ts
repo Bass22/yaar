@@ -4,13 +4,17 @@ import { AvatarBadge } from '../../ui/avatar-badge';
 import { Keypad } from '../../ui/keypad';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
+import type { AudioLanguage } from '@contracts';
+import { clip } from '../audio/phrase';
+import type { ScriptClip } from '../audio/script-clips';
+import { Voice } from '../audio/voice';
 import { AuthService, type SignInFailure, type SignInResult } from './auth';
 import type { KnownAccount } from './session-store';
 
 /** The steps of the entry screen (journal-gardien-entree.html, decisions of 2026-11-07). */
 export type SignInStep = 'who' | 'phone' | 'code' | 'new-code' | 'confirm-code';
 
-type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: string };
+type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: string; readonly clip: ScriptClip };
 
 // The entry of the notebook (G.2): who holds it — the accounts known to this phone, as big
 // avatars —, then the code on a pad of big keys, opened at the last digit. The first sign-in
@@ -133,6 +137,7 @@ type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: strin
 export class SignInPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly voice = inject(Voice);
 
   protected readonly accounts = this.auth.knownAccounts();
   protected readonly step = signal<SignInStep>(this.accounts.length > 0 ? 'who' : 'phone');
@@ -163,6 +168,8 @@ export class SignInPage {
     this.account.set(known);
     this.phone.set(known.phone);
     this.openCode('code');
+    // The voice names the drawing touched, then asks for the code — in this account's language.
+    void this.voice.say([...(known.avatar === null ? [] : [clip(`avatar-${known.avatar}` as const)]), clip('sign-in-type-code')], this.language());
   }
 
   protected usePhone(event: Event): void {
@@ -203,7 +210,7 @@ export class SignInPage {
         return;
       case 'confirm-code':
         if (typed !== this.newPin) {
-          this.openCode('new-code', { tone: 'refused', text: 'Les deux codes ne sont pas pareils. Recommence.' });
+          this.openCode('new-code', { tone: 'refused', text: 'Les deux codes ne sont pas pareils. Recommence.', clip: 'sign-in-codes-differ' });
           return;
         }
         return this.choosePin();
@@ -214,7 +221,7 @@ export class SignInPage {
     const result = await this.run(() => this.auth.signIn(this.phone(), pin));
     if (!result.ok && result.refusal.kind === 'PinMustBeChosen') {
       this.provisionalPin = pin;
-      this.openCode('new-code', { tone: 'info', text: 'Première fois : choisis ton propre code, et garde-le pour toi.' });
+      this.openCode('new-code', { tone: 'info', text: 'Première fois : choisis ton propre code, et garde-le pour toi.', clip: 'sign-in-choose-pin' });
     }
   }
 
@@ -235,7 +242,11 @@ export class SignInPage {
     }
     this.digits.set('');
     this.refused.set(result.refusal.kind === 'InvalidCredentials');
-    this.notice.set(noticeOf(result.refusal));
+    const notice = noticeOf(result.refusal);
+    this.notice.set(notice);
+    if (result.refusal.kind !== 'PinMustBeChosen') {
+      void this.voice.say([clip(notice.clip)], this.language());
+    }
     return result;
   }
 
@@ -244,33 +255,43 @@ export class SignInPage {
     this.digits.set('');
     this.refused.set(false);
     this.notice.set(notice);
+    if (notice !== null) {
+      void this.voice.say([clip(notice.clip)], this.language());
+    } else if (step === 'new-code' || step === 'confirm-code') {
+      void this.voice.say([clip(step === 'new-code' ? 'sign-in-type-new-code' : 'sign-in-type-new-code-again')], this.language());
+    }
+  }
+
+  /** The language of the account being entered; French for a number never seen on this phone. */
+  private language(): AudioLanguage {
+    return this.account()?.language ?? 'fr';
   }
 }
 
 function noticeOf(refusal: SignInFailure): Notice {
-  const refused = (text: string): Notice => ({ tone: 'refused', text });
+  const refused = (text: string, clip: ScriptClip): Notice => ({ tone: 'refused', text, clip });
   switch (refusal.kind) {
     case 'InvalidCredentials':
-      return refused("Ce n'est pas le bon code. Essaie encore.");
+      return refused("Ce n'est pas le bon code. Essaie encore.", 'sign-in-wrong-pin');
     case 'TooManyAttempts':
-      return { tone: 'wait', text: `Trop d'essais. Réessaie à ${new Date(refusal.retryAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.` };
+      return { tone: 'wait', text: `Trop d'essais. Réessaie à ${new Date(refusal.retryAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`, clip: 'sign-in-wait' };
     case 'AccountBlocked':
-      return refused('Ce compte est bloqué. Parle au chef.');
+      return refused('Ce compte est bloqué. Parle au chef.', 'sign-in-blocked');
     case 'PinMustBeChosen':
-      return { tone: 'info', text: 'Première fois : choisis ton propre code, et garde-le pour toi.' };
+      return { tone: 'info', text: 'Première fois : choisis ton propre code, et garde-le pour toi.', clip: 'sign-in-choose-pin' };
     case 'ProvisionalPinExpired':
-      return refused("Le code du chef n'est plus bon. Demande-lui un nouveau code.");
+      return refused("Le code du chef n'est plus bon. Demande-lui un nouveau code.", 'sign-in-pin-expired');
     case 'PinAlreadyChosen':
-      return refused('Ton code est déjà choisi : tape-le pour entrer.');
+      return refused('Ton code est déjà choisi : tape-le pour entrer.', 'sign-in-pin-already-chosen');
     case 'InvalidPin':
     case 'TrivialPin':
     case 'SameAsProvisionalPin':
-      return refused('Ce code est trop simple, ou pareil à celui du chef. Choisis-en un autre.');
+      return refused('Ce code est trop simple, ou pareil à celui du chef. Choisis-en un autre.', 'sign-in-pin-too-simple');
     case 'InvalidRequest':
-      return refused('Le numéro s’écrit en entier, par exemple +221771234567.');
+      return refused('Le numéro s’écrit en entier, par exemple +221771234567.', 'sign-in-phone-format');
     case 'Offline':
-      return { tone: 'wait', text: 'Pas de réseau. Réessaie quand le téléphone a du réseau.' };
+      return { tone: 'wait', text: 'Pas de réseau. Réessaie quand le téléphone a du réseau.', clip: 'sign-in-offline' };
     case 'ServerUnavailable':
-      return { tone: 'wait', text: 'Le service ne répond pas. Réessaie plus tard.' };
+      return { tone: 'wait', text: 'Le service ne répond pas. Réessaie plus tard.', clip: 'server-unavailable' };
   }
 }
