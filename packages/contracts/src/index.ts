@@ -9,4 +9,4 @@ export type {
   SignInResponse,
 } from './auth';
 export type { DesignatePrimaryCaretakerRequest, SiteStaffRefusal } from './sites';
-export type { FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';
+export type { CaretakerCampaign, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';

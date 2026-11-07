@@ -71,7 +71,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
 | Une tâche sanitaire non faite est-elle reportée au lendemain ? | CdC (non précisé) | L.1 |
 | Source de la météo, et seuil de chaleur qui déclenche la tâche bicarbonate | CdC (non précisé) | L.3 |
-| Une seule campagne en cours par site ? | CdC (non précisé) | O.2 |
+| ~~Une seule campagne en cours par site ?~~ ✅ tranché le 2026-11-07 : non — un site peut avoir plusieurs campagnes en cours à la fois, et le gardien déclare sur chacune | CdC « Hiérarchie » | ~~O.2~~ |
 | Seuil par défaut de l'alerte de mortalité sur 7 jours | CdC « Points ouverts » | O.4 |
 | Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ? | CdC (non précisé) | P.1 |
 | Champs de saisie propres à chaque type de coût | CdC « Points ouverts » | P.6 |
@@ -622,17 +622,21 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` (réserve R-8) ; il vient de la session
 - [x] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base (déjà posée par la base depuis D.3)
 
-### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒
+### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒 ✅
 > Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/contracts`
 > Dépend de : F.2, C.6 · Revue : le type de réponse du gardien est distinct de ceux de l'admin.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `GET /api/v1/caretaker/context` (chemin en anglais ; le backlog d'origine disait `gardien/contexte`) renvoie `{ sites: [...] }` : **tous les sites que la session atteint**, en une fois — ceux du collaborateur, filtrés dans la requête, ou tous ceux de l'élevage pour l'admin. Pour chacun : nom, jour métier du site (`today`), et **ses campagnes en cours** (liste, la plus ancienne mise en place d'abord ; vide s'il n'y en a pas) — pour chacune : identifiant, mise en place, jour J, vivants, et le journal effectif d'avant-hier, hier et aujourd'hui dans l'ordre d'écriture, chaque ligne avec son auteur (identifiant et nom), le fait qui compte, `corrected` et `retracted` (une ligne annulée garde le fait déclaré). Type de réponse propre au gardien (`CaretakerContext`, packages/contracts). Construite depuis le journal et les règles du domaine (`effectiveJournal`, `recentBusinessDays`, `campaignDay`) : rien n'y lit une commande, un coût ou une vente.
+> **Choix à relire** : une seule route pour tous les sites, plutôt qu'une par site. Les vivants valent `null` tant que les poussins mis en place ne sont pas connus (absent n'est pas zéro ; lève aussi le risque de R-1 côté gardien). Une campagne en cours est une campagne non clôturée ; **un site peut en avoir plusieurs à la fois, et le gardien déclare sur chacune** (décision du fondateur, 2026-11-07 — la première version n'en rendait qu'une). Le téléphone ne recalcule pas les vivants seul : il reçoit le chiffre du serveur (R-3 levée). Un gardien dont le site n'a pas de campagne reçoit le site avec une liste vide, sans chiffres.
 
-- [ ] `GET /api/v1/gardien/contexte` renvoie le site, la campagne en cours, le jour J et les vivants
-- [ ] Il renvoie le journal effectif des trois derniers jours, avec l'auteur de chaque ligne
-- [ ] Ce journal ne contient aucune perte hors mortalité (manquants, dons) : le gardien ne voit que les morts ; les vivants renvoyés, eux, en tiennent compte
-- [ ] Une ligne annulée par l'admin y est donnée comme annulée : le téléphone cesse de la compter et de la rappeler
-- [ ] Un collaborateur ne reçoit que le contexte de ses sites : le filtre est dans la requête du serveur, jamais à l'écran ; un site retiré ne descend plus dès la requête suivante
-- [ ] Aucun champ de la réponse ne porte de montant, de prix ni de solde (test de garde sur le type)
-- [ ] Sans campagne en cours, la réponse le dit explicitement
+- [x] `GET /api/v1/caretaker/context` renvoie le site, chacune de ses campagnes en cours et son jour J ; les vivants valent `null` (inconnus) tant que les lignes de commande qui livrent les poussins n'existent pas — ils viendront avec O.2 et Q.7
+- [x] Il renvoie le journal effectif des trois derniers jours, avec l'auteur de chaque ligne
+- [x] Ce journal ne contient aucune perte hors mortalité (manquants, dons) : le gardien ne voit que les morts
+- [ ] Les vivants renvoyés tiennent compte de ces pertes — avec les vivants eux-mêmes (O.2, Q.7) ; le calcul du domaine les compte déjà (C.5)
+- [x] Une ligne annulée par l'admin y est donnée comme annulée : le téléphone cesse de la compter et de la rappeler
+- [x] Un collaborateur ne reçoit que le contexte de ses sites : le filtre est dans la requête du serveur, jamais à l'écran ; un site retiré ne descend plus dès la requête suivante
+- [x] Aucun champ de la réponse ne porte de montant, de prix ni de solde (test de garde sur le type)
+- [x] Sans campagne en cours, la réponse le dit explicitement (liste vide)
+- [x] Plusieurs campagnes en cours sur un même site descendent chacune avec son jour J et son journal (décision du 2026-11-07)
 
 ## G — PWA et outbox hors-ligne
 
@@ -1001,7 +1005,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'admin ouvre une campagne sur un site : souche, effectif, date de mise en place
 - [ ] Une campagne référence sa souche et en hérite la courbe cible
 - [ ] Une campagne sans effectif ou sans date est refusée
-- [ ] La campagne ouverte devient le contexte du gardien du site
+- [ ] La campagne ouverte rejoint le contexte du gardien du site, à côté des autres campagnes en cours sur ce site (plusieurs à la fois : décision du 2026-11-07)
 
 ### O.3 — La coquille du bureau · **M**
 > Spec : CdC « Bureau de l'admin » ; `bureau-admin.html` (onglets, sélecteur de site) · Zone : `apps/web/src/app/admin/`

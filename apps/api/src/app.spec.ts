@@ -96,6 +96,8 @@ describe("Démarrage de l'API", () => {
 
     expect(routes).toEqual([
       'DELETE /api/v1/sites/:siteId/staff/:userId',
+      // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
+      'GET /api/v1/caretaker/context',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
       'POST /api/v1/auth/choose-pin',

@@ -55,3 +55,48 @@ export type JournalEventOutcome =
 export interface JournalBatchResponse {
   readonly outcomes: readonly JournalEventOutcome[];
 }
+
+/**
+ * Answer of GET /api/v1/caretaker/context: what the caretaker's notebook shows, for every site
+ * the session reaches. Its own type, never shared with the admin's: it carries no amount, no
+ * price, no balance (CLAUDE.md §4 rule 4).
+ */
+export interface CaretakerContext {
+  readonly sites: readonly CaretakerSite[];
+}
+
+export interface CaretakerSite {
+  readonly siteId: string;
+  readonly name: string;
+  /** The business day it is now on the site, `YYYY-MM-DD`, in its time zone. */
+  readonly today: string;
+  /**
+   * The campaigns running on the site, earliest placed first: a site may run several at once,
+   * and the caretaker declares on each (decision of 2026-11-07). Empty: none running — said,
+   * never shown as zeros.
+   */
+  readonly campaigns: readonly CaretakerCampaign[];
+}
+
+export interface CaretakerCampaign {
+  readonly campaignId: string;
+  readonly placementDay: string;
+  /** Day J: the day of placement is day 0. */
+  readonly campaignDay: number;
+  /** Birds alive; `null` while unknown (the order lines that deliver the chicks are not known yet). */
+  readonly liveCount: number | null;
+  /** Today, yesterday and the day before, in writing order. Losses that are not deaths are not shown. */
+  readonly journal: readonly CaretakerJournalLine[];
+}
+
+export interface CaretakerJournalLine {
+  readonly id: string;
+  readonly businessDate: string;
+  readonly recordedAt: string;
+  readonly author: { readonly id: string; readonly name: string };
+  /** The fact that counts: the latest correction's, or the declared one. For a retracted line, the declared one. */
+  readonly fact: FactPayload;
+  readonly corrected: boolean;
+  /** Taken back by the admin: shown, never counted nor recalled. */
+  readonly retracted: boolean;
+}

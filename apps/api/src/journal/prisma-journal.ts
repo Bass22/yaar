@@ -61,6 +61,12 @@ export class PrismaJournal implements IngestionPorts {
     return row === null ? null : this.eventOf(row);
   }
 
+  /** Every event of a campaign: declarations, corrections, retractions. */
+  async campaignJournal(campaignId: string): Promise<readonly JournalEvent[]> {
+    const rows = await this.tx.journalEvent.findMany({ where: { campaignId } });
+    return rows.map((row) => this.eventOf(row));
+  }
+
   async isRetracted(id: JournalEventId): Promise<boolean> {
     return (await this.tx.journalEvent.count({ where: { retracts: id } })) > 0;
   }
