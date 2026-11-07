@@ -59,8 +59,8 @@ describe("Comptes de l'équipe et premier PIN", () => {
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    await db.owner.tenant.create({ data: { id: TENANT_A, name: 'Ferme', currency: 'XOF' } });
-    await db.owner.user.create({
+    await db.superuser.tenant.create({ data: { id: TENANT_A, name: 'Ferme', currency: 'XOF' } });
+    await db.superuser.user.create({
       data: { id: LE_GERANT, tenantId: TENANT_A, phone: '+221770000054', name: 'Le gérant', role: 'admin', pinHash: await new Argon2PinHasher().hash(unwrap(Pin('482913', 'admin'))) },
     });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers: [ProbeController] })
@@ -92,7 +92,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
       ousmaneProvisional = body['provisionalPin'] as string;
       expect(Pin(ousmaneProvisional, 'collaborator').ok).toBe(true);
 
-      const stored = await db.owner.user.findUniqueOrThrow({ where: { id: OUSMANE } });
+      const stored = await db.superuser.user.findUniqueOrThrow({ where: { id: OUSMANE } });
       expect(stored).toMatchObject({ tenantId: TENANT_A, role: 'collaborator', provisionalPinExpiresAt: new Date('2026-11-14T08:00:00.000Z') });
       expect(stored.pinHash).toMatch(/^\$argon2id\$/);
       expect(stored.pinHash).not.toContain(ousmaneProvisional);
@@ -114,7 +114,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
         const response = await post('users', { id: AWA, phone: '+221770000052', name: 'Awa', ...extra }, gerant());
         expect(response.status).toBe(400);
       }
-      expect(await db.owner.user.count({ where: { id: AWA } })).toBe(0);
+      expect(await db.superuser.user.count({ where: { id: AWA } })).toBe(0);
     });
 
     it("un numéro qui a déjà un compte est refusé, sans rien créer", async () => {
@@ -122,7 +122,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
 
       expect(response.status).toBe(409);
       expect(await response.json()).toEqual({ kind: 'PhoneAlreadyUsed' });
-      expect(await db.owner.user.count({ where: { id: AWA } })).toBe(0);
+      expect(await db.superuser.user.count({ where: { id: AWA } })).toBe(0);
     });
 
     it("un identifiant, un numéro ou un nom invalides sont refusés", async () => {
@@ -175,7 +175,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
       expect(body).toMatchObject({ role: 'collaborator', expiresAt: '2026-11-14T08:00:00.000Z', token: expect.any(String) });
       expect((await signIn('+221770000051', ousmaneProvisional)).status).toBe(401);
       expect((await signIn('+221770000051', '7351')).status).toBe(200);
-      expect(await db.owner.user.findUniqueOrThrow({ where: { id: OUSMANE } })).toMatchObject({ provisionalPinExpiresAt: null, pinFailures: 0 });
+      expect(await db.superuser.user.findUniqueOrThrow({ where: { id: OUSMANE } })).toMatchObject({ provisionalPinExpiresAt: null, pinFailures: 0 });
     });
 
     it("une fois son PIN choisi, on ne le rechoisit pas par cette voie", async () => {

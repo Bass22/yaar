@@ -20,20 +20,20 @@ describe('Cloisonnement entre élevages', () => {
   let api: PrismaService;
 
   beforeAll(async () => {
-    // Given deux élevages, chacun avec un site, un gardien affecté, une campagne et un événement au journal — semés par le propriétaire de la base
+    // Given deux élevages, chacun avec un site, un gardien affecté, une campagne et un événement au journal — semés par le superutilisateur, que la RLS ne lie pas
     db = await createTestDatabase();
     for (const [tenantId, siteId, suffix] of [
       [TENANT_A, SITE_A, 'a'],
       [TENANT_B, SITE_B, 'b'],
     ] as const) {
       const userId = `00000000-0000-4000-8000-0000000000${suffix}2`;
-      await db.owner.tenant.create({ data: { id: tenantId, name: `Élevage ${suffix.toUpperCase()}`, currency: 'XOF' } });
-      await db.owner.site.create({ data: { id: siteId, tenantId, name: `Poulailler ${suffix.toUpperCase()}`, timeZone: 'Africa/Dakar' } });
-      await db.owner.user.create({ data: { id: userId, tenantId, phone: `+22177000000${suffix === 'a' ? 1 : 2}`, name: 'Gardien', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
-      await db.owner.siteAssignment.create({ data: { tenantId, siteId, userId, isPrimary: true } });
+      await db.superuser.tenant.create({ data: { id: tenantId, name: `Élevage ${suffix.toUpperCase()}`, currency: 'XOF' } });
+      await db.superuser.site.create({ data: { id: siteId, tenantId, name: `Poulailler ${suffix.toUpperCase()}`, timeZone: 'Africa/Dakar' } });
+      await db.superuser.user.create({ data: { id: userId, tenantId, phone: `+22177000000${suffix === 'a' ? 1 : 2}`, name: 'Gardien', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
+      await db.superuser.siteAssignment.create({ data: { tenantId, siteId, userId, isPrimary: true } });
       const campaignId = `00000000-0000-4000-8000-0000000000${suffix}3`;
-      await db.owner.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
-      await db.owner.journalEvent.create({
+      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
+      await db.superuser.journalEvent.create({
         data: {
           id: '00000000-0000-4000-8000-0000000000e1',
           tenantId,
@@ -76,6 +76,23 @@ describe('Cloisonnement entre élevages', () => {
     });
   });
 
+  // Spec: backlog D.6 — le propriétaire des tables, sous lequel tournent migrations et scripts de l'éditeur, est lié par la RLS forcée
+  describe('le propriétaire des tables', () => {
+    it("sans élevage fixé, ne voit aucune ligne, dans aucune table — ni le journal, ni la trace — alors qu'un superutilisateur voit tout", async () => {
+      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0 });
+      expect((await countAll(db.superuser)).journal_events).toBe(2);
+    });
+
+    it("qui fixe un élevage ne voit que cet élevage", async () => {
+      const seen = await db.owner.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.tenant_id', ${TENANT_A}, true)`;
+        return countAll(tx);
+      });
+
+      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0 });
+    });
+  });
+
   describe('un élevage ne voit que lui', () => {
     it("un utilisateur de l'élevage A ne lit aucune ligne de l'élevage B, dans aucune table", async () => {
       // When chaque élevage compte ce qu'il voit, et lit ses sites
@@ -101,21 +118,21 @@ describe('Cloisonnement entre élevages', () => {
       );
 
       await expect(write).rejects.toThrow(/row-level security/);
-      expect(await db.owner.site.count({ where: { name: 'Intrus' } })).toBe(0);
+      expect(await db.superuser.site.count({ where: { name: 'Intrus' } })).toBe(0);
     });
 
     it("un utilisateur de A ne modifie pas une ligne de B : elle n'existe pas pour lui", async () => {
       const updated = await api.runInTenant(TENANT_A, (tx) => tx.site.updateMany({ where: { id: SITE_B }, data: { name: 'Renommé par A' } }));
 
       expect(updated.count).toBe(0);
-      expect(await db.owner.site.findUniqueOrThrow({ where: { id: SITE_B } })).toMatchObject({ name: 'Poulailler B' });
+      expect(await db.superuser.site.findUniqueOrThrow({ where: { id: SITE_B } })).toMatchObject({ name: 'Poulailler B' });
     });
 
     it("un utilisateur de A ne retire pas une affectation de B : elle n'existe pas pour lui", async () => {
       const removed = await api.runInTenant(TENANT_A, (tx) => tx.siteAssignment.deleteMany({ where: { siteId: SITE_B } }));
 
       expect(removed.count).toBe(0);
-      expect(await db.owner.siteAssignment.count({ where: { siteId: SITE_B } })).toBe(1);
+      expect(await db.superuser.siteAssignment.count({ where: { siteId: SITE_B } })).toBe(1);
     });
 
     it("un utilisateur de A n'écrit pas une ligne au nom de B, même sans relire ce qu'il écrit", async () => {
@@ -125,28 +142,28 @@ describe('Cloisonnement entre élevages', () => {
       );
 
       await expect(write).rejects.toThrow(/row-level security/);
-      expect(await db.owner.site.count({ where: { name: 'Intrus discret' } })).toBe(0);
+      expect(await db.superuser.site.count({ where: { name: 'Intrus discret' } })).toBe(0);
     });
 
     it("un utilisateur de A ne fait pas passer une de ses lignes chez B", async () => {
       // Given un site de A dont rien ne dépend : aucune clé étrangère ne le retient
       const lonely = '00000000-0000-4000-8000-0000000000a4';
-      await db.owner.site.create({ data: { id: lonely, tenantId: TENANT_A, name: 'Site sans attache', timeZone: 'Africa/Dakar' } });
+      await db.superuser.site.create({ data: { id: lonely, tenantId: TENANT_A, name: 'Site sans attache', timeZone: 'Africa/Dakar' } });
 
       // When
       const moved = api.runInTenant(TENANT_A, (tx) => tx.$executeRaw`UPDATE sites SET tenant_id = ${TENANT_B}::uuid WHERE id = ${lonely}::uuid`);
 
       // Then
       await expect(moved).rejects.toThrow(/row-level security/);
-      expect(await db.owner.site.findUniqueOrThrow({ where: { id: lonely } })).toMatchObject({ tenantId: TENANT_A });
-      await db.owner.site.delete({ where: { id: lonely } });
+      expect(await db.superuser.site.findUniqueOrThrow({ where: { id: lonely } })).toMatchObject({ tenantId: TENANT_A });
+      await db.superuser.site.delete({ where: { id: lonely } });
     });
 
-    it("même le propriétaire de la base ne déplace pas un site qui a des lignes attachées : rien ne se propage", async () => {
-      const moved = db.owner.$executeRaw`UPDATE sites SET tenant_id = ${TENANT_B}::uuid WHERE id = ${SITE_A}::uuid`;
+    it("même un superutilisateur ne déplace pas un site qui a des lignes attachées : rien ne se propage", async () => {
+      const moved = db.superuser.$executeRaw`UPDATE sites SET tenant_id = ${TENANT_B}::uuid WHERE id = ${SITE_A}::uuid`;
 
       await expect(moved).rejects.toThrow(/23503|23001|foreign key/i);
-      expect(await db.owner.campaign.count({ where: { tenantId: TENANT_A } })).toBe(1);
+      expect(await db.superuser.campaign.count({ where: { tenantId: TENANT_A } })).toBe(1);
     });
 
     it("un élevage écrit chez lui", async () => {
@@ -155,7 +172,7 @@ describe('Cloisonnement entre élevages', () => {
       );
 
       expect(created).toMatchObject({ tenantId: TENANT_A, name: 'Second poulailler' });
-      await db.owner.site.delete({ where: { id: created.id } });
+      await db.superuser.site.delete({ where: { id: created.id } });
     });
   });
 
@@ -181,7 +198,7 @@ describe('Cloisonnement entre élevages', () => {
       // PostgreSQL skips the rows an UPDATE policy hides: nothing is written, without an error
       expect(others).toEqual({ users: 1, sites: 0, journal: 0 });
       expect(written.count).toBe(0);
-      expect(await db.owner.user.findFirstOrThrow({ where: { phone: '+221770000002' } })).toMatchObject({ name: 'Gardien' });
+      expect(await db.superuser.user.findFirstOrThrow({ where: { phone: '+221770000002' } })).toMatchObject({ name: 'Gardien' });
     });
 
     it("le numéro posé ne survit pas à la transaction", async () => {
@@ -225,7 +242,7 @@ describe('Cloisonnement entre élevages', () => {
       // Then le travail imbriqué a vu les deux sites, et rien ne reste après l'échec
       await expect(work).rejects.toThrow('on annule tout');
       expect(seenByTheNestedWork).toBe(2);
-      expect(await db.owner.site.count({ where: { tenantId: TENANT_A } })).toBe(1);
+      expect(await db.superuser.site.count({ where: { tenantId: TENANT_A } })).toBe(1);
     });
 
     it("une transaction imbriquée pour un autre élevage est refusée", async () => {
@@ -241,7 +258,7 @@ describe('Cloisonnement entre élevages', () => {
       });
 
       await expect(failing).rejects.toThrow('panne au milieu du travail');
-      expect(await db.owner.site.count({ where: { name: 'À moitié écrit' } })).toBe(0);
+      expect(await db.superuser.site.count({ where: { name: 'À moitié écrit' } })).toBe(0);
     });
   });
 
@@ -249,14 +266,14 @@ describe('Cloisonnement entre élevages', () => {
     it("n'est ni superutilisateur, ni dispensé de RLS, ni propriétaire d'une table, et ne crée ni rôle ni base", async () => {
       const [role] = await api.$queryRaw<Record<string, boolean>[]>`
         SELECT rolsuper, rolbypassrls, rolcreaterole, rolcreatedb FROM pg_roles WHERE rolname = current_user`;
-      const owned = await db.owner.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE tableowner = 'yaar_app'`;
+      const owned = await db.superuser.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE tableowner = 'yaar_app'`;
 
       expect(role).toEqual({ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false });
       expect(owned).toEqual([]);
     });
 
     it('toute table a sa RLS activée et forcée, avec une politique — une table ajoutée sans elle fait échouer ce test', async () => {
-      const tables = await db.owner.$queryRaw<{ name: string; enabled: boolean; forced: boolean; policies: number }[]>`
+      const tables = await db.superuser.$queryRaw<{ name: string; enabled: boolean; forced: boolean; policies: number }[]>`
         SELECT t.relname AS name, t.relrowsecurity AS enabled, t.relforcerowsecurity AS forced,
                (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = t.oid) AS policies
           FROM pg_class t JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -269,7 +286,7 @@ describe('Cloisonnement entre élevages', () => {
 
     it("n'a que les droits accordés table par table : lire et écrire, jamais vider, ne supprimer qu'une affectation à un site, et seulement lire son élevage", async () => {
       // Lu dans le catalogue : un droit accordé en trop par une migration fait échouer ce test.
-      const grants = await db.owner.$queryRaw<{ table_name: string; privileges: string }[]>`
+      const grants = await db.superuser.$queryRaw<{ table_name: string; privileges: string }[]>`
         SELECT table_name::text, string_agg(privilege_type::text, ',' ORDER BY privilege_type) AS privileges
           FROM information_schema.role_table_grants
          WHERE grantee = 'yaar_app' AND table_schema = 'public'
@@ -300,8 +317,8 @@ describe('Cloisonnement entre élevages', () => {
       for (const attempt of attempts) {
         await expect(attempt()).rejects.toThrow(/permission denied|must be owner|42501/i);
       }
-      expect(await db.owner.site.count()).toBe(2);
-      expect(await db.owner.tenant.count()).toBe(2);
+      expect(await db.superuser.site.count()).toBe(2);
+      expect(await db.superuser.tenant.count()).toBe(2);
     });
   });
 });

@@ -49,15 +49,15 @@ describe('Connexion', () => {
   const deps = (): SignInDependencies => ({ prisma: api, hasher, clock, jwtSecret: SECRET });
   const connecte = (request: Partial<SignInRequest>) =>
     signIn({ phone: '+221770000001', pin: '4829', deviceId: LE_TELEPHONE, ...request }, deps());
-  const compteur = (id: string) => db.owner.user.findUniqueOrThrow({ where: { id }, select: { pinFailures: true, pinLastFailureAt: true } });
+  const compteur = (id: string) => db.superuser.user.findUniqueOrThrow({ where: { id }, select: { pinFailures: true, pinLastFailureAt: true } });
 
   beforeAll(async () => {
     db = await createTestDatabase();
     api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
     hasher = unHacheurCompte();
     const real = new Argon2PinHasher();
-    await db.owner.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
-    await db.owner.user.createMany({
+    await db.superuser.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
+    await db.superuser.user.createMany({
       data: [
         { id: OUSMANE, tenantId: TENANT, phone: '+221770000001', name: 'Ousmane', role: 'collaborator', pinHash: await real.hash(unwrap(Pin('4829', 'collaborator'))) },
         { id: LE_GERANT, tenantId: TENANT, phone: '+221770000054', name: 'Le gérant', role: 'admin', pinHash: await real.hash(unwrap(Pin('482913', 'admin'))) },
@@ -166,12 +166,12 @@ describe('Connexion', () => {
   });
 
   it("une connexion ne modifie que le compteur d'essais de son propre compte", async () => {
-    const snapshot = await db.owner.user.findUniqueOrThrow({ where: { id: LE_GERANT } });
+    const snapshot = await db.superuser.user.findUniqueOrThrow({ where: { id: LE_GERANT } });
 
     await connecte({ pin: '0000' });
     await connecte({});
 
-    expect(await db.owner.user.findUniqueOrThrow({ where: { id: LE_GERANT } })).toEqual(snapshot);
+    expect(await db.superuser.user.findUniqueOrThrow({ where: { id: LE_GERANT } })).toEqual(snapshot);
   });
 
   it("les instants sont ceux de l'horloge du serveur, jamais de la requête", async () => {

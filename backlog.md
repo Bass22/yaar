@@ -437,14 +437,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'image de l'API n'embarque pas la ligne de commande Prisma ; la tâche de migration a son étape
 - [x] La pile complète démarre : migrations appliquées, API saine
 
-### D.6 — Le propriétaire de la base n'est pas superutilisateur · **S** · 🔒
-> Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : `infra/docker-compose.yml`, `infra/postgres/`, `apps/api/prisma/migrations/0001_init`
+### D.6 — Le propriétaire de la base n'est pas superutilisateur · **S** · 🔒 ✅
+> Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : `infra/docker-compose.yml`, `infra/postgres/init-roles.sh`, `infra/.env.example`, `apps/api/prisma/migrations/0001_init`, `apps/api/src/tenants/{bootstrap-tenant,add-admin}.ts`, `apps/api/src/testing/test-database.ts`
 > Dépend de : D.2, D.4 · Revue : aucune tâche courante ne tourne en superutilisateur. Ajoutée le 2026-11-07 (réserve R-18, recommandation sécurité).
+> Livrée le 2026-11-07, aucune dépendance ajoutée. Trois rôles, **deux mots de passe comme avant** : `postgres` (superutilisateur de l'image) n'initialise que le serveur, avec `DB_PASSWORD`, puis perd son mot de passe — il ne se joint plus que de l'intérieur du conteneur (`docker compose exec db psql -U postgres`) ; `yaar` possède la base et les tables (`NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION`) ; `yaar_app` sert l'API, mêmes restrictions. `infra/postgres/init-roles.sh` (ex-`init-app-role.sh`), lancé par l'image PostgreSQL elle-même au premier démarrage sur un volume vide, crée les deux rôles et la base `yaar` au nom du propriétaire. La migration ne crée plus `yaar_app` — le propriétaire n'en a pas le droit — et s'arrête s'il manque. Les scripts de l'éditeur fixent l'élevage qu'ils écrivent et le numéro qu'ils vérifient (`scopeToFarm`) ; l'ajout d'un admin vérifie l'élevage dans cette transaction. Le banc de test crée les rôles comme la pile et migre sous le propriétaire : `db.owner` est ce propriétaire sans privilège, `db.superuser` sème et relit les données des tests ; la sonde de disponibilité est vérifiée sous l'un comme sous l'autre.
+> **Changé en route** : une première version ajoutait un troisième secret (`DB_SUPERUSER_PASSWORD`) ; jugé excessif par le fondateur (« rester pragmatique »), il est remplacé par le retrait du mot de passe du superutilisateur à l'initialisation. Vérifié dans Docker : depuis le réseau de la pile, `DB_PASSWORD` ouvre `yaar` et plus `postgres`.
+> **Choix à relire** : le script d'initialisation ne tourne que sur un volume vide — un volume créé avant D.6 garde ses anciens rôles et se recrée (`docker compose … down -v`), ce qui ne coûte rien tant que rien n'est déployé ; la vérification dans Docker est tombée une fois sur ce piège. Les tests qui prouvent qu'une ligne du journal ou de la trace ne se modifie pas tournent sous le superutilisateur : un refus qui tient pour lui tient pour le propriétaire, qui a moins de droits (titres corrigés en ce sens).
 
-- [ ] Les tables appartiennent à un rôle propriétaire qui n'est ni superutilisateur ni dispensé de RLS ; migrations et scripts de l'éditeur tournent sous lui
-- [ ] Le superutilisateur de PostgreSQL ne sert qu'à l'initialisation du serveur ; son mot de passe ne va à aucun conteneur applicatif
-- [ ] Sous le propriétaire, sans élevage fixé, aucune ligne du journal n'est lisible (la RLS forcée s'applique à lui) ; les scripts de l'éditeur fixent l'élevage qu'ils touchent
-- [ ] La pile complète démarre, l'amorçage et l'ajout d'un admin marchent, joués dans Docker
+- [x] Les tables appartiennent à un rôle propriétaire qui n'est ni superutilisateur ni dispensé de RLS ; migrations et scripts de l'éditeur tournent sous lui
+- [x] Le superutilisateur de PostgreSQL ne sert qu'à l'initialisation du serveur ; son mot de passe ne va à aucun conteneur applicatif
+- [x] Sous le propriétaire, sans élevage fixé, aucune ligne du journal n'est lisible (la RLS forcée s'applique à lui) ; les scripts de l'éditeur fixent l'élevage qu'ils touchent
+- [x] La pile complète démarre, l'amorçage et l'ajout d'un admin marchent, joués dans Docker
 
 ## E — Identité et sessions
 

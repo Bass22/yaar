@@ -7,8 +7,9 @@ import { recordAudit } from '../audit/audit';
 
 // Provisioning of a farm (CdC « Onboarding assisté »): a tenant, its first site and its first
 // admin, created by hand by the operator — never through a route. It runs as the owner of the
-// database, the only role allowed to insert a tenant (migration 0002). Adapted from
-// build-track (bootstrap-company.ts).
+// tables, the only role allowed to insert a tenant; that owner is bound by the forced row-level
+// security (D.6), so the transaction names the farm it writes. Adapted from build-track
+// (bootstrap-company.ts).
 
 export type BootstrapInput = {
   readonly tenantName: string;
@@ -76,6 +77,7 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
     // All three rows, or none: an admin without a farm, or a farm without an admin, is a
     // state nobody could use.
     await prisma.$transaction(async (tx) => {
+      await scopeToFarm(tx, tenantId, input.adminPhone);
       if ((await tx.user.findUnique({ where: { phone: input.adminPhone }, select: { id: true } })) !== null) {
         throw new PhoneAlreadyUsed();
       }
@@ -95,6 +97,16 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
 }
 
 export class PhoneAlreadyUsed extends Error {}
+
+/**
+ * What an operator's script may see in its transaction (D.6): the farm it writes, and the
+ * account that holds a phone number, whatever its farm — the same view as a sign-in has, so
+ * that a number already taken elsewhere is found before writing. Nothing else: the owner of
+ * the tables is bound by the forced row-level security like the API.
+ */
+export async function scopeToFarm(tx: Prisma.TransactionClient, tenantId: string, phone: string): Promise<void> {
+  await tx.$queryRaw`SELECT set_config('app.tenant_id', ${tenantId}, true), set_config('app.sign_in_phone', ${phone}, true)`;
+}
 
 export function isUniqueViolationOn(error: unknown, column: string): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {

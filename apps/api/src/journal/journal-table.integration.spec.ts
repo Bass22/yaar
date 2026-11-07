@@ -43,10 +43,10 @@ describe('Table du journal', () => {
     db = await createTestDatabase();
     for (const tenantId of [TENANT_A, TENANT_B]) {
       const { siteId, authorId, campaignId } = scoped(tenantId);
-      await db.owner.tenant.create({ data: { id: tenantId, name: 'Élevage', currency: 'XOF' } });
-      await db.owner.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
-      await db.owner.user.create({ data: { id: authorId, tenantId, phone: `+22177000000${tenantId === TENANT_A ? 1 : 2}`, name: 'Ousmane', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
-      await db.owner.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
+      await db.superuser.tenant.create({ data: { id: tenantId, name: 'Élevage', currency: 'XOF' } });
+      await db.superuser.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
+      await db.superuser.user.create({ data: { id: authorId, tenantId, phone: `+22177000000${tenantId === TENANT_A ? 1 : 2}`, name: 'Ousmane', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
+      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
     }
     api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' });
     // And trois morts déjà au journal de chaque élevage, sous le même identifiant
@@ -59,7 +59,7 @@ describe('Table du journal', () => {
     await db?.drop();
   });
 
-  const stored = () => db.owner.journalEvent.findUniqueOrThrow({ where: { tenantId_id: { tenantId: TENANT_A, id: EVENT } } });
+  const stored = () => db.superuser.journalEvent.findUniqueOrThrow({ where: { tenantId_id: { tenantId: TENANT_A, id: EVENT } } });
 
   describe('un ajout', () => {
     it("un événement s'insère avec l'identifiant créé sur l'appareil, et se relit tel qu'il a été écrit", async () => {
@@ -76,7 +76,7 @@ describe('Table du journal', () => {
     });
 
     it("l'identifiant est unique par élevage : le même sert dans deux élevages sans se gêner", async () => {
-      expect(await db.owner.journalEvent.count({ where: { id: EVENT } })).toBe(2);
+      expect(await db.superuser.journalEvent.count({ where: { id: EVENT } })).toBe(2);
     });
 
     it("le même identifiant inséré deux fois dans le même élevage ne crée qu'une ligne, et la première reste", async () => {
@@ -89,7 +89,7 @@ describe('Table du journal', () => {
         tx.journalEvent.createMany({ data: [{ ...troisMorts(TENANT_A), fact: { quantity: 9 } }], skipDuplicates: true }),
       );
       expect(ignored.count).toBe(0);
-      expect(await db.owner.journalEvent.count({ where: { tenantId: TENANT_A, id: EVENT } })).toBe(1);
+      expect(await db.superuser.journalEvent.count({ where: { tenantId: TENANT_A, id: EVENT } })).toBe(1);
       expect(await stored()).toMatchObject({ fact: { quantity: 3 } });
     });
 
@@ -112,7 +112,7 @@ describe('Table du journal', () => {
       await api.runInTenant(TENANT_A, (tx) => tx.journalEvent.create({ data: { ...troisMorts(TENANT_A, id), receivedAt: new Date('2020-01-01T00:00:00.000Z') } }));
 
       // When
-      const event = await db.owner.journalEvent.findUniqueOrThrow({ where: { tenantId_id: { tenantId: TENANT_A, id } } });
+      const event = await db.superuser.journalEvent.findUniqueOrThrow({ where: { tenantId_id: { tenantId: TENANT_A, id } } });
 
       // Then la réception est de maintenant, et la date de saisie reste celle du téléphone
       expect(event.receivedAt.getTime()).toBeGreaterThanOrEqual(before - 5_000);
@@ -131,11 +131,11 @@ describe('Table du journal', () => {
       await unchanged();
     });
 
-    it('une mise à jour est refusée au propriétaire de la base lui-même, colonne par colonne', async () => {
+    it('une mise à jour est refusée même à un superutilisateur — donc au propriétaire, qui a moins de droits —, colonne par colonne', async () => {
       const updates = [
-        () => db.owner.$executeRaw`UPDATE journal_events SET fact = '{"quantity": 1}' WHERE id = ${EVENT}::uuid`,
-        () => db.owner.$executeRaw`UPDATE journal_events SET received_at = now() WHERE id = ${EVENT}::uuid`,
-        () => db.owner.$executeRaw`UPDATE journal_events SET recorded_at = now() WHERE id = ${EVENT}::uuid`,
+        () => db.superuser.$executeRaw`UPDATE journal_events SET fact = '{"quantity": 1}' WHERE id = ${EVENT}::uuid`,
+        () => db.superuser.$executeRaw`UPDATE journal_events SET received_at = now() WHERE id = ${EVENT}::uuid`,
+        () => db.superuser.$executeRaw`UPDATE journal_events SET recorded_at = now() WHERE id = ${EVENT}::uuid`,
       ];
 
       for (const update of updates) {
@@ -144,22 +144,22 @@ describe('Table du journal', () => {
       await unchanged();
     });
 
-    it("une suppression est refusée à l'application, et au propriétaire de la base", async () => {
+    it("une suppression est refusée à l'application, et même à un superutilisateur", async () => {
       const byTheApi = api.runInTenant(TENANT_A, (tx) => tx.journalEvent.deleteMany({ where: { id: EVENT } }));
-      const byTheOwner = db.owner.$executeRaw`DELETE FROM journal_events WHERE id = ${EVENT}::uuid`;
+      const byTheOwner = db.superuser.$executeRaw`DELETE FROM journal_events WHERE id = ${EVENT}::uuid`;
 
       await expect(byTheApi).rejects.toThrow(/permission denied|42501/);
       await expect(byTheOwner).rejects.toThrow(/append-only/);
       await unchanged();
     });
 
-    it('vider la table est refusé, même au propriétaire de la base', async () => {
-      await expect(db.owner.$executeRawUnsafe('TRUNCATE journal_events')).rejects.toThrow(/append-only/);
+    it('vider la table est refusé, même à un superutilisateur', async () => {
+      await expect(db.superuser.$executeRawUnsafe('TRUNCATE journal_events')).rejects.toThrow(/append-only/);
       await unchanged();
     });
 
     it("l'application n'a que deux droits sur le journal : lire et ajouter", async () => {
-      const [grants] = await db.owner.$queryRaw<{ privileges: string }[]>`
+      const [grants] = await db.superuser.$queryRaw<{ privileges: string }[]>`
         SELECT string_agg(privilege_type::text, ',' ORDER BY privilege_type) AS privileges
           FROM information_schema.role_table_grants
          WHERE grantee = 'yaar_app' AND table_name = 'journal_events'`;
@@ -178,7 +178,7 @@ describe('Table du journal', () => {
         await tx.journalEvent.create({ data: retraction('00000000-0000-4000-8000-0000000000c2', EVENT) });
       });
 
-      expect(await db.owner.journalEvent.count({ where: { tenantId: TENANT_A, OR: [{ corrects: EVENT }, { retracts: EVENT }] } })).toBe(2);
+      expect(await db.superuser.journalEvent.count({ where: { tenantId: TENANT_A, OR: [{ corrects: EVENT }, { retracts: EVENT }] } })).toBe(2);
     });
 
     it("nommer un événement qui n'est pas au journal de l'élevage est refusé", async () => {

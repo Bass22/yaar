@@ -92,19 +92,19 @@ describe('Session à chaque requête', () => {
   beforeAll(async () => {
     db = await createTestDatabase();
     for (const [tenantId, sites] of [[TENANT_A, [SITE_A1, SITE_A2]], [TENANT_B, [SITE_B1]]] as const) {
-      await db.owner.tenant.create({ data: { id: tenantId, name: 'Ferme', currency: 'XOF' } });
+      await db.superuser.tenant.create({ data: { id: tenantId, name: 'Ferme', currency: 'XOF' } });
       for (const siteId of sites) {
-        await db.owner.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
+        await db.superuser.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
       }
     }
-    await db.owner.user.createMany({
+    await db.superuser.user.createMany({
       data: [
         { id: OUSMANE, tenantId: TENANT_A, phone: '+221770000051', name: 'Ousmane', role: 'collaborator', pinHash: PIN_HASH },
         { id: LE_GERANT, tenantId: TENANT_A, phone: '+221770000054', name: 'Le gérant', role: 'admin', pinHash: PIN_HASH },
         { id: DE_B, tenantId: TENANT_B, phone: '+221770000055', name: 'Admin de B', role: 'admin', pinHash: PIN_HASH },
       ],
     });
-    await db.owner.siteAssignment.create({ data: { tenantId: TENANT_A, siteId: SITE_A1, userId: OUSMANE, isPrimary: true } });
+    await db.superuser.siteAssignment.create({ data: { tenantId: TENANT_A, siteId: SITE_A1, userId: OUSMANE, isPrimary: true } });
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers: [ProbeController] })
       .overrideProvider(APP_CONFIG)
@@ -184,17 +184,17 @@ describe('Session à chaque requête', () => {
       const token = tokenFor(ousmane);
       expect((await call('me', token)).status).toBe(200);
 
-      await db.owner.user.update({ where: { id: OUSMANE }, data: { blockedAt: new Date(NOW) } });
+      await db.superuser.user.update({ where: { id: OUSMANE }, data: { blockedAt: new Date(NOW) } });
       try {
         expect((await call('me', token)).status).toBe(401);
       } finally {
-        await db.owner.user.update({ where: { id: OUSMANE }, data: { blockedAt: null } });
+        await db.superuser.user.update({ where: { id: OUSMANE }, data: { blockedAt: null } });
       }
     });
 
     it("un jeton émis avant la date d'invalidation est refusé ; un jeton émis après est accepté", async () => {
       // Given les jetons du compte invalidés le 7 à 9 h 00 min 00,4 s
-      await db.owner.user.update({ where: { id: OUSMANE }, data: { sessionsValidFrom: new Date('2026-11-07T09:00:00.400Z') } });
+      await db.superuser.user.update({ where: { id: OUSMANE }, data: { sessionsValidFrom: new Date('2026-11-07T09:00:00.400Z') } });
       now = Date.parse('2026-11-07T10:00:00.000Z');
       try {
         // Then émis à 8 h, ou dans la même seconde que l'invalidation : refusés ; à 9 h 00 min 01 : accepté
@@ -202,17 +202,17 @@ describe('Session à chaque requête', () => {
         expect((await call('me', tokenFor(ousmane, '2026-11-07T09:00:00.000Z'))).status).toBe(401);
         expect((await call('me', tokenFor(ousmane, '2026-11-07T09:00:01.000Z'))).status).toBe(200);
       } finally {
-        await db.owner.user.update({ where: { id: OUSMANE }, data: { sessionsValidFrom: null } });
+        await db.superuser.user.update({ where: { id: OUSMANE }, data: { sessionsValidFrom: null } });
       }
     });
 
     it("un jeton dont le rôle n'est plus celui du compte est refusé", async () => {
-      await db.owner.user.update({ where: { id: LE_GERANT }, data: { role: 'collaborator' } });
+      await db.superuser.user.update({ where: { id: LE_GERANT }, data: { role: 'collaborator' } });
       try {
         expect((await call('admin', tokenFor(gerant))).status).toBe(401);
         expect((await call('me', tokenFor(gerant))).status).toBe(401);
       } finally {
-        await db.owner.user.update({ where: { id: LE_GERANT }, data: { role: 'admin' } });
+        await db.superuser.user.update({ where: { id: LE_GERANT }, data: { role: 'admin' } });
       }
     });
 
@@ -226,7 +226,7 @@ describe('Session à chaque requête', () => {
       const response = await call('half-done', tokenFor(gerant), { method: 'POST' });
 
       expect(response.status).toBe(500);
-      expect(await db.owner.site.findUniqueOrThrow({ where: { id: SITE_A2 } })).toMatchObject({ name: 'Poulailler' });
+      expect(await db.superuser.site.findUniqueOrThrow({ where: { id: SITE_A2 } })).toMatchObject({ name: 'Poulailler' });
     });
   });
 

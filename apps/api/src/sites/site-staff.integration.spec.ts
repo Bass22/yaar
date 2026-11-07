@@ -78,14 +78,14 @@ describe("Affecter l'équipe aux sites", () => {
   const unassign = (siteId: string, userId: string, token = gerant()) => request('DELETE', `sites/${siteId}/staff/${userId}`, token);
   const designate = (siteId: string, body: unknown, token = gerant()) => request('PUT', `sites/${siteId}/primary-caretaker`, token, body);
   const staffOf = (siteId: string) =>
-    db.owner.siteAssignment.findMany({ where: { siteId }, orderBy: { userId: 'asc' }, select: { userId: true, isPrimary: true } });
+    db.superuser.siteAssignment.findMany({ where: { siteId }, orderBy: { userId: 'asc' }, select: { userId: true, isPrimary: true } });
   const reaches = async (userId: string, siteId: string) => {
     const response = await request('GET', `probe/sites/${siteId}`, tokenOf(userId, TENANT_A, 'collaborator'));
     expect(response.status).toBe(200);
     return ((await response.json()) as { reachable: boolean }).reachable;
   };
   const trace = () =>
-    db.owner.auditEvent.findMany({
+    db.superuser.auditEvent.findMany({
       orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
       select: { action: true, actorId: true, subjectId: true, siteId: true, deviceId: true, occurredAt: true },
     });
@@ -95,8 +95,8 @@ describe("Affecter l'équipe aux sites", () => {
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    await db.owner.tenant.createMany({ data: [TENANT_A, TENANT_B].map((id) => ({ id, name: 'Ferme', currency: 'XOF' })) });
-    await db.owner.site.createMany({
+    await db.superuser.tenant.createMany({ data: [TENANT_A, TENANT_B].map((id) => ({ id, name: 'Ferme', currency: 'XOF' })) });
+    await db.superuser.site.createMany({
       data: [
         { id: POULAILLER_NORD, tenantId: TENANT_A, name: 'Nord', timeZone: 'Africa/Dakar' },
         { id: POULAILLER_SUD, tenantId: TENANT_A, name: 'Sud', timeZone: 'Africa/Dakar' },
@@ -104,7 +104,7 @@ describe("Affecter l'équipe aux sites", () => {
       ],
     });
     const user = (id: string, tenantId: string, role: 'admin' | 'collaborator', rank: number) => ({ id, tenantId, role, phone: `+22177000${String(rank).padStart(4, '0')}`, name: 'Compte', pinHash: PIN_HASH });
-    await db.owner.user.createMany({
+    await db.superuser.user.createMany({
       data: [
         user(OUSMANE, TENANT_A, 'collaborator', 1),
         user(AWA, TENANT_A, 'collaborator', 2),
@@ -128,7 +128,7 @@ describe("Affecter l'équipe aux sites", () => {
 
   beforeEach(async () => {
     // Every test starts from a site without staff; the owner of the database clears it.
-    await db.owner.siteAssignment.deleteMany();
+    await db.superuser.siteAssignment.deleteMany();
     tick();
   });
 
@@ -341,7 +341,7 @@ describe("Affecter l'équipe aux sites", () => {
         await until(() => firstWritten);
         // And le co-gérant désigne Modou pendant ce temps : sa transaction attend
         const second = api.runInTenant(tenant, (tx) => designatePrimaryCaretaker(tx, admin(CO_GERANT), POULAILLER_NORD, MODOU, new Date(now)));
-        await until(async () => (await db.owner.$queryRaw<{ waiting: number }[]>`SELECT count(*)::int AS waiting FROM pg_stat_activity WHERE wait_event_type = 'Lock'`)[0]?.waiting === 1);
+        await until(async () => (await db.superuser.$queryRaw<{ waiting: number }[]>`SELECT count(*)::int AS waiting FROM pg_stat_activity WHERE wait_event_type = 'Lock'`)[0]?.waiting === 1);
         release();
 
         // Then les deux réussissent, Modou est titulaire, Ousmane et Awa restent remplaçants
@@ -391,7 +391,7 @@ describe("Affecter l'équipe aux sites", () => {
 
     it("un site ou un compte d'un autre élevage n'existe pas pour l'admin : 404, et rien ne change chez personne", async () => {
       // Given le gardien de B affecté chez B
-      await db.owner.siteAssignment.create({ data: { tenantId: TENANT_B, siteId: POULAILLER_DE_B, userId: GARDIEN_DE_B, isPrimary: true } });
+      await db.superuser.siteAssignment.create({ data: { tenantId: TENANT_B, siteId: POULAILLER_DE_B, userId: GARDIEN_DE_B, isPrimary: true } });
       const before = (await trace()).length;
 
       expect((await assign(POULAILLER_DE_B, OUSMANE)).status).toBe(404);

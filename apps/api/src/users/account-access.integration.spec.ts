@@ -56,13 +56,13 @@ describe("Bloquer un compte, le déconnecter partout", () => {
     expect([200, 401]).toContain(status);
     return status === 200;
   };
-  const account = (id: string) => db.owner.user.findUniqueOrThrow({ where: { id }, select: { blockedAt: true, sessionsValidFrom: true } });
+  const account = (id: string) => db.superuser.user.findUniqueOrThrow({ where: { id }, select: { blockedAt: true, sessionsValidFrom: true } });
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    await db.owner.tenant.createMany({ data: [TENANT_A, TENANT_B].map((id) => ({ id, name: 'Ferme', currency: 'XOF' })) });
+    await db.superuser.tenant.createMany({ data: [TENANT_A, TENANT_B].map((id) => ({ id, name: 'Ferme', currency: 'XOF' })) });
     const user = (id: string, tenantId: string, role: 'admin' | 'collaborator', rank: number) => ({ id, tenantId, role, phone: `+22177000${String(rank).padStart(4, '0')}`, name: 'Compte', pinHash: PIN_HASH });
-    await db.owner.user.createMany({
+    await db.superuser.user.createMany({
       data: [
         user(OUSMANE, TENANT_A, 'collaborator', 1),
         user(AWA, TENANT_A, 'collaborator', 2),

@@ -17,9 +17,16 @@ import { resolve } from 'node:path';
 // running the Prisma command line once per file made the whole suite exceed its time limits.
 
 export type TestDatabase = {
-  /** Connection string of the owner of the database, the role that ran the migrations. */
+  /** Connection string of the owner of the tables, the role that ran the migrations (D.6). */
   readonly url: string;
+  /**
+   * The owner of the tables, as in production: neither superuser nor BYPASSRLS, so the forced
+   * row-level security binds it — the operator's scripts run under it.
+   */
   readonly owner: PrismaClient;
+  /** The superuser of the cluster: seeds and reads across farms. Tests only; no task of the stack runs under one. */
+  readonly superuser: PrismaClient;
+  readonly superuserUrl: string;
   /** The same database, reached as the role the API runs under: bound by row-level security. */
   readonly appUrl: string;
   drop(): Promise<void>;
@@ -29,6 +36,10 @@ export type TestDatabase = {
 const POSTGRES_IMAGE = 'postgres:16';
 const APP_ROLE = 'yaar_app';
 const APP_ROLE_PASSWORD = 'test-only';
+// The owner of the tables, created like infra/postgres/init-roles.sh creates it.
+const OWNER_ROLE = 'yaar';
+const OWNER_ROLE_PASSWORD = 'test-only-owner';
+const WITHOUT_PRIVILEGES = 'NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION';
 
 const prismaConfig = resolve(__dirname, '../../prisma.config.ts');
 const clientFor = (url: string): PrismaClient => new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
@@ -68,18 +79,26 @@ function startContainer(): Promise<StartedPostgreSqlContainer> {
     .withPassword(randomBytes(24).toString('hex'))
     .start()
     .then(async (started) => {
-      // The application role is shared by every database of the cluster: it gets its login
-      // once, here, as the deployment gives it (infra/postgres/init-app-role.sh).
+      // Roles are shared by every database of the cluster: they are created once, here, as the
+      // database server is initialised in the stack (infra/postgres/init-roles.sh).
       await onCluster(started.getConnectionUri(), async (cluster) => {
-        await cluster.$executeRawUnsafe(`CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`);
-        await cluster.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE}"`);
+        await cluster.$executeRawUnsafe(`CREATE ROLE ${OWNER_ROLE} LOGIN PASSWORD '${OWNER_ROLE_PASSWORD}' ${WITHOUT_PRIVILEGES}`);
+        await cluster.$executeRawUnsafe(`CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_ROLE_PASSWORD}' ${WITHOUT_PRIVILEGES}`);
+        await cluster.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE}" OWNER ${OWNER_ROLE}`);
       });
-      const template = new URL(started.getConnectionUri());
-      template.pathname = `/${TEMPLATE}`;
-      migrate(template.toString());
+      // Migrated as the owner, never as the superuser: the tables belong to the owner.
+      migrate(asRole(started.getConnectionUri(), TEMPLATE, OWNER_ROLE, OWNER_ROLE_PASSWORD));
       return started;
     });
   return container;
+}
+
+function asRole(clusterUrl: string, database: string, role: string, password: string): string {
+  const url = new URL(clusterUrl);
+  url.pathname = `/${database}`;
+  url.username = role;
+  url.password = password;
+  return url.toString();
 }
 
 export function migrate(databaseUrl: string): void {
@@ -95,23 +114,26 @@ export async function createTestDatabase(options: { migrated?: boolean } = {}): 
   const name = `yaar_test_${process.pid}_${++created}`;
   // A copy of the migrated template, or an empty database when the test applies migrations itself.
   await onCluster(clusterUrl, (cluster) =>
-    cluster.$executeRawUnsafe(options.migrated === false ? `CREATE DATABASE "${name}"` : `CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE}"`),
+    cluster.$executeRawUnsafe(
+      options.migrated === false ? `CREATE DATABASE "${name}" OWNER ${OWNER_ROLE}` : `CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE}" OWNER ${OWNER_ROLE}`,
+    ),
   );
 
-  const target = new URL(clusterUrl);
-  target.pathname = `/${name}`;
-  const url = target.toString();
-  const asApp = new URL(url);
-  asApp.username = APP_ROLE;
-  asApp.password = APP_ROLE_PASSWORD;
+  const superuserUrl = new URL(clusterUrl);
+  superuserUrl.pathname = `/${name}`;
+  const url = asRole(clusterUrl, name, OWNER_ROLE, OWNER_ROLE_PASSWORD);
   const owner = clientFor(url);
+  const superuser = clientFor(superuserUrl.toString());
 
   return {
     url,
     owner,
-    appUrl: asApp.toString(),
+    superuser,
+    superuserUrl: superuserUrl.toString(),
+    appUrl: asRole(clusterUrl, name, APP_ROLE, APP_ROLE_PASSWORD),
     async drop() {
       await owner.$disconnect();
+      await superuser.$disconnect();
       await onCluster(clusterUrl, (cluster) => cluster.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`));
     },
   };

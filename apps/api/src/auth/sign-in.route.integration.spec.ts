@@ -29,12 +29,12 @@ describe('Route de connexion', () => {
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    await db.owner.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
+    await db.superuser.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
     const hasher = new Argon2PinHasher();
-    await db.owner.user.create({
+    await db.superuser.user.create({
       data: { id: '00000000-0000-4000-8000-000000000055', tenantId: TENANT, phone: '+221770000055', name: 'Ancien gardien', role: 'collaborator', blockedAt: new Date('2026-11-01T00:00:00.000Z'), pinHash: await hasher.hash(unwrap(Pin('4829', 'collaborator'))) },
     });
-    await db.owner.user.create({
+    await db.superuser.user.create({
       data: { id: '00000000-0000-4000-8000-000000000051', tenantId: TENANT, phone: '+221770000001', name: 'Ousmane', role: 'collaborator', pinHash: await new Argon2PinHasher().hash(unwrap(Pin('4829', 'collaborator'))) },
     });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })

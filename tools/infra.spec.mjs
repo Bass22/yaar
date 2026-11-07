@@ -70,17 +70,40 @@ describe('Pile de conteneurs', () => {
     }
   });
 
-  // Spec: backlog D.2 — le rôle applicatif n'est pas propriétaire des tables
-  it('l’API se connecte sous le rôle applicatif, les migrations sous le propriétaire : deux mots de passe', () => {
+  // Spec: backlog D.2 — le rôle applicatif n'est pas propriétaire des tables ; D.6 — le propriétaire n'est pas superutilisateur
+  it('trois rôles, deux mots de passe : l’API sous le rôle applicatif, les migrations et les scripts sous le propriétaire, le superutilisateur réservé au serveur de base', () => {
     const urlOf = (name) => /DATABASE_URL: (\S+)/.exec(services.get(name).lines.join('\n'))[1];
     const db = services.get('db').lines.join('\n');
 
     assert.match(urlOf('api'), /^postgresql:\/\/yaar_app:\$\{APP_DB_PASSWORD:\?/);
     assert.match(urlOf('migrate'), /^postgresql:\/\/yaar:\$\{DB_PASSWORD:\?/);
-    assert.match(db, /APP_DB_PASSWORD: \$\{APP_DB_PASSWORD:\?[^}]+\}/, 'la base reçoit le mot de passe du rôle applicatif');
-    assert.match(db, /init-app-role\.sh:\/docker-entrypoint-initdb\.d\/[\w.-]+:ro/, 'le rôle reçoit son accès à la création de la base');
-    assert.match(read('infra/postgres/init-app-role.sh'), /CREATE ROLE yaar_app LOGIN PASSWORD :'app_password'/);
-    assert.match(read('infra/.env.example'), /^APP_DB_PASSWORD=$/m);
+    assert.match(db, /POSTGRES_USER: postgres$/m, 'le superutilisateur créé par l’image n’est pas le propriétaire des tables');
+    assert.match(db, /POSTGRES_PASSWORD: \$\{DB_PASSWORD:\?[^}]+\}/, 'pas de secret de plus : le superutilisateur perd ce mot de passe à l’initialisation');
+    assert.doesNotMatch(compose + read('infra/.env.example'), /DB_SUPERUSER_PASSWORD/);
+    assert.match(db, /DB_PASSWORD: \$\{DB_PASSWORD:\?[^}]+\}/, 'la base reçoit le mot de passe du propriétaire, pour le créer');
+    assert.match(db, /APP_DB_PASSWORD: \$\{APP_DB_PASSWORD:\?[^}]+\}/, 'et celui du rôle applicatif');
+    assert.match(db, /init-roles\.sh:\/docker-entrypoint-initdb\.d\/[\w.-]+:ro/, 'les rôles sont créés avec le serveur de base');
+    for (const name of ['api', 'migrate', 'web']) {
+      assert.doesNotMatch(services.get(name).lines.join('\n'), /POSTGRES_PASSWORD|POSTGRES_USER/, `${name} ne parle pas au superutilisateur`);
+    }
+    for (const name of ['DB_PASSWORD', 'APP_DB_PASSWORD']) {
+      assert.match(read('infra/.env.example'), new RegExp(`^${name}=$`, 'm'));
+    }
+  });
+
+  // Spec: backlog D.6 — ni le propriétaire ni le rôle applicatif ne sont superutilisateurs
+  it('le script d’initialisation crée le propriétaire et le rôle applicatif sans aucun privilège de plus, puis la base au nom du propriétaire', () => {
+    const init = read('infra/postgres/init-roles.sh');
+    const roleOf = (name) => new RegExp(`CREATE ROLE ${name} LOGIN PASSWORD :'\\w+' ([A-Z ]+);`).exec(init)?.[1] ?? '';
+
+    for (const name of ['yaar', 'yaar_app']) {
+      const options = roleOf(name);
+      for (const denied of ['NOSUPERUSER', 'NOBYPASSRLS', 'NOCREATEROLE', 'NOCREATEDB', 'NOREPLICATION']) {
+        assert.ok(options.split(' ').includes(denied), `${name} : ${denied}`);
+      }
+    }
+    assert.match(init, /CREATE DATABASE yaar OWNER yaar;/);
+    assert.match(init, /ALTER ROLE :"superuser" PASSWORD NULL;/, 'le superutilisateur ne se connecte plus par le réseau, même avec DB_PASSWORD');
   });
 
   it('l’API n’est déclarée saine que si la base lui répond', () => {

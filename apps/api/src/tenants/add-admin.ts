@@ -3,12 +3,12 @@ import type { PrismaClient } from '@prisma/client';
 import { recordAudit } from '../audit/audit';
 import { Pin, type PinRefusal } from '../auth/pin';
 import type { PinHasher } from '../auth/pin-hasher';
-import { E164, isUniqueViolationOn, PhoneAlreadyUsed } from './bootstrap-tenant';
+import { E164, isUniqueViolationOn, PhoneAlreadyUsed, scopeToFarm } from './bootstrap-tenant';
 
 // Adds an admin to a farm that exists (CdC « Identité »: at least one admin per farm, and not
 // necessarily one; an admin is created by the operator only, by script). Never a route: the
 // admins of a farm create collaborators only. Runs as the owner of the database, like the
-// provisioning of the farm (bootstrap-tenant.ts).
+// provisioning of the farm (bootstrap-tenant.ts), and like it sees only the farm it names.
 
 export type AddAdminInput = {
   /** The identifier printed when the farm was provisioned: a farm's name is not unique. */
@@ -49,7 +49,7 @@ export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now 
   if (!pin.ok) {
     return pin;
   }
-  if (!UUID.test(input.tenantId) || (await prisma.tenant.count({ where: { id: input.tenantId } })) === 0) {
+  if (!UUID.test(input.tenantId)) {
     return err({ kind: 'TenantNotFound' });
   }
   const pinHash = await hasher.hash(pin.value);
@@ -58,6 +58,11 @@ export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now 
   try {
     // The account and its trace, or neither.
     await prisma.$transaction(async (tx) => {
+      // The owner of the tables sees the farm only once the transaction names it (D.6).
+      await scopeToFarm(tx, input.tenantId, input.adminPhone);
+      if ((await tx.tenant.count({ where: { id: input.tenantId } })) === 0) {
+        throw new TenantNotFound();
+      }
       if ((await tx.user.findUnique({ where: { phone: input.adminPhone }, select: { id: true } })) !== null) {
         throw new PhoneAlreadyUsed();
       }
@@ -65,6 +70,9 @@ export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now 
       await recordAudit(tx, input.tenantId, { action: 'AdminAdded', actorId: null, subjectId: adminId, deviceId: null }, now());
     });
   } catch (error) {
+    if (error instanceof TenantNotFound) {
+      return err({ kind: 'TenantNotFound' });
+    }
     if (error instanceof PhoneAlreadyUsed || isUniqueViolationOn(error, 'phone')) {
       return err({ kind: 'PhoneAlreadyUsed' });
     }
@@ -72,3 +80,5 @@ export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now 
   }
   return ok({ adminId });
 }
+
+class TenantNotFound extends Error {}

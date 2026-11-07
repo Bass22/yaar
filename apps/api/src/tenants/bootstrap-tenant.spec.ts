@@ -37,6 +37,13 @@ describe("Amorçage d'un élevage", () => {
     await db?.drop();
   });
 
+  // Spec: backlog D.6
+  it("tourne sous le propriétaire des tables, qui n'est pas superutilisateur et que la RLS lie", async () => {
+    const [role] = await db.owner.$queryRaw<{ rolsuper: boolean; rolbypassrls: boolean }[]>`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`;
+
+    expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
+  });
+
   it("crée l'élevage, son premier site et son premier admin, avec le PIN haché", async () => {
     // When
     const result = await amorce(unElevage());
@@ -44,9 +51,9 @@ describe("Amorçage d'un élevage", () => {
     // Then les trois existent, liés entre eux, et l'empreinte reconnaît le PIN sans le contenir
     expect(result.ok).toBe(true);
     const { tenantId, siteId, adminId } = unwrap(result);
-    const tenant = await db.owner.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-    const site = await db.owner.site.findUniqueOrThrow({ where: { id: siteId } });
-    const admin = await db.owner.user.findUniqueOrThrow({ where: { id: adminId } });
+    const tenant = await db.superuser.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    const site = await db.superuser.site.findUniqueOrThrow({ where: { id: siteId } });
+    const admin = await db.superuser.user.findUniqueOrThrow({ where: { id: adminId } });
     expect(tenant).toMatchObject({ name: 'Ferme de Keur Massar', currency: 'XOF' });
     expect(site).toMatchObject({ tenantId, name: 'Poulailler 1', timeZone: 'Africa/Dakar', strictMode: false });
     expect(admin).toMatchObject({ tenantId, phone: '+221771234567', name: 'Bassirou', role: 'admin' });
@@ -57,23 +64,23 @@ describe("Amorçage d'un élevage", () => {
 
   it("relancé avec le même numéro, il refuse au lieu de créer un doublon — même pour un autre élevage", async () => {
     // Given un élevage déjà amorcé avec ce numéro
-    const before = { tenants: await db.owner.tenant.count(), users: await db.owner.user.count() };
+    const before = { tenants: await db.superuser.tenant.count(), users: await db.superuser.user.count() };
 
     // When
     const again = await amorce(unElevage({ tenantName: 'Une autre ferme' }));
 
     // Then
     expect(again).toEqual({ ok: false, error: { kind: 'PhoneAlreadyUsed' } });
-    expect({ tenants: await db.owner.tenant.count(), users: await db.owner.user.count() }).toEqual(before);
+    expect({ tenants: await db.superuser.tenant.count(), users: await db.superuser.user.count() }).toEqual(before);
   });
 
   it("le fuseau du site est vérifié par le domaine : un nom inconnu est refusé, et rien n'est créé", async () => {
-    const before = await db.owner.tenant.count();
+    const before = await db.superuser.tenant.count();
 
     for (const timeZone of ['Dakar', 'Africa/Nulle-Part', 'UTC+0', '']) {
       expect(await amorce(unElevage({ timeZone, adminPhone: '+221770000011' }))).toEqual({ ok: false, error: { kind: 'InvalidTimeZone' } });
     }
-    expect(await db.owner.tenant.count()).toBe(before);
+    expect(await db.superuser.tenant.count()).toBe(before);
   });
 
   it("le PIN de l'admin a six chiffres et n'est pas trop simple ; un refus ne le répète pas", async () => {
@@ -108,8 +115,8 @@ describe("Amorçage d'un élevage", () => {
 
   it("si l'écriture échoue en route, rien ne reste : l'élevage, le site et l'admin s'écrivent ensemble ou pas du tout", async () => {
     // Given un identifiant de site déjà pris, que le script ne saura pas écrire
-    const before = { tenants: await db.owner.tenant.count(), sites: await db.owner.site.count() };
-    const existingSite = (await db.owner.site.findFirstOrThrow()).id;
+    const before = { tenants: await db.superuser.tenant.count(), sites: await db.superuser.site.count() };
+    const existingSite = (await db.superuser.site.findFirstOrThrow()).id;
     const clashing = [ids(), existingSite, ids()];
 
     // When
@@ -117,6 +124,6 @@ describe("Amorçage d'un élevage", () => {
 
     // Then
     await expect(result).rejects.toThrow(/Unique constraint/i);
-    expect({ tenants: await db.owner.tenant.count(), sites: await db.owner.site.count() }).toEqual(before);
+    expect({ tenants: await db.superuser.tenant.count(), sites: await db.superuser.site.count() }).toEqual(before);
   });
 });

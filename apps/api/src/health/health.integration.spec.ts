@@ -67,23 +67,25 @@ describe('Sonde de disponibilité', () => {
   });
 
   // Spec: backlog D.2 — le rôle de l'application n'est ni superutilisateur ni dispensé de RLS
-  it("branchée par erreur sous un rôle qui échappe à la RLS, l'API ne se déclare jamais disponible", async () => {
-    // Given l'API branchée sous le rôle propriétaire de la base, celui des migrations
-    const app = await startApi({ port: 0, databaseUrl: db.url, jwtSecret: UN_SECRET });
-    apps.push(app);
+  it("branchée par erreur sous un superutilisateur, ou sous le propriétaire des tables qui peut défaire la RLS, l'API ne se déclare jamais disponible", async () => {
+    for (const databaseUrl of [db.superuserUrl, db.url]) {
+      // Given l'API branchée sous un rôle qui n'est pas le sien
+      const app = await startApi({ port: 0, databaseUrl, jwtSecret: UN_SECRET });
+      apps.push(app);
 
-    // When
-    const response = await fetch(`${await app.getUrl()}/api/v1/health/ready`);
+      // When
+      const response = await fetch(`${await app.getUrl()}/api/v1/health/ready`);
 
-    // Then
-    expect(response.status).toBe(503);
+      // Then
+      expect(response.status).toBe(503);
+    }
   });
 
   it("sous un rôle qui possède une table, donc capable de défaire la RLS, l'API ne se déclare pas disponible", async () => {
     // Given une base où, par erreur, le rôle applicatif est devenu propriétaire d'une table
     const misconfigured = await createTestDatabase();
     try {
-      await misconfigured.owner.$executeRawUnsafe('ALTER TABLE sites OWNER TO yaar_app');
+      await misconfigured.superuser.$executeRawUnsafe('ALTER TABLE sites OWNER TO yaar_app');
       const app = await startApi({ port: 0, databaseUrl: misconfigured.appUrl, jwtSecret: UN_SECRET });
       apps.push(app);
 

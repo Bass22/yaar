@@ -52,9 +52,9 @@ describe("Ajouter un admin à un élevage, par script", () => {
 
     // Then
     const { adminId } = unwrap(result);
-    const admins = await db.owner.user.findMany({ where: { tenantId, role: 'admin' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
+    const admins = await db.superuser.user.findMany({ where: { tenantId, role: 'admin' }, orderBy: { createdAt: 'asc' }, select: { id: true } });
     expect(admins.map((admin) => admin.id).sort()).toEqual([firstAdminId, adminId].sort());
-    const admin = await db.owner.user.findUniqueOrThrow({ where: { id: adminId } });
+    const admin = await db.superuser.user.findUniqueOrThrow({ where: { id: adminId } });
     expect(admin).toMatchObject({ tenantId, phone: '+221776543210', name: 'Fatou, co-gérante', role: 'admin', provisionalPinExpiresAt: null, blockedAt: null });
     expect(admin.pinHash).not.toContain('739164');
     expect(await hasher.verify(admin.pinHash as never, unwrap(Pin('739164', 'admin')))).toBe(true);
@@ -63,36 +63,36 @@ describe("Ajouter un admin à un élevage, par script", () => {
   it("l'ajout est tracé dans l'élevage : l'éditeur n'a pas de compte, l'auteur reste vide, et la trace ne contient ni PIN ni numéro", async () => {
     const { adminId } = unwrap(await ajoute(unAdmin({ adminPhone: '+221776543211', pin: '815372' })));
 
-    const trace = await db.owner.auditEvent.findMany({ where: { subjectId: adminId } });
+    const trace = await db.superuser.auditEvent.findMany({ where: { subjectId: adminId } });
 
     expect(trace).toEqual([expect.objectContaining({ tenantId, action: 'AdminAdded', actorId: null, subjectId: adminId, siteId: null, deviceId: null, reason: null, occurredAt: NOW })]);
     expect(JSON.stringify(trace)).not.toMatch(/815372|\+22177/);
   });
 
   it("le premier admin, créé avec l'élevage, est tracé de même", async () => {
-    const trace = await db.owner.auditEvent.findMany({ where: { subjectId: firstAdminId } });
+    const trace = await db.superuser.auditEvent.findMany({ where: { subjectId: firstAdminId } });
 
     expect(trace).toEqual([expect.objectContaining({ tenantId, action: 'AdminAdded', actorId: null, subjectId: firstAdminId, occurredAt: NOW })]);
   });
 
   it("un numéro qui a déjà un compte, dans cet élevage ou un autre, est refusé, et rien n'est créé ni tracé", async () => {
-    const before = { users: await db.owner.user.count(), trace: await db.owner.auditEvent.count() };
+    const before = { users: await db.superuser.user.count(), trace: await db.superuser.auditEvent.count() };
 
     for (const adminPhone of ['+221771234567', '+221776543210']) {
       expect(await ajoute(unAdmin({ adminPhone }))).toEqual({ ok: false, error: { kind: 'PhoneAlreadyUsed' } });
     }
 
-    expect({ users: await db.owner.user.count(), trace: await db.owner.auditEvent.count() }).toEqual(before);
+    expect({ users: await db.superuser.user.count(), trace: await db.superuser.auditEvent.count() }).toEqual(before);
   });
 
   it("un élevage inconnu, ou un identifiant qui n'en est pas un, est refusé, et rien n'est créé", async () => {
-    const before = await db.owner.user.count();
+    const before = await db.superuser.user.count();
 
     for (const unknown of ['00000000-0000-4000-8000-0000000fffff', 'Ferme de Keur Massar', '']) {
       expect(await ajoute(unAdmin({ tenantId: unknown, adminPhone: '+221776543212' }))).toEqual({ ok: false, error: { kind: 'TenantNotFound' } });
     }
 
-    expect(await db.owner.user.count()).toBe(before);
+    expect(await db.superuser.user.count()).toBe(before);
   });
 
   it("le PIN a six chiffres et n'est pas trop simple, le numéro est en forme internationale, le nom n'est pas vide ; un refus ne répète pas le PIN", async () => {
@@ -108,6 +108,6 @@ describe("Ajouter un admin à un élevage, par script", () => {
       expect(result).toEqual({ ok: false, error });
       expect(JSON.stringify(result)).not.toContain('4829');
     }
-    expect(await db.owner.user.count({ where: { phone: '+221776543213' } })).toBe(0);
+    expect(await db.superuser.user.count({ where: { phone: '+221776543213' } })).toBe(0);
   });
 });

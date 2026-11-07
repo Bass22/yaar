@@ -43,7 +43,7 @@ describe('Trace des actions sensibles', () => {
     fetch(`${origin}/api/v1/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }) }, body: JSON.stringify(body) });
   const signIn = (phone: string, pin: string) => post('auth/sign-in', { phone, pin, deviceId: TELEPHONE_DU_GARDIEN });
   const trace = () =>
-    db.owner.auditEvent.findMany({
+    db.superuser.auditEvent.findMany({
       orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
       select: { action: true, actorId: true, subjectId: true, deviceId: true, reason: true, occurredAt: true, tenantId: true },
     });
@@ -53,9 +53,9 @@ describe('Trace des actions sensibles', () => {
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    await db.owner.tenant.create({ data: { id: TENANT_A, name: 'Ferme', currency: 'XOF' } });
+    await db.superuser.tenant.create({ data: { id: TENANT_A, name: 'Ferme', currency: 'XOF' } });
     const hasher = new Argon2PinHasher();
-    await db.owner.user.createMany({
+    await db.superuser.user.createMany({
       data: [
         { id: LE_GERANT, tenantId: TENANT_A, phone: '+221770000054', name: 'Le gérant', role: 'admin', pinHash: await hasher.hash(unwrap(Pin('482913', 'admin'))) },
         { id: OUSMANE, tenantId: TENANT_A, phone: '+221770000051', name: 'Ousmane', role: 'collaborator', pinHash: await hasher.hash(unwrap(Pin('7351', 'collaborator'))) },
@@ -151,7 +151,7 @@ describe('Trace des actions sensibles', () => {
 
   describe('la trace elle-même', () => {
     it("aucune entrée ne contient de PIN, de jeton ni de numéro de téléphone", async () => {
-      const all = JSON.stringify(await db.owner.auditEvent.findMany());
+      const all = JSON.stringify(await db.superuser.auditEvent.findMany());
 
       // The PINs typed in this file, the provisional one, any phone number, any token
       for (const secret of ['7351', '6284', '5938', provisionalPin, '+22177', 'eyJ']) {
@@ -159,7 +159,7 @@ describe('Trace des actions sensibles', () => {
       }
     });
 
-    it("une entrée ne se modifie ni ne se supprime : ni par l'application, ni par le propriétaire de la base", async () => {
+    it("une entrée ne se modifie ni ne se supprime : ni par l'application, ni même par un superutilisateur", async () => {
       const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
       try {
         await expect(api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.auditEvent.deleteMany())).rejects.toThrow(/permission denied|42501/);
@@ -167,7 +167,7 @@ describe('Trace des actions sensibles', () => {
         await api.$disconnect();
       }
       for (const statement of ['UPDATE audit_events SET reason = NULL', 'DELETE FROM audit_events', 'TRUNCATE audit_events']) {
-        await expect(db.owner.$executeRawUnsafe(statement)).rejects.toThrow(/append-only/);
+        await expect(db.superuser.$executeRawUnsafe(statement)).rejects.toThrow(/append-only/);
       }
     });
   });

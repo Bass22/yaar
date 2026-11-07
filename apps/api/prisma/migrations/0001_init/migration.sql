@@ -194,16 +194,15 @@ CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments
 -- `missing_ok`, an absent setting is NULL and every policy then matches no row: a query that
 -- forgot its tenant sees nothing and writes nothing, instead of seeing everything.
 --
--- Migrations and provisioning run as the owner of the database, never as `yaar_app`.
-
--- The role is shared by the whole cluster; its password and LOGIN are set out of band, at
--- deployment. It may exist already (`duplicate_object`), or be created at this very moment by
--- a migration running on another database of the cluster (`unique_violation`): both are fine.
+-- Migrations and provisioning run as the owner of the tables, never as `yaar_app`. That owner
+-- is neither superuser nor BYPASSRLS (D.6): the forced policies bind it too, and it cannot
+-- create a role. Both roles are created with the database server, by its superuser
+-- (infra/postgres/init-roles.sh), before any migration; a server without them stops here.
 DO $$
 BEGIN
-  CREATE ROLE yaar_app NOLOGIN;
-EXCEPTION WHEN duplicate_object OR unique_violation THEN
-  NULL;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'yaar_app') THEN
+    RAISE EXCEPTION 'The role yaar_app is missing: it is created with the database server (infra/postgres/init-roles.sh), before any migration.';
+  END IF;
 END
 $$;
 
