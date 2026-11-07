@@ -22,7 +22,7 @@ describe('La voix du téléphone', () => {
   it('le script se lit tel quel : identifiants seuls, listes, suites « … -20 » et suites par pas (trente, quarante… quatre-vingt-dix)', () => {
     const { fixed, families } = scriptClips(read('audio/script.md'));
 
-    assert.ok(fixed.includes('confirm') && fixed.includes('avatar-drum') && fixed.includes('unit-grams'));
+    assert.ok(fixed.includes('confirm') && fixed.includes('sign-in-type-code') && fixed.includes('unit-grams'));
     assert.deepEqual(families['deaths-today'], Array.from({ length: 20 }, (_, rank) => rank + 1));
     assert.deepEqual(families['campaign-day']?.length, 60);
     assert.deepEqual(families['weighing-chicken'], [1, 2, 3, 4, 5]);
@@ -30,9 +30,9 @@ describe('La voix du téléphone', () => {
     assert.ok(!families.number?.includes(35) && !families.number?.includes(1500));
   });
 
-  it('le script compte les 398 fichiers par langue qu’il annonce', () => {
-    assert.equal(allClipIds(scriptClips(read('audio/script.md'))).length, 398);
-    assert.match(read('audio/script.md'), /environ 398 fichiers par langue/);
+  it('le script compte les 385 fichiers par langue qu’il annonce', () => {
+    assert.equal(allClipIds(scriptClips(read('audio/script.md'))).length, 385);
+    assert.match(read('audio/script.md'), /environ 385 fichiers par langue/);
   });
 
   it("les identifiants que l'écran peut demander sont ceux du script, à jour : un écran qui demande une phrase absente du script ne compile pas", () => {

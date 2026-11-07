@@ -117,7 +117,7 @@ describe('Connexion', () => {
     });
   });
 
-  // Spec: backlog E.9 — le téléphone retient qui tient le cahier ; la langue suit la personne, sinon son site (décision du 2026-11-07)
+  // Spec: backlog E.9 — le téléphone garde le compte (nom, avatar) ; la langue suit la personne, sinon son site (décision du 2026-11-07)
   describe('ce que le téléphone retient du compte', () => {
     it("la session dit le nom et l'avatar du compte, et la langue de son site quand il n'en a pas choisi", async () => {
       expect(unwrap(await connecte({})).account).toEqual({ name: 'Ousmane', avatar: 'baobab', language: 'wo' });

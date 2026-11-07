@@ -567,14 +567,14 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
 
 ### E.9 — L'avatar et la langue du compte · **S** ✅
-> Spec : CdC « Identité » (avatar picto reconnaissable à la connexion), « Trois canaux redondants » (langue audio) · Zone : `packages/design-system/`, `apps/api/src/users/`
+> Spec : CdC « Identité » (avatar picto du compte), « Trois canaux redondants » (langue audio) · Zone : `packages/design-system/`, `apps/api/src/users/`
 > Dépend de : E.5, et la liste des pictos fixée avec `/designer` · Scindée d'E.7 le 2026-11-07 ; la langue s'y ajoute le 2026-11-07 (décision du fondateur : la langue suit la personne, pas le site).
 
 - [x] La liste fermée des avatars, fixée avec `/designer` — douze avatars validés le 2026-11-07 (`packages/design-system/src/pictograms/source/avatar-*.svg`, liste `AVATARS`, noms dans `PICTOGRAM_LABELS`), recuits avec les pictos ; à valider sur le terrain
 > Livrée le 2026-11-07, aucune dépendance ajoutée. Deux types énumérés en base, `account_avatar` (les douze) et `audio_language` (`wo`, `fr`) ; `users.avatar`, `users.audio_language` et `sites.audio_language`, tous facultatifs (un admin amorcé par script n'a pas d'avatar ; la langue d'un site se règle en O.1). La création d'un compte exige l'avatar et accepte la langue (`POST /api/v1/users`) ; `PATCH /api/v1/users/:userId` (admin, 204) change exactement l'avatar, la langue, ou les deux — une langue `null` refait suivre le site ; autre champ ou valeur hors liste : 400 sans rien changer ; compte d'un autre élevage : 404. La connexion renvoie `account` : nom, avatar et **langue effective** — celle de la personne, sinon celle de son site (le site dont elle est titulaire d'abord), sinon le français, langue des premiers clips. Le changement d'avatar ou de langue n'est pas tracé : il ne touche ni l'accès ni l'argent.
 
 - [x] L'admin choisit l'avatar d'un collaborateur à la création, et le change
-- [ ] Deux comptes d'un même site ne portent pas le même avatar (à confirmer avec `/designer`) — reportée : non imposée, l'écran d'entrée montre aussi le nom
+- [x] ~~Deux comptes d'un même site ne portent pas le même avatar~~ — sans objet depuis le 2026-11-08 : un téléphone = une personne, aucun écran ne fait choisir entre deux avatars
 - [x] L'admin choisit la langue audio d'un collaborateur à la création, et la change : une langue dont les clips existent (wolof, français ; d'autres plus tard) — c'est la personne qui écoute, et un remplaçant ne parle pas forcément la langue du titulaire
 - [x] Sans langue choisie, le compte suit la langue par défaut de son site
 
@@ -657,11 +657,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les routes gardien et admin sont chargées séparément
 
 ### G.2 — Se connecter sur le téléphone · **M** · 🎨 ✅
-> Spec : CdC « Identité » (avatar reconnaissable) · Zone : `apps/web/src/app/core/session/`, écran de connexion
+> Spec : CdC « Identité » (un téléphone = une personne, avatar du compte) · Zone : `apps/web/src/app/core/session/`, écran de connexion
 > Dépend de : G.1, E.2 · Revue : utilisable sans lire.
 > Cœur livré le 2026-11-07 (décision du fondateur : un écran simple maintenant, l'écran « cahier » et l'avatar après `/designer` et E.9). `SessionStore` garde le jeton, son échéance et le rôle sur le téléphone (pas de cookie) et un identifiant d'appareil créé une seule fois ; `AuthService` ouvre la session (`sign-in`, `choose-pin` au premier PIN) et rend le motif d'un refus, ou « pas de réseau », ou « service indisponible ». Écran simple `/sign-in` : numéro, PIN, puis nouveau PIN à la première connexion, messages en français. Le cahier s'ouvre à un gardien dont la session a expiré (il déclare hors-ligne) ; le bureau exige une session valide et le rôle admin. `@angular/forms` n'est pas ajouté : deux champs n'en valent pas un paquet.
 
-- [x] L'utilisateur reconnaît son avatar, puis saisit son PIN — écran conçu le 2026-11-07 (`journal-gardien-entree.html`), porté le 2026-11-07 : le téléphone retient les comptes qui s'y sont connectés (`yaar.accounts` : identifiant, numéro, rôle, nom, avatar — rien de financier), le plus récent d'abord, même après une déconnexion ; ils s'affichent en grands avatars nommés, « Un autre compte » mène au numéro. Pavé de grosses touches (`ui/keypad.ts`), quatre ronds pour un gardien, six pour un admin, envoi au dernier chiffre ; pour un numéro jamais vu sur ce téléphone, le rôle est inconnu et le code se valide d'une touche. Code faux : ronds rouges et post-it ; au premier code, celui du chef puis le sien deux fois, comparés sur le téléphone. La voix viendra avec les clips (épique I).
+- [x] L'utilisateur reconnaît son avatar, puis saisit son PIN — écran conçu le 2026-11-07 (`journal-gardien-entree.html`), porté le 2026-11-07 : le téléphone garde le compte qui s'y est connecté (`yaar.account` : identifiant, numéro, rôle, nom, avatar, langue — rien de financier), même après une déconnexion. **Corrigé le 2026-11-08** : un téléphone = une personne (décision du fondateur) ; l'écran « Qui tient le cahier ? », qui supposait un téléphone partagé, est retiré : le compte gardé ouvre directement le code, sous son avatar et son nom ; sans compte gardé, le numéro. Pavé de grosses touches (`ui/keypad.ts`), quatre ronds pour un gardien, six pour un admin, envoi au dernier chiffre ; pour un numéro jamais vu sur ce téléphone, le rôle est inconnu et le code se valide d'une touche. Code faux : ronds rouges et post-it ; au premier code, celui du chef puis le sien deux fois, comparés sur le téléphone. La voix viendra avec les clips (épique I).
 - [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio) — conçu le 2026-11-07 : ronds rouges qui tremblent, post-it, voix ; reste à porter
 - [x] Une session ouverte survit à la fermeture de l'application
 - [x] Un collaborateur arrive sur le cahier ; un admin arrive sur le bureau

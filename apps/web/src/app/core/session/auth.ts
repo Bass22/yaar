@@ -21,9 +21,9 @@ export class AuthService {
     return this.open('/api/v1/auth/sign-in', phone, { phone, pin, deviceId: this.store.deviceId() });
   }
 
-  /** The accounts that have signed in on this phone (« who holds the notebook »). */
-  knownAccounts(): KnownAccount[] {
-    return this.store.knownAccounts();
+  /** The account of this phone: its number is kept, only the code is asked. */
+  knownAccount(): KnownAccount | null {
+    return this.store.knownAccount();
   }
 
   /** First sign-in: the provisional PIN the admin gave, and one's own, in one step. */

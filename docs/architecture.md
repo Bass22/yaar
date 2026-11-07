@@ -118,7 +118,7 @@ Là où l'ERP Travaux prévoit une « file de saisies » en lot 5, ce produit la
 ## 6. Tenancy, authentification & sécurité
 
 - **`tenant_id` sur chaque table et chaque requête** ; règle d'or identique à l'ERP : aucune requête sans filtre tenant, garantie par une garde NestJS + la couche d'accès, renforcée par le **RLS PostgreSQL**. Schéma partagé, une seule base : des centaines de petits élevages à bas prix, l'isolation physique serait de la sur-ingénierie.
-- **Authentification** : numéro de téléphone + code PIN (argon2), avatar de reconnaissance à l'écran ; JWT access (TTL à trancher comme sur l'ERP, §12) ; sessions par appareil, révocables par l'admin (téléphone perdu).
+- **Authentification** : numéro de téléphone + code PIN (argon2), le téléphone garde le numéro (un téléphone = une personne), avatar du compte à l'écran ; JWT access (TTL à trancher comme sur l'ERP, §12) ; sessions par appareil, révocables par l'admin (téléphone perdu).
 - **Autorisation** : RBAC simple (admin / collaborateur / investisseur V2) + portée par site pour les collaborateurs ; le rôle détermine aussi **ce qui est synchronisé vers l'appareil** (need-to-know : rien de financier chez le gardien).
 - **Audit** : chaque événement porte auteur + appareil + horodatage ; les actions admin sensibles (correction, fusion de types, suppression de compte, affectation à un site et titulaire) sont journalisées. Une trace qui concerne un site le nomme (`audit_events.site_id`). Seule ligne que l'application efface : une affectation retirée — la trace la garde.
 - **Mode strict** par site (seul le titulaire déclare) = une simple politique vérifiée à l'ingestion, jamais un verrou côté client.

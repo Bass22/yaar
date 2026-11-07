@@ -52,14 +52,14 @@ Colonnes : **Id** — le nom du fichier, lu tel quel par l'outillage (`tools/aud
 
 ## 1 bis. Écrans d'entrée (conçus le 2026-11-07, `journal-gardien-entree.html`)
 
+Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande que le code, sans choix de compte ; les dessins des comptes ne se disent donc pas.
+
 | Id | Phrase | Quand | Wolof |
 |---|---|---|---|
-| `sign-in-touch-avatar` | Touche ton dessin. | Les comptes connus du téléphone s'affichent | |
 | `sign-in-type-code` | Tape ton code. | Le pavé du code s'ouvre | |
 | `sign-in-type-new-code` | Tape ton nouveau code. | Premier code, deuxième étape | |
 | `sign-in-type-new-code-again` | Tape encore ton nouveau code. | Premier code, troisième étape | |
 | `sign-in-codes-differ` | Les deux codes ne sont pas pareils. Recommence. | Les deux saisies du nouveau code diffèrent | |
-| `avatar-baobab`, `avatar-mango`, `avatar-pirogue`, `avatar-teapot`, `avatar-calabash`, `avatar-sheep`, `avatar-goat`, `avatar-watermelon`, `avatar-fish`, `avatar-star`, `avatar-turtle`, `avatar-drum` | Le baobab. La mangue. La pirogue. La théière. La calebasse. Le mouton. La chèvre. La pastèque. Le poisson. L'étoile. La tortue. Le tambour. | Un avatar touché ou montré — **12 fichiers** | |
 | `campaign-young` | Les petits. | Carte ou onglet de la bande la plus jeune | |
 | `campaign-old` | Les grands. | Carte ou onglet de la bande la plus vieille | |
 | `weighing-type-display` | Tape le poids que montre la balance. | L'afficheur de la pesée s'ouvre (remplace `weighing-type-weight`) | |
@@ -202,4 +202,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 398 fichiers par langue, dont 265 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 385 fichiers par langue, dont 265 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

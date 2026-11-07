@@ -69,7 +69,7 @@ Les couleurs hors token sont à promouvoir en tokens au portage. Une couleur ne 
 | Photo | `.viseur` | Cadre pointillé, devient vert une fois la photo prise |
 | Confirmation | `.resume`, `.f-oui` / `.f-non` | Relecture vocale puis Oui (vert) / Non (gris) |
 | Tampon | `.bravo` / `.tampon` | « C'est noté » |
-| Qui tient le cahier ? | `.carte-compte` (`journal-gardien-entree.html`) | Les comptes connus du téléphone en grands avatars (112 px) |
+| ~~Qui tient le cahier ?~~ | `.carte-compte` (`journal-gardien-entree.html`) | **Retiré le 2026-11-08** : un téléphone = une personne, l'entrée ne demande que le code. Ne pas réintroduire de choix de compte |
 | Code | `.ronds`, `.pave`, `.touche` | Quatre ronds à remplir, touches de 72 px ; premier code tapé deux fois |
 | Bandes | `.carte-bande`, `.intercalaires`, `.onglet`, `.tampon-bande` | Choix à l'ouverture si plusieurs bandes ; « les petits » (poussin) et « les grands » (poule) ; la confirmation redit la bande |
 | Afficheur de pesée | `.afficheur` | Imite l'écran d'une balance digitale, chiffres entrés par la droite |

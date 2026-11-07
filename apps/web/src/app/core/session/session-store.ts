@@ -6,7 +6,7 @@ export type SessionState =
   | { readonly status: 'none' }
   | { readonly status: 'active' | 'expired'; readonly userId: string; readonly role: SessionRole; readonly token: string; readonly expiresAt: string; readonly account: SessionAccount };
 
-/** An account that has signed in on this phone: shown on « who holds the notebook » (G.2, E.9). */
+/** The account of this phone — one phone, one person (decision of 2026-11-08): its number is kept, only the code is asked (G.2, E.9). */
 export type KnownAccount = {
   readonly userId: string;
   readonly phone: string;
@@ -19,7 +19,7 @@ export type KnownAccount = {
 
 const SESSION_KEY = 'yaar.session';
 const DEVICE_KEY = 'yaar.device';
-const ACCOUNTS_KEY = 'yaar.accounts';
+const ACCOUNT_KEY = 'yaar.account';
 const UNKNOWN_ACCOUNT: SessionAccount = { name: '', avatar: null, language: 'fr' };
 
 /**
@@ -46,24 +46,20 @@ export class SessionStore {
     return { status, userId, role: saved['role'], token: saved['token'] as string, expiresAt, account };
   }
 
-  /** Keeps the session, and remembers the account on this phone, most recent first. */
+  /** Keeps the session, and the account of this phone. */
   save(session: SignInResponse, phone: string): void {
     this.storage.setItem(SESSION_KEY, JSON.stringify({ token: session.token, expiresAt: session.expiresAt, role: session.role, account: session.account }));
     const userId = subjectOf(session.token);
     if (userId !== null) {
       const known: KnownAccount = { userId, phone, role: session.role, name: session.account.name, avatar: session.account.avatar, language: session.account.language };
-      this.storage.setItem(ACCOUNTS_KEY, JSON.stringify([known, ...this.knownAccounts().filter((account) => account.userId !== userId)]));
+      this.storage.setItem(ACCOUNT_KEY, JSON.stringify(known));
     }
   }
 
-  /** The accounts that have signed in on this phone, most recent first. */
-  knownAccounts(): KnownAccount[] {
-    try {
-      const value: unknown = JSON.parse(this.storage.getItem(ACCOUNTS_KEY) ?? '[]');
-      return Array.isArray(value) ? value.filter((account): account is KnownAccount => typeof account === 'object' && account !== null && typeof account.userId === 'string' && typeof account.phone === 'string') : [];
-    } catch {
-      return [];
-    }
+  /** The account of this phone, kept after a sign-out; none before the first sign-in. */
+  knownAccount(): KnownAccount | null {
+    const account = readJson(this.storage.getItem(ACCOUNT_KEY));
+    return account !== null && typeof account['userId'] === 'string' && typeof account['phone'] === 'string' ? (account as KnownAccount) : null;
   }
 
   clear(): void {

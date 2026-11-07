@@ -33,7 +33,7 @@ describe('Connexion depuis le téléphone', () => {
 
     expect(await signing).toEqual({ ok: true, home: '/caretaker' });
     expect(auth.session()).toMatchObject({ status: 'active', userId: OUSMANE, role: 'collaborator', account: { name: 'Ousmane', avatar: 'baobab', language: 'wo' } });
-    expect(auth.knownAccounts()).toEqual([{ userId: OUSMANE, phone: '+221771234567', role: 'collaborator', name: 'Ousmane', avatar: 'baobab', language: 'wo' }]);
+    expect(auth.knownAccount()).toEqual({ userId: OUSMANE, phone: '+221771234567', role: 'collaborator', name: 'Ousmane', avatar: 'baobab', language: 'wo' });
   });
 
   it("un admin arrive sur le bureau", async () => {

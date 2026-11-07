@@ -2,18 +2,6 @@
 
 /** A clip of the script said as it is, or a number or a unit of the annex. */
 export type ScriptClip =
-  | 'avatar-baobab'
-  | 'avatar-calabash'
-  | 'avatar-drum'
-  | 'avatar-fish'
-  | 'avatar-goat'
-  | 'avatar-mango'
-  | 'avatar-pirogue'
-  | 'avatar-sheep'
-  | 'avatar-star'
-  | 'avatar-teapot'
-  | 'avatar-turtle'
-  | 'avatar-watermelon'
   | 'bags-how-many'
   | 'campaign-old'
   | 'campaign-young'
@@ -57,7 +45,6 @@ export type ScriptClip =
   | 'sign-in-pin-already-chosen'
   | 'sign-in-pin-expired'
   | 'sign-in-pin-too-simple'
-  | 'sign-in-touch-avatar'
   | 'sign-in-type-code'
   | 'sign-in-type-new-code'
   | 'sign-in-type-new-code-again'

@@ -49,23 +49,17 @@ describe('Session gardée sur le téléphone', () => {
     expect(store().deviceId()).toBe(device);
   });
 
-  it("le téléphone retient les comptes qui s'y sont connectés — nom, avatar, rôle, numéro, langue de la voix —, le plus récent d'abord, sans doublon, même après une déconnexion (E.9)", () => {
-    const AWA = '00000000-0000-4000-8000-000000000052';
+  it("le téléphone garde le compte qui s'y est connecté — nom, avatar, rôle, numéro, langue de la voix —, même après une déconnexion : un téléphone = une personne (2026-11-08)", () => {
     store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
-    store().save({ token: tokenFor({ sub: AWA }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: { name: 'Awa', avatar: 'pirogue', language: 'fr' } }, '+221770000052');
-    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T09:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
     store().clear();
 
-    expect(store().knownAccounts()).toEqual([
-      { userId: OUSMANE, phone: PHONE, role: 'collaborator', name: 'Ousmane', avatar: 'baobab', language: 'wo' },
-      { userId: AWA, phone: '+221770000052', role: 'collaborator', name: 'Awa', avatar: 'pirogue', language: 'fr' },
-    ]);
+    expect(store().knownAccount()).toEqual({ userId: OUSMANE, phone: PHONE, role: 'collaborator', name: 'Ousmane', avatar: 'baobab', language: 'wo' });
   });
 
-  it("une liste de comptes illisible n'empêche pas d'entrer : elle est vide", () => {
-    localStorage.setItem('yaar.accounts', '{cassé');
+  it("un compte gardé illisible n'empêche pas d'entrer : le numéro est redemandé", () => {
+    localStorage.setItem('yaar.account', '{cassé');
 
-    expect(store().knownAccounts()).toEqual([]);
+    expect(store().knownAccount()).toBeNull();
   });
 
   it("l'appareil reçoit un identifiant une seule fois, créé sur le téléphone, et le garde", () => {

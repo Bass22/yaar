@@ -119,15 +119,16 @@ export class Notebook {
     this.chosenDay.set(day);
   }
 
-  /** The name of whoever wrote a line: from the server, from this phone's accounts, or the person signed in. */
+  /** The name of whoever wrote a line: the person signed in, or the server's. */
   nameOf(authorId: string): string {
     if (authorId === this.userId()) {
       return this.account()?.name ?? '';
     }
-    const fromServer = this.site()
-      ?.campaigns.flatMap((campaign) => campaign.journal)
-      .find((line) => line.author.id === authorId)?.author.name;
-    return fromServer ?? this.auth.knownAccounts().find((account) => account.userId === authorId)?.name ?? '';
+    return (
+      this.site()
+        ?.campaigns.flatMap((campaign) => campaign.journal)
+        .find((line) => line.author.id === authorId)?.author.name ?? ''
+    );
   }
 
   /** Asks the server for the notebook; without an answer, the one kept stays. */
