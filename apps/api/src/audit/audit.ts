@@ -7,6 +7,8 @@ export type AuditEntry = {
   readonly actorId: string;
   /** The account the action was about. */
   readonly subjectId: string;
+  /** The site the action was about, when it was about one. */
+  readonly siteId?: string;
   readonly deviceId: string | null;
   /** Why a sign-in failed or was refused: the kind of the refusal, never what was typed. */
   readonly reason?: string;
@@ -19,6 +21,6 @@ export type AuditEntry = {
  */
 export async function recordAudit(tx: Prisma.TransactionClient, tenantId: string, entry: AuditEntry, at: Date): Promise<void> {
   await tx.auditEvent.create({
-    data: { tenantId, id: randomUUID(), occurredAt: at, action: entry.action, actorId: entry.actorId, subjectId: entry.subjectId, deviceId: entry.deviceId, reason: entry.reason ?? null },
+    data: { tenantId, id: randomUUID(), occurredAt: at, action: entry.action, actorId: entry.actorId, subjectId: entry.subjectId, siteId: entry.siteId ?? null, deviceId: entry.deviceId, reason: entry.reason ?? null },
   });
 }

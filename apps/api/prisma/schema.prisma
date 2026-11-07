@@ -103,13 +103,15 @@ model Site {
   assignments   SiteAssignment[]
   campaigns     Campaign[]
   journalEvents JournalEvent[]
+  auditEvents   AuditEvent[]
 
   @@unique([tenantId, id])
   @@map("sites")
 }
 
 // A collaborator allowed to write in the notebook of a site: its primary caretaker, or a
-// substitute. At most one primary per site (partial unique index, in the migration).
+// substitute. At most one primary per site (partial unique index, in the migration). The only
+// row the application erases: removing someone from a site; the audit trail keeps it (E.7).
 model SiteAssignment {
   tenantId  String   @map("tenant_id") @db.Uuid
   siteId    String   @map("site_id") @db.Uuid
@@ -190,6 +192,9 @@ enum AuditAction {
   AccountUnblocked
   SignedOutEverywhere
   PinReset
+  SiteAssigned
+  SiteUnassigned
+  PrimaryCaretakerDesignated
 
   @@map("audit_action")
 }
@@ -205,12 +210,15 @@ model AuditEvent {
   actorId    String      @map("actor_id") @db.Uuid
   // The account the action was about.
   subjectId  String      @map("subject_id") @db.Uuid
+  // The site the action was about, when it was about one (an assignment).
+  siteId     String?     @map("site_id") @db.Uuid
   // The device of the actor, as it names itself (UUID made on the device).
   deviceId   String?     @map("device_id") @db.Uuid
   // Why a sign-in was refused or failed: the kind of the refusal.
   reason     String?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site   Site?  @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([tenantId, id])
   @@index([tenantId, subjectId, occurredAt])

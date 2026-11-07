@@ -111,6 +111,13 @@ describe('Cloisonnement entre élevages', () => {
       expect(await db.owner.site.findUniqueOrThrow({ where: { id: SITE_B } })).toMatchObject({ name: 'Poulailler B' });
     });
 
+    it("un utilisateur de A ne retire pas une affectation de B : elle n'existe pas pour lui", async () => {
+      const removed = await api.runInTenant(TENANT_A, (tx) => tx.siteAssignment.deleteMany({ where: { siteId: SITE_B } }));
+
+      expect(removed.count).toBe(0);
+      expect(await db.owner.siteAssignment.count({ where: { siteId: SITE_B } })).toBe(1);
+    });
+
     it("un utilisateur de A n'écrit pas une ligne au nom de B, même sans relire ce qu'il écrit", async () => {
       // When une écriture brute, sans RETURNING : seule la règle d'écriture de la politique peut la refuser
       const write = api.runInTenant(TENANT_A, (tx) =>
@@ -260,7 +267,7 @@ describe('Cloisonnement entre élevages', () => {
       expect(tables).toEqual([...TABLES].sort().map((name) => ({ name, enabled: true, forced: true, policies: name === 'users' ? 2 : 1 })));
     });
 
-    it("n'a que les droits accordés table par table : lire et écrire, jamais supprimer ni vider, et seulement lire son élevage", async () => {
+    it("n'a que les droits accordés table par table : lire et écrire, jamais vider, ne supprimer qu'une affectation à un site, et seulement lire son élevage", async () => {
       // Lu dans le catalogue : un droit accordé en trop par une migration fait échouer ce test.
       const grants = await db.owner.$queryRaw<{ table_name: string; privileges: string }[]>`
         SELECT table_name::text, string_agg(privilege_type::text, ',' ORDER BY privilege_type) AS privileges
@@ -272,7 +279,8 @@ describe('Cloisonnement entre élevages', () => {
         { table_name: 'audit_events', privileges: 'INSERT,SELECT' },
         { table_name: 'campaigns', privileges: 'INSERT,SELECT,UPDATE' },
         { table_name: 'journal_events', privileges: 'INSERT,SELECT' },
-        { table_name: 'site_assignments', privileges: 'INSERT,SELECT,UPDATE' },
+        // Removing a collaborator from a site erases the assignment; the audit trail keeps it (E.7).
+        { table_name: 'site_assignments', privileges: 'DELETE,INSERT,SELECT,UPDATE' },
         { table_name: 'sites', privileges: 'INSERT,SELECT,UPDATE' },
         { table_name: 'tenants', privileges: 'SELECT' },
         { table_name: 'users', privileges: 'INSERT,SELECT,UPDATE' },

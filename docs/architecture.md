@@ -83,8 +83,8 @@ Organisation en **modules NestJS**, un par domaine :
 
 - `auth` — téléphone + PIN, JWT ; conçu compatible OIDC (jamais prioritaire ici).
 - `tenants` — élevages, résolution du tenant courant, feature flags par module.
-- `users` — rôles (admin, collaborateur, investisseur V2), titulaire par site, affectations.
-- `sites` / `campagnes` — poulaillers, bandes, phases, configuration (balance, protocole sanitaire), budget prévisionnel par poste (pré-rempli depuis l'historique) et échéances récurrentes (salaire, eau) génératrices de dettes à date.
+- `users` — rôles (admin, collaborateur, investisseur V2), comptes de l'équipe, blocage, PIN provisoire.
+- `sites` / `campagnes` — poulaillers et leur équipe (affectations, titulaire : `PUT`/`DELETE /sites/:siteId/staff/:userId`, `PUT /sites/:siteId/primary-caretaker`, l'admin seul ; le site est verrouillé le temps du changement, pour que deux admins ne laissent jamais deux titulaires), bandes, phases, configuration (balance, protocole sanitaire), budget prévisionnel par poste (pré-rempli depuis l'historique) et échéances récurrentes (salaire, eau) génératrices de dettes à date.
 - `journal` — **le cœur** : ingéré des événements (morts, pertes hors mortalité, sacs, réceptions, pesées, tâches, zéros, vocaux, photos), idempotence par UUID, contre-déclarations.
 - `commandes` — commandes multi-lignes (en-tête + lignes), annonces au gardien, réceptions partielles cumulées par ligne, paiements multiples découplés, statuts (brouillon → annoncée → partiellement reçue → reçue → soldée).
 - `tiers` — grand livre des tiers : dettes et créances issues des commandes (reçu/payé), des coûts directs à payer, des ventes à crédit et des avances de collaborateurs ; règlements partiels ; soldes en francs et en nature.
@@ -120,7 +120,7 @@ Là où l'ERP Travaux prévoit une « file de saisies » en lot 5, ce produit la
 - **`tenant_id` sur chaque table et chaque requête** ; règle d'or identique à l'ERP : aucune requête sans filtre tenant, garantie par une garde NestJS + la couche d'accès, renforcée par le **RLS PostgreSQL**. Schéma partagé, une seule base : des centaines de petits élevages à bas prix, l'isolation physique serait de la sur-ingénierie.
 - **Authentification** : numéro de téléphone + code PIN (argon2), avatar de reconnaissance à l'écran ; JWT access (TTL à trancher comme sur l'ERP, §12) ; sessions par appareil, révocables par l'admin (téléphone perdu).
 - **Autorisation** : RBAC simple (admin / collaborateur / investisseur V2) + portée par site pour les collaborateurs ; le rôle détermine aussi **ce qui est synchronisé vers l'appareil** (need-to-know : rien de financier chez le gardien).
-- **Audit** : chaque événement porte auteur + appareil + horodatage ; les actions admin sensibles (correction, fusion de types, suppression de compte) sont journalisées.
+- **Audit** : chaque événement porte auteur + appareil + horodatage ; les actions admin sensibles (correction, fusion de types, suppression de compte, affectation à un site et titulaire) sont journalisées. Une trace qui concerne un site le nomme (`audit_events.site_id`). Seule ligne que l'application efface : une affectation retirée — la trace la garde.
 - **Mode strict** par site (seul le titulaire déclare) = une simple politique vérifiée à l'ingestion, jamais un verrou côté client.
 
 ## 7. Médias & notifications

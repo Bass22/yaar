@@ -531,14 +531,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une entrée d'audit ne se modifie ni ne se supprime, ni par l'application, ni par le propriétaire de la base
 - [x] Aucune entrée ne contient de PIN, de jeton ni de numéro de téléphone
 
-### E.7 — Affecter l'équipe aux sites · **S** · 🔒
-> Spec : CdC « Gouvernance des déclarations » · Zone : `apps/api/src/users/`, `apps/api/src/sites/`
+### E.7 — Affecter l'équipe aux sites · **S** · 🔒 ✅
+> Spec : CdC « Gouvernance des déclarations » · Zone : `apps/api/src/sites/{site-staff,sites.controller,sites.module}.ts`, `packages/contracts/src/sites.ts`, migration `0001_init`
 > Dépend de : E.5 · Revue : un site n'a qu'un titulaire. Scindée d'E.5 le 2026-11-07.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. L'avatar sort de la tranche (décision du fondateur) : il devient E.9. **Décisions du 2026-11-07, ajoutées au CdC** : retirer le titulaire est permis, le site reste sans titulaire ; un nouveau titulaire fait de l'ancien un remplaçant, qui garde l'accès. Trois routes réservées à l'admin, qui répondent 204 : `PUT /api/v1/sites/:siteId/staff/:userId` (affecte comme remplaçant ; déjà affecté : rien ne change), `DELETE …/staff/:userId` (retire ; pas affecté : 404), `PUT /api/v1/sites/:siteId/primary-caretaker` avec exactement `{ userId }` (désigne, en affectant au besoin). Un site ou un compte d'un autre élevage : 404. Chaque changement est tracé (`SiteAssigned`, `SiteUnassigned`, `PrimaryCaretakerDesignated`) avec le site, nouvelle colonne `audit_events.site_id`. Le site est verrouillé (`SELECT … FOR UPDATE`) le temps du changement : deux admins qui désignent au même moment sont servis l'un après l'autre.
+> **Choix à relire** : seul un collaborateur s'affecte — un admin atteint déjà tous les sites, et n'est donc jamais titulaire (403). L'application reçoit le droit `DELETE` sur `site_assignments`, et sur elle seule : une affectation retirée s'efface, l'historique est dans la trace. Un compte bloqué peut être affecté. Aucune route ne lit encore l'équipe d'un site (l'écran « Équipe » la demandera).
 
-- [ ] L'admin affecte un collaborateur à un ou plusieurs sites, et retire une affectation
-- [ ] L'admin désigne le titulaire d'un site ; un site n'a qu'un titulaire
-- [ ] Un collaborateur ne s'affecte pas lui-même, et n'atteint que les sites où il est affecté (E.3)
-- [ ] L'avatar du compte, choisi dans une liste de pictos (liste à fixer avec `/designer`)
+- [x] L'admin affecte un collaborateur à un ou plusieurs sites, et retire une affectation
+- [x] L'admin désigne le titulaire d'un site ; un site n'a qu'un titulaire
+- [x] Un collaborateur ne s'affecte pas lui-même, et n'atteint que les sites où il est affecté (E.3)
+- [x] ~~L'avatar du compte~~ → E.9
 
 ### E.8 — Ajouter un admin à un élevage, par script · **S** · 🔒
 > Spec : CdC « Identité » (au moins un admin par élevage, créés par l'éditeur seul) · Zone : `apps/api/src/` (script, à côté de `bootstrap-tenant`)
@@ -547,6 +549,14 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Le script de l'éditeur ajoute un admin à un élevage existant (numéro, nom, PIN demandé au clavier)
 - [ ] Un numéro déjà pris est refusé ; un élevage inconnu aussi
 - [ ] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
+
+### E.9 — L'avatar du compte · **S**
+> Spec : CdC « Identité » (avatar picto reconnaissable à la connexion) · Zone : `packages/design-system/`, `apps/api/src/users/`
+> Dépend de : E.5, et la liste des pictos fixée avec `/designer` · Scindée d'E.7 le 2026-11-07.
+
+- [ ] La liste fermée des avatars, fixée avec `/designer`
+- [ ] L'admin choisit l'avatar d'un collaborateur à la création, et le change
+- [ ] Deux comptes d'un même site ne portent pas le même avatar (à confirmer avec `/designer`)
 
 ## F — Ingestion et descente
 

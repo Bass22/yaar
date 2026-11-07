@@ -16,7 +16,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -107,6 +107,7 @@ CREATE TABLE "audit_events" (
     "action" "audit_action" NOT NULL,
     "actor_id" UUID NOT NULL,
     "subject_id" UUID NOT NULL,
+    "site_id" UUID,
     "device_id" UUID,
     "reason" TEXT,
 
@@ -176,6 +177,9 @@ ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_retracts_f
 -- AddForeignKey
 ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_site_id_fkey" FOREIGN KEY ("tenant_id", "site_id") REFERENCES "sites"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -204,14 +208,15 @@ END
 $$;
 
 -- Least privilege, table by table. No GRANT ON ALL TABLES and no default privileges: a table
--- added later is closed until its migration opens it. No DELETE (nothing is erased here) and
--- no TRUNCATE (it bypasses RLS).
+-- added later is closed until its migration opens it. No DELETE (nothing is erased here,
+-- except an assignment to a site) and no TRUNCATE (it bypasses RLS).
 GRANT USAGE ON SCHEMA public TO yaar_app;
 -- A farm reads its own row; farms are created by provisioning, as the owner.
 GRANT SELECT ON "tenants" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "users" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "sites" TO yaar_app;
-GRANT SELECT, INSERT, UPDATE ON "site_assignments" TO yaar_app;
+-- Removing a collaborator from a site erases the assignment (E.7); the audit trail keeps it.
+GRANT SELECT, INSERT, UPDATE, DELETE ON "site_assignments" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "campaigns" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;

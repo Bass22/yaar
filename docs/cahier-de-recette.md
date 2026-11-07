@@ -24,6 +24,7 @@ Tenu par `/qa`, et par `/security-engineer` pour ses constats restés ouverts. I
 | 2026-11-07 | E.4 — bloquer un compte | **Validé** | 10 tests à travers le serveur HTTP sur PostgreSQL réel ; 12 sabotages détectés sur 12, sur une copie |
 | 2026-11-07 | E.5 — comptes de l'équipe et premier PIN | **Validé** | 14 tests à travers le serveur HTTP sur PostgreSQL réel ; 20 sabotages détectés sur 20, sur une copie |
 | 2026-11-07 | E.6 — trace des actions sensibles | **Validé** | 8 tests à travers le serveur HTTP sur PostgreSQL réel ; 17 sabotages détectés sur 17, sur une copie |
+| 2026-11-07 | E.7 — affecter l'équipe aux sites | **Validé** | 17 tests à travers le serveur HTTP sur PostgreSQL réel, dont deux désignations entrelacées dans deux transactions ; plus 2 tests du catalogue (droit `DELETE` limité aux affectations, trace qui ne nomme qu'un site de son élevage) ; 20 sabotages détectés sur 20, sur une copie (le verrou du site manquait au premier passage : le test de concurrence par HTTP ne le prouvait pas, remplacé) |
 
 ## 2. Réserves ouvertes
 

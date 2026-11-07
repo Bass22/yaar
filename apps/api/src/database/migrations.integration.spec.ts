@@ -159,6 +159,13 @@ describe('Migrations', () => {
     await expect(acrossTenants).rejects.toThrow(/Foreign key constraint/i);
   });
 
+  it("une trace d'audit ne nomme qu'un site de son élevage", async () => {
+    const entry = (id: string, siteId: string) => ({ id, tenantId: TENANT_A, occurredAt: new Date('2026-11-07T08:00:00.000Z'), action: 'SiteAssigned' as const, actorId: OUSMANE, subjectId: OUSMANE, siteId });
+
+    await expect(db.owner.auditEvent.create({ data: entry('00000000-0000-4000-8000-0000000000f1', SITE_B) })).rejects.toThrow(/Foreign key constraint/i);
+    await expect(db.owner.auditEvent.create({ data: entry('00000000-0000-4000-8000-0000000000f2', SITE_A) })).resolves.toMatchObject({ siteId: SITE_A });
+  });
+
   it("un site n'a qu'un titulaire, et autant de remplaçants qu'il faut", async () => {
     // Given Ousmane titulaire, Awa remplaçante
     await db.owner.siteAssignment.createMany({
