@@ -797,6 +797,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [x] Chaque texte de l'écran du gardien a sa phrase dans le script — `audio/script.md`, écrit le 2026-11-07 d'après la maquette et le cahier des charges : environ 375 clips par langue, selon le principe « phrase entière d'abord » ; colonne wolof à remplir par le traducteur ; guide d'enregistrement en tête
 - [ ] Un test échoue si un écran référence une phrase absente du script
+- [ ] Les phrases du bureau s'ajoutent au script : questions de saisie, relectures d'argent, sens des dettes (« tu dois… à », « … te doit »), chiffres clés — le bureau parle aussi depuis le 2026-11-07
 - [ ] Les clips wolof ⏸ attendent l'enregistrement d'un locuteur
 
 ## J — L'écran du cahier
@@ -998,6 +999,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'admin crée un fournisseur, un client ou un collaborateur comme tiers
 - [ ] Un tiers porteur d'écritures s'archive et ne se supprime pas
 - [ ] Un tiers n'est visible que dans son tenant
+- [ ] À sa création, l'admin enregistre le nom du tiers au micro (deux secondes) et lui donne un visage — photo ou picto de ce qu'il fournit — : la voix et l'écran le désignent sans lire (décision du 2026-11-07)
 
 ### N.4 — Les souches et la table Cobb 500 · **M**
 > Spec : CdC « Référentiels » (souches), « Points ouverts » (table Cobb) · Zone : `apps/api/src/reference-data/strains/`, `packages/domain/src/journal/strain.ts`
@@ -1052,7 +1054,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Bureau de l'admin » ; `bureau-admin.html` (onglets, sélecteur de site) · Zone : `apps/web/src/app/admin/`
 > Dépend de : G.2, H.3 · Revue : les routes admin ne sont pas dans le bundle du gardien.
 
-- [ ] Quatre onglets : Jour, Argent, Commandes, Suivi
+- [ ] ~~Quatre onglets : Jour, Argent, Commandes, Suivi~~ — remplacés si le fondateur valide `bureau-admin-v2.html` (séance du 2026-11-07) : accueil « à traiter », lots (intercalaires tirés du profil de l'espèce), Achats, Tiers, Plus ; un seul bouton « Écrire ». Conçu au téléphone d'abord ; aucune espèce en dur (décisions du 2026-11-07)
 - [ ] Le sélecteur de site change le contexte de tous les onglets
 - [ ] Hors-ligne, le bureau montre la dernière lecture et sa date
 - [ ] Hors-ligne, un coût, un paiement, une vente ou une déclaration partent en file d'attente (P.7) ; toute autre saisie est refusée et l'écran dit pourquoi
@@ -1117,6 +1119,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La note s'écrit sur des lignes de cahier et s'affiche en entier
 - [ ] La liste montre les dépenses datées et le total engagé venu de l'API
 - [ ] L'engagé et le coût par poulet ont un bouton d'écoute
+- [ ] La saisie suit quoi → combien → Oui (décision du 2026-11-07, `bureau-admin-v2.html` écrans 7 à 9) : types en pictos d'objets, pavé à grosses touches avec 000, montant aussi en billets et en liasses, relecture vocale d'office avant le Oui ; date, note et reçu derrière « plus de détails »
 
 ### P.5 — Reçu en photo et duplication · **S**
 > Spec : CdC « Argent » (justificatif, duplication) · Zone : `apps/web/src/app/admin/money/`
@@ -1264,6 +1267,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'admin règle une dette depuis la ligne du tiers
 - [ ] Un tiers soldé ne porte plus de badge de dette
 - [ ] Les soldes viennent de l'API ; l'écran n'additionne rien
+- [ ] Le sens se voit sans lire : flèche rouge de toi vers le tiers, verte vers toi ; le tiers a son visage et la voix dit son nom enregistré, avec le montant (écran 10 de `bureau-admin-v2.html`)
 
 ### R.4 — L'avance d'un collaborateur · **S**
 > Spec : CdC « payé par AS » · Zone : `packages/domain/src/finance/ledger.ts`, écran de saisie d'un coût
@@ -1438,7 +1442,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Ventes » · Zone : `apps/api/src/sales/`, `apps/web/src/app/admin/sales/`
 > Dépend de : W.1, W.2, P.4 · Revue : réservé à l'admin ; la créance apparaît dans « Qui doit quoi ».
 
-- [ ] L'admin enregistre une vente payée ou à crédit
+- [ ] L'admin enregistre une vente payée ou à crédit, par le même geste que P.4 : quoi → combien → Oui, relecture vocale d'office
 - [ ] Hors-ligne, la vente part en file d'attente et s'affiche « en attente » (P.7)
 - [ ] Une vente à crédit apparaît chez l'acheteur dans « Qui doit quoi »
 - [ ] Le restant à vendre diminue de la quantité vendue
