@@ -10,6 +10,12 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
+CREATE TYPE "account_avatar" AS ENUM ('baobab', 'mango', 'pirogue', 'teapot', 'calabash', 'sheep', 'goat', 'watermelon', 'fish', 'star', 'turtle', 'drum');
+
+-- CreateEnum
+CREATE TYPE "audio_language" AS ENUM ('wo', 'fr');
+
+-- CreateEnum
 CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 
 -- CreateEnum
@@ -35,6 +41,8 @@ CREATE TABLE "users" (
     "phone" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "role" "user_role" NOT NULL,
+    "avatar" "account_avatar",
+    "audio_language" "audio_language",
     "pin_hash" TEXT NOT NULL,
     "provisional_pin_expires_at" TIMESTAMPTZ(3),
     "pin_failures" INTEGER NOT NULL DEFAULT 0,
@@ -53,6 +61,7 @@ CREATE TABLE "sites" (
     "name" TEXT NOT NULL,
     "time_zone" TEXT NOT NULL,
     "strict_mode" BOOLEAN NOT NULL DEFAULT false,
+    "audio_language" "audio_language",
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "sites_pkey" PRIMARY KEY ("id")

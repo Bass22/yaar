@@ -8,6 +8,7 @@ import type { PinHasher } from '../auth/pin-hasher';
 import type { Session } from '../auth/session';
 import { PROVISIONAL_PIN_LIFETIME_SECONDS } from '../auth/session-policy';
 import type { PrismaService } from '../database/prisma.service';
+import { isAvatar, isLanguage } from './account-profile';
 
 export type TeamAccountRefusal =
   | { readonly kind: 'InvalidRequest' }
@@ -32,7 +33,7 @@ const expiryFrom = (now: Date): Date => new Date(now.getTime() + PROVISIONAL_PIN
 
 /**
  * Creates an account of the team: always a collaborator — the request chooses neither the role
- * nor the PIN. It gets a provisional PIN, shown once in the answer and valid seven days. The
+ * nor the PIN, but the avatar (and, if the admin wants, the language of the voice: E.9). It gets a provisional PIN, shown once in the answer and valid seven days. The
  * phone number is checked across the whole service first (one account per number).
  */
 export async function createAccount(
@@ -43,7 +44,7 @@ export async function createAccount(
   now: Date,
 ): Promise<Result<{ readonly id: string; readonly role: 'collaborator' } & ProvisionalPin, TeamAccountRefusal>> {
   const name = request.name.trim();
-  if (!UUID.test(request.id) || !E164.test(request.phone) || name === '') {
+  if (!UUID.test(request.id) || !E164.test(request.phone) || name === '' || !isAvatar(request.avatar) || (request.language !== undefined && !isLanguage(request.language))) {
     return err({ kind: 'InvalidRequest' });
   }
   if ((await deps.prisma.findUserForSignIn(request.phone)) !== null) {
@@ -52,7 +53,7 @@ export async function createAccount(
   const pin = drawProvisionalPin();
   const provisionalPinExpiresAt = expiryFrom(now);
   await tx.user.create({
-    data: { id: request.id, tenantId: admin.tenantId, phone: request.phone, name, role: 'collaborator', pinHash: await deps.hasher.hash(pin), provisionalPinExpiresAt },
+    data: { id: request.id, tenantId: admin.tenantId, phone: request.phone, name, role: 'collaborator', avatar: request.avatar, audioLanguage: request.language ?? null, pinHash: await deps.hasher.hash(pin), provisionalPinExpiresAt },
   });
   await recordAudit(tx, admin.tenantId, { action: 'AccountCreated', actorId: admin.userId, subjectId: request.id, deviceId: admin.deviceId }, now);
   return ok({ id: request.id, role: 'collaborator', provisionalPin: pin.reveal(), provisionalPinExpiresAt: provisionalPinExpiresAt.toISOString() });

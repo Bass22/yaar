@@ -137,6 +137,8 @@ Rien à construire en V1, mais ne pas fermer :
 | Amorçage d'un élevage (tenant, premier site, premier admin) ; ajout d'un admin par l'éditeur | `bootstrapTenant` (`dist/bootstrap-tenant.js`) ; `addAdmin` (`dist/add-admin.js`) |
 | Trace d'une action sensible ; son action | `AuditEvent` (`recordAudit`) ; `AuditAction` |
 | PIN provisoire donné par l'admin ; premier choix du PIN ; PIN oublié | `provisionalPin` (`provisionalPinExpiresAt`) ; `choosePin` ; `resetPin` |
+| Le cahier du gardien et son état ; une bande vue dans le cahier (« les petits », « les grands », « Jour 12 ») ; où écrit le prochain geste ; contexte reçu du serveur | `Notebook` ; `NotebookCampaign` (`campaignsOf`) ; `declarationTarget` ; `CaretakerContext` |
+| Avatar d'un compte (liste fermée) ; langue de la voix (de la personne, sinon de son site) ; changer l'un ou l'autre ; comptes retenus par le téléphone | `AccountAvatar` (`avatar`) ; `AudioLanguage` (`audioLanguage`, `languageOf`) ; `updateAccount` ; `KnownAccount` (`knownAccounts`) |
 | Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
 | File d'attente du téléphone ; état d'un événement (en attente, envoi en doute, envoyé, refusé) ; synchro | `Outbox` ; `OutboxState` (`pending`, `in-doubt`, `sent`, `refused`) ; `synchronize`, `JournalSync` |

@@ -68,8 +68,12 @@ export interface CaretakerContext {
 export interface CaretakerSite {
   readonly siteId: string;
   readonly name: string;
+  /** IANA time zone (`Africa/Dakar`): the phone tells today, yesterday and day J from it, offline too. */
+  readonly timeZone: string;
   /** The business day it is now on the site, `YYYY-MM-DD`, in its time zone. */
   readonly today: string;
+  /** The account that keeps the notebook of the site, `null` while it has none (E.7). */
+  readonly primaryCaretakerId: string | null;
   /**
    * The campaigns running on the site, earliest placed first: a site may run several at once,
    * and the caretaker declares on each (decision of 2026-11-07). Empty: none running — said,

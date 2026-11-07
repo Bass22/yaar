@@ -10,8 +10,9 @@ import { synchronize, type SyncAnswer } from './synchronize';
 const OUSMANE = '00000000-0000-4000-8000-000000000051';
 const AWA = '00000000-0000-4000-8000-000000000052';
 const NOW = Date.parse('2026-11-07T08:00:00.000Z');
-const active = (userId = OUSMANE): SessionState => ({ status: 'active', userId, role: 'collaborator', token: `jeton-${userId}`, expiresAt: '2026-11-14T08:00:00.000Z' });
-const expired = (): SessionState => ({ status: 'expired', userId: OUSMANE, role: 'collaborator', token: `jeton-${OUSMANE}`, expiresAt: '2026-11-07T07:00:00.000Z' });
+const ACCOUNT = { name: 'Ousmane', avatar: null, language: 'fr' } as const;
+const active = (userId = OUSMANE): SessionState => ({ status: 'active', userId, role: 'collaborator', token: `jeton-${userId}`, expiresAt: '2026-11-14T08:00:00.000Z', account: ACCOUNT });
+const expired = (): SessionState => ({ status: 'expired', userId: OUSMANE, role: 'collaborator', token: `jeton-${OUSMANE}`, expiresAt: '2026-11-07T07:00:00.000Z', account: ACCOUNT });
 
 const morts = (quantity: number): EventDraft => ({
   siteId: '00000000-0000-4000-8000-000000000003',

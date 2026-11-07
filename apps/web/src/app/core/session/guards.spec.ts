@@ -2,7 +2,7 @@ import { homeOf, mayEnter } from './guards';
 
 // Spec: backlog G.2 — un collaborateur arrive sur le cahier, un admin sur le bureau ; CdC
 // « Identité » (hors-ligne, le gardien continue de déclarer avec une session expirée).
-const active = (role: 'admin' | 'collaborator') => ({ status: 'active' as const, role, userId: 'u', token: 't', expiresAt: 'x' });
+const active = (role: 'admin' | 'collaborator') => ({ status: 'active' as const, role, userId: 'u', token: 't', expiresAt: 'x', account: { name: 'Ousmane', avatar: null, language: 'fr' as const } });
 const expired = (role: 'admin' | 'collaborator') => ({ ...active(role), status: 'expired' as const });
 
 describe("Où va l'utilisateur", () => {

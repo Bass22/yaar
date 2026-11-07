@@ -53,7 +53,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
       headers: { 'Content-Type': 'application/json', ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }) },
       body: JSON.stringify(body),
     });
-  const create = async (id: string, phone: string, token = gerant()) => post('users', { id, phone, name: 'Gardien' }, token);
+  const create = async (id: string, phone: string, token = gerant()) => post('users', { id, phone, name: 'Gardien', avatar: 'baobab' }, token);
   const signIn = (phone: string, pin: string) => post('auth/sign-in', { phone, pin, deviceId: TELEPHONE });
   const choosePin = (phone: string, provisionalPin: string, newPin: string) => post('auth/choose-pin', { phone, provisionalPin, newPin, deviceId: TELEPHONE });
 
@@ -111,7 +111,7 @@ describe("Comptes de l'équipe et premier PIN", () => {
 
     it("la requête ne choisit ni le rôle ni le PIN, ni l'élevage : un champ de plus est refusé", async () => {
       for (const extra of [{ role: 'admin' }, { pin: '4829' }, { tenantId: '00000000-0000-4000-8000-00000000000b' }]) {
-        const response = await post('users', { id: AWA, phone: '+221770000052', name: 'Awa', ...extra }, gerant());
+        const response = await post('users', { id: AWA, phone: '+221770000052', name: 'Awa', avatar: 'pirogue', ...extra }, gerant());
         expect(response.status).toBe(400);
       }
       expect(await db.superuser.user.count({ where: { id: AWA } })).toBe(0);
@@ -125,10 +125,22 @@ describe("Comptes de l'équipe et premier PIN", () => {
       expect(await db.superuser.user.count({ where: { id: AWA } })).toBe(0);
     });
 
-    it("un identifiant, un numéro ou un nom invalides sont refusés", async () => {
-      for (const body of [{ id: 'awa', phone: '+221770000052', name: 'Awa' }, { id: AWA, phone: '770000052', name: 'Awa' }, { id: AWA, phone: '+221770000052', name: '  ' }]) {
+    it("un identifiant, un numéro, un nom, un avatar ou une langue invalides sont refusés ; l'avatar est obligatoire", async () => {
+      const awa = { id: AWA, phone: '+221770000052', name: 'Awa', avatar: 'pirogue' };
+      for (const body of [{ ...awa, id: 'awa' }, { ...awa, phone: '770000052' }, { ...awa, name: '  ' }, { ...awa, avatar: 'licorne' }, { id: AWA, phone: '+221770000052', name: 'Awa' }, { ...awa, language: 'en' }, { ...awa, avatar: 42 }]) {
         expect((await post('users', body, gerant())).status).toBe(400);
       }
+    });
+
+    it("le compte garde l'avatar choisi par l'admin, et la langue s'il en choisit une ; sans langue, il suivra celle de son site (E.9)", async () => {
+      expect((await post('users', { id: '00000000-0000-4000-8000-000000000061', phone: '+221770000061', name: 'Modou', avatar: 'sheep', language: 'wo' }, gerant())).status).toBe(201);
+      expect((await post('users', { id: '00000000-0000-4000-8000-000000000062', phone: '+221770000062', name: 'Fatou', avatar: 'star' }, gerant())).status).toBe(201);
+
+      const created = await db.superuser.user.findMany({ where: { id: { in: ['00000000-0000-4000-8000-000000000061', '00000000-0000-4000-8000-000000000062'] } }, orderBy: { id: 'asc' }, select: { avatar: true, audioLanguage: true } });
+      expect(created).toEqual([
+        { avatar: 'sheep', audioLanguage: 'wo' },
+        { avatar: 'star', audioLanguage: null },
+      ]);
     });
 
     it("un collaborateur ne crée pas de compte", async () => {
@@ -225,6 +237,45 @@ describe("Comptes de l'équipe et premier PIN", () => {
     it("l'admin ne remplace pas le PIN d'un admin, ni le sien, ni celui d'un compte qui n'existe pas", async () => {
       expect((await post(`users/${LE_GERANT}/reset-pin`, {}, gerant())).status).toBe(403);
       expect((await post(`users/${AWA}/reset-pin`, {}, gerant())).status).toBe(404);
+    });
+  });
+
+  // Spec: backlog E.9 — l'admin change l'avatar et la langue d'un compte ; la langue suit la personne (décision du 2026-11-07)
+  describe("l'avatar et la langue d'un compte", () => {
+    const BINTOU = '00000000-0000-4000-8000-000000000071';
+    const patch = (userId: string, body: unknown, token = gerant()) =>
+      fetch(`${origin}/api/v1/users/${userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+    const profile = () => db.superuser.user.findUniqueOrThrow({ where: { id: BINTOU }, select: { avatar: true, audioLanguage: true } });
+
+    beforeAll(async () => {
+      expect((await post('users', { id: BINTOU, phone: '+221770000071', name: 'Bintou', avatar: 'mango' }, gerant())).status).toBe(201);
+    });
+
+    it("l'admin change l'avatar, puis la langue ; une langue vidée fait revenir le compte à celle de son site", async () => {
+      expect((await patch(BINTOU, { avatar: 'turtle' })).status).toBe(204);
+      expect(await profile()).toEqual({ avatar: 'turtle', audioLanguage: null });
+
+      expect((await patch(BINTOU, { language: 'wo' })).status).toBe(204);
+      expect(await profile()).toEqual({ avatar: 'turtle', audioLanguage: 'wo' });
+
+      expect((await patch(BINTOU, { language: null })).status).toBe(204);
+      expect(await profile()).toEqual({ avatar: 'turtle', audioLanguage: null });
+    });
+
+    it("la requête ne change que l'avatar et la langue, pris dans leurs listes fermées : autre chose est refusé en 400, sans rien changer", async () => {
+      const before = await profile();
+
+      for (const body of [{}, { avatar: 'licorne' }, { avatar: null }, { language: 'en' }, { role: 'admin' }, { avatar: 'fish', name: 'Autre' }, [{ avatar: 'fish' }]]) {
+        expect((await patch(BINTOU, body)).status).toBe(400);
+      }
+      expect(await profile()).toEqual(before);
+    });
+
+    it("un compte inconnu de l'élevage répond 404 ; un collaborateur ne change rien, pas même le sien", async () => {
+      expect((await patch('00000000-0000-4000-8000-0000000000ff', { avatar: 'fish' })).status).toBe(404);
+      expect((await patch('pas-un-uuid', { avatar: 'fish' })).status).toBe(404);
+      const bintou = issueAccessToken({ sub: BINTOU, tenant: TENANT_A, role: 'collaborator', device: TELEPHONE }, unwrap(Instant(new Date(now).toISOString())), SECRET);
+      expect((await patch(BINTOU, { avatar: 'fish' }, bintou)).status).toBe(403);
     });
   });
 });

@@ -7,6 +7,8 @@ import { SessionStore } from './session-store';
 // A token as the server issues it: only its payload matters here, the phone never checks the signature.
 const tokenFor = (claims: Record<string, unknown>) => `e30.${btoa(JSON.stringify(claims)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')}.c2ln`;
 const OUSMANE = '00000000-0000-4000-8000-000000000051';
+const ACCOUNT = { name: 'Ousmane', avatar: 'baobab' as const, language: 'wo' as const };
+const PHONE = '+221771234567';
 
 describe('Session gardée sur le téléphone', () => {
   let now: Date;
@@ -18,14 +20,14 @@ describe('Session gardée sur le téléphone', () => {
   });
 
   it("une session ouverte survit à la fermeture : relue au redémarrage, avec l'utilisateur, le rôle et l'échéance", () => {
-    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator' });
+    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
 
     // A fresh store reads what the closed application left.
-    expect(store().current()).toEqual({ status: 'active', userId: OUSMANE, role: 'collaborator', token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z' });
+    expect(store().current()).toEqual({ status: 'active', userId: OUSMANE, role: 'collaborator', token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', account: ACCOUNT });
   });
 
   it("passée son échéance, la session est expirée — l'utilisateur reste connu, le jeton ne sert plus", () => {
-    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-07T09:00:00.000Z', role: 'collaborator' });
+    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-07T09:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
     now = new Date('2026-11-07T09:00:00.000Z');
 
     expect(store().current()).toMatchObject({ status: 'expired', userId: OUSMANE, role: 'collaborator' });
@@ -39,12 +41,31 @@ describe('Session gardée sur le téléphone', () => {
 
   it("se déconnecter oublie la session, mais pas l'appareil", () => {
     const device = store().deviceId();
-    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator' });
+    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
 
     store().clear();
 
     expect(store().current()).toEqual({ status: 'none' });
     expect(store().deviceId()).toBe(device);
+  });
+
+  it("le téléphone retient les comptes qui s'y sont connectés — nom, avatar, rôle, numéro —, le plus récent d'abord, sans doublon, même après une déconnexion (E.9)", () => {
+    const AWA = '00000000-0000-4000-8000-000000000052';
+    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
+    store().save({ token: tokenFor({ sub: AWA }), expiresAt: '2026-11-14T08:00:00.000Z', role: 'collaborator', account: { name: 'Awa', avatar: 'pirogue', language: 'fr' } }, '+221770000052');
+    store().save({ token: tokenFor({ sub: OUSMANE }), expiresAt: '2026-11-14T09:00:00.000Z', role: 'collaborator', account: ACCOUNT }, PHONE);
+    store().clear();
+
+    expect(store().knownAccounts()).toEqual([
+      { userId: OUSMANE, phone: PHONE, role: 'collaborator', name: 'Ousmane', avatar: 'baobab' },
+      { userId: AWA, phone: '+221770000052', role: 'collaborator', name: 'Awa', avatar: 'pirogue' },
+    ]);
+  });
+
+  it("une liste de comptes illisible n'empêche pas d'entrer : elle est vide", () => {
+    localStorage.setItem('yaar.accounts', '{cassé');
+
+    expect(store().knownAccounts()).toEqual([]);
   });
 
   it("l'appareil reçoit un identifiant une seule fois, créé sur le téléphone, et le garde", () => {

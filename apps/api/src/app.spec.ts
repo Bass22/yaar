@@ -100,6 +100,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/caretaker/context',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
+      // Admin only: the avatar and the language of an account (E.9) — neither the role nor the PIN.
+      'PATCH /api/v1/users/:userId',
       'POST /api/v1/auth/choose-pin',
       'POST /api/v1/auth/sign-in',
       // Every session, judged by the domain: the author and the farm come from the session (F.2).

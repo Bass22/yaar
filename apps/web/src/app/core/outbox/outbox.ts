@@ -97,6 +97,14 @@ export class Outbox {
     return (await this.all()).filter((entry) => entry.authorId === authorId && entry.state === 'refused');
   }
 
+  /**
+   * What the phone keeps of a campaign, whoever wrote it, in the order of creation: the notebook
+   * shows it with the server's journal (J.3). A refusal is left out — it is said apart (G.5).
+   */
+  async entriesOf(campaignId: string): Promise<OutboxEntry[]> {
+    return (await this.all()).filter((entry) => entry.payload.campaignId === campaignId && entry.state !== 'refused');
+  }
+
   /** How many events of this account wait to leave: the count of the sync badge. */
   async waiting(authorId: string): Promise<number> {
     return (await this.toSend(authorId)).length;

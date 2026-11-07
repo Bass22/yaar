@@ -3,7 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { ChoosePinRefusal, SignInRefusal, SignInResponse } from '@contracts';
 import { homeOf } from './guards';
-import { SessionStore, type SessionState } from './session-store';
+import { SessionStore, type KnownAccount, type SessionState } from './session-store';
 
 /** Why the phone could not open a session: the server's reason, or no network. */
 export type SignInFailure = SignInRefusal | ChoosePinRefusal | { readonly kind: 'Offline' } | { readonly kind: 'ServerUnavailable' };
@@ -18,12 +18,17 @@ export class AuthService {
   readonly session = this.state.asReadonly();
 
   signIn(phone: string, pin: string): Promise<SignInResult> {
-    return this.open('/api/v1/auth/sign-in', { phone, pin, deviceId: this.store.deviceId() });
+    return this.open('/api/v1/auth/sign-in', phone, { phone, pin, deviceId: this.store.deviceId() });
+  }
+
+  /** The accounts that have signed in on this phone (« who holds the notebook »). */
+  knownAccounts(): KnownAccount[] {
+    return this.store.knownAccounts();
   }
 
   /** First sign-in: the provisional PIN the admin gave, and one's own, in one step. */
   choosePin(phone: string, provisionalPin: string, newPin: string): Promise<SignInResult> {
-    return this.open('/api/v1/auth/choose-pin', { phone, provisionalPin, newPin, deviceId: this.store.deviceId() });
+    return this.open('/api/v1/auth/choose-pin', phone, { phone, provisionalPin, newPin, deviceId: this.store.deviceId() });
   }
 
   /** Forgets the session. What the outbox holds stays on the phone (decision of 2026-11-07). */
@@ -37,10 +42,10 @@ export class AuthService {
     this.state.set(this.store.current());
   }
 
-  private async open(url: string, body: object): Promise<SignInResult> {
+  private async open(url: string, phone: string, body: object): Promise<SignInResult> {
     try {
       const session = await firstValueFrom(this.http.post<SignInResponse>(url, body));
-      this.store.save(session);
+      this.store.save(session, phone);
       this.refresh();
       return { ok: true, home: homeOf(this.session()) };
     } catch (error) {

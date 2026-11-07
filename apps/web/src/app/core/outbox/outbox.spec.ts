@@ -93,6 +93,26 @@ describe("L'outbox garde chaque déclaration", () => {
     expect((await outbox.toSend(AWA)).map((entry) => entry.id)).toEqual([byAwa.id]);
   });
 
+  // Spec: backlog J.3 — le journal du jour montre aussi ce qui n'est pas encore parti
+  it("le cahier relit tout ce que le téléphone garde d'une bande — en attente, en doute, envoyé, de tous les comptes —, sauf les refus, montrés à part", async () => {
+    const outbox = await Outbox.open(factory);
+    const enAttente = await outbox.record(OUSMANE, troisMorts(1));
+    const envoye = await outbox.record(OUSMANE, troisMorts(2));
+    const refuse = await outbox.record(OUSMANE, troisMorts(3));
+    const deAwa = await outbox.record(AWA, troisMorts(4));
+    await outbox.record(OUSMANE, { ...troisMorts(5), campaignId: '00000000-0000-4000-8000-000000000044' });
+    await outbox.markSent([envoye.id]);
+    await outbox.markRefused(refuse.id, { kind: 'CampaignClosed' });
+
+    const relu = await outbox.entriesOf('00000000-0000-4000-8000-000000000004');
+
+    expect(relu.map((entry) => [entry.id, entry.state])).toEqual([
+      [enAttente.id, 'pending'],
+      [envoye.id, 'sent'],
+      [deAwa.id, 'pending'],
+    ]);
+  });
+
   it("le compteur de la pastille dit combien d'événements restent à envoyer", async () => {
     const outbox = await Outbox.open(factory);
     const [a] = await Promise.all([1, 2, 3].map(async () => outbox.record(OUSMANE, troisMorts())));

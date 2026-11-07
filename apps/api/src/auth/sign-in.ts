@@ -1,6 +1,7 @@
 import { err, ok, unwrap, type Clock, type Result } from '@kit';
 import { Instant, instantOf, TenantId, type Role } from '@domain/journal';
-import type { ChoosePinRefusal, ChoosePinRequest, SignInRefusal, SignInRequest, SignInResponse } from '@contracts';
+import type { AccountAvatar, AudioLanguage, ChoosePinRefusal, ChoosePinRequest, SignInRefusal, SignInRequest, SignInResponse } from '@contracts';
+import { languageOf } from '../users/account-profile';
 import type { AuditAction } from '@prisma/client';
 import { recordAudit } from '../audit/audit';
 import type { PrismaService } from '../database/prisma.service';
@@ -29,6 +30,9 @@ type Account = {
   readonly id: string;
   readonly tenantId: TenantId;
   readonly role: Role;
+  readonly name: string;
+  readonly avatar: AccountAvatar | null;
+  readonly audioLanguage: AudioLanguage | null;
   readonly blockedAt: Date | null;
   readonly provisionalPinExpiresAt: Date | null;
 };
@@ -124,7 +128,7 @@ async function checkCredentials(phone: string, rawPin: string, deviceId: string,
     });
     return err({ kind: 'InvalidCredentials' });
   }
-  return ok({ id: user.id, tenantId, role: user.role, blockedAt: user.blockedAt, provisionalPinExpiresAt: user.provisionalPinExpiresAt });
+  return ok({ id: user.id, tenantId, role: user.role, name: user.name, avatar: user.avatar, audioLanguage: user.audioLanguage, blockedAt: user.blockedAt, provisionalPinExpiresAt: user.provisionalPinExpiresAt });
 }
 
 async function openSession(
@@ -135,13 +139,15 @@ async function openSession(
   change: { pinHash?: string; provisionalPinExpiresAt?: null },
   action: AuditAction,
 ): Promise<SignInResponse> {
-  await deps.prisma.runInTenant(account.tenantId, async (tx) => {
+  const language = await deps.prisma.runInTenant(account.tenantId, async (tx) => {
     await tx.user.update({ where: { id: account.id }, data: { pinFailures: 0, pinLastFailureAt: null, ...change } });
     await recordAudit(tx, account.tenantId, { action, actorId: account.id, subjectId: account.id, deviceId }, new Date(now));
+    return languageOf(tx, account.id, account.audioLanguage);
   });
   const token = issueAccessToken({ sub: account.id, tenant: account.tenantId, role: account.role, device: deviceId }, now, deps.jwtSecret);
   const expiresAt = instantOf(new Date(Date.parse(now) + SESSION_LIFETIME_SECONDS[account.role] * 1_000));
-  return { token, expiresAt, role: account.role };
+  // What the phone keeps to show « who holds the notebook » next time (E.9).
+  return { token, expiresAt, role: account.role, account: { name: account.name, avatar: account.avatar, language } };
 }
 
 const isPast = (instant: Date, now: Instant): boolean => instant.getTime() <= Date.parse(now);

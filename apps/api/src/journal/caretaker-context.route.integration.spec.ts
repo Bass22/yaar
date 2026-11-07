@@ -195,7 +195,15 @@ describe('Le gardien reçoit son contexte, sans argent', () => {
   it("sans campagne en cours — la dernière est clôturée —, la réponse le dit : une liste vide, pas de chiffres à zéro", async () => {
     const sud = siteOf(await contextOf(tokenOf(LE_GERANT, TENANT_A, 'admin')), SUD);
 
-    expect(sud).toEqual({ siteId: SUD, name: 'Poulailler Sud', today: '2026-11-06', campaigns: [] });
+    expect(sud).toEqual({ siteId: SUD, name: 'Poulailler Sud', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: null, campaigns: [] });
+  });
+
+  // Spec: backlog J.1 — le cahier compte ses jours hors-ligne, et montre le badge du titulaire
+  it("le site donne son fuseau, pour que le téléphone sache quel jour il est sans réseau, et son titulaire, ou personne", async () => {
+    const context = await contextOf(tokenOf(LE_GERANT, TENANT_A, 'admin'));
+
+    expect(siteOf(context, NORD)).toMatchObject({ timeZone: 'Africa/Dakar', primaryCaretakerId: OUSMANE });
+    expect(siteOf(context, SUD)).toMatchObject({ timeZone: 'Africa/Dakar', primaryCaretakerId: null });
   });
 
   it("un collaborateur ne reçoit que ses sites ; l'admin reçoit tous ceux de son élevage ; personne ne reçoit ceux d'un autre élevage", async () => {

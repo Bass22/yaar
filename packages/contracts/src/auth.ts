@@ -12,12 +12,28 @@ export interface SignInRequest {
 
 export type SessionRole = 'admin' | 'collaborator';
 
+/** The closed list of account avatars (E.9): the phone draws `avatar-<name>` from the design system. */
+export type AccountAvatar = 'baobab' | 'mango' | 'pirogue' | 'teapot' | 'calabash' | 'sheep' | 'goat' | 'watermelon' | 'fish' | 'star' | 'turtle' | 'drum';
+
+/** The languages of the recorded voice (audio/<language>/). */
+export type AudioLanguage = 'wo' | 'fr';
+
+/** What the phone keeps of an account to show « who holds the notebook » (E.9). */
+export interface SessionAccount {
+  readonly name: string;
+  /** `null` for an account whose avatar was never chosen. */
+  readonly avatar: AccountAvatar | null;
+  /** The voice for this person: their own, else their site's, else French. */
+  readonly language: AudioLanguage;
+}
+
 /** A session opened: the token to send as `Authorization: Bearer …`, until `expiresAt`. */
 export interface SignInResponse {
   readonly token: string;
   /** Instant, universal time. */
   readonly expiresAt: string;
   readonly role: SessionRole;
+  readonly account: SessionAccount;
 }
 
 /**
@@ -54,6 +70,15 @@ export interface CreateAccountRequest {
   readonly id: string;
   readonly phone: string;
   readonly name: string;
+  readonly avatar: AccountAvatar;
+  /** Absent: the account follows the language of its site. */
+  readonly language?: AudioLanguage;
+}
+
+/** Body of PATCH /api/v1/users/:userId (admin): one or both; a `null` language follows the site again. */
+export interface UpdateAccountRequest {
+  readonly avatar?: AccountAvatar;
+  readonly language?: AudioLanguage | null;
 }
 
 /** The provisional PIN, shown once to the admin, who hands it over in person. */

@@ -566,15 +566,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un numéro déjà pris est refusé ; un élevage inconnu aussi
 - [x] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
 
-### E.9 — L'avatar et la langue du compte · **S**
+### E.9 — L'avatar et la langue du compte · **S** ✅
 > Spec : CdC « Identité » (avatar picto reconnaissable à la connexion), « Trois canaux redondants » (langue audio) · Zone : `packages/design-system/`, `apps/api/src/users/`
 > Dépend de : E.5, et la liste des pictos fixée avec `/designer` · Scindée d'E.7 le 2026-11-07 ; la langue s'y ajoute le 2026-11-07 (décision du fondateur : la langue suit la personne, pas le site).
 
 - [x] La liste fermée des avatars, fixée avec `/designer` — douze avatars validés le 2026-11-07 (`packages/design-system/src/pictograms/source/avatar-*.svg`, liste `AVATARS`, noms dans `PICTOGRAM_LABELS`), recuits avec les pictos ; à valider sur le terrain
-- [ ] L'admin choisit l'avatar d'un collaborateur à la création, et le change
-- [ ] Deux comptes d'un même site ne portent pas le même avatar (à confirmer avec `/designer`)
-- [ ] L'admin choisit la langue audio d'un collaborateur à la création, et la change : une langue dont les clips existent (wolof, français ; d'autres plus tard) — c'est la personne qui écoute, et un remplaçant ne parle pas forcément la langue du titulaire
-- [ ] Sans langue choisie, le compte suit la langue par défaut de son site
+> Livrée le 2026-11-07, aucune dépendance ajoutée. Deux types énumérés en base, `account_avatar` (les douze) et `audio_language` (`wo`, `fr`) ; `users.avatar`, `users.audio_language` et `sites.audio_language`, tous facultatifs (un admin amorcé par script n'a pas d'avatar ; la langue d'un site se règle en O.1). La création d'un compte exige l'avatar et accepte la langue (`POST /api/v1/users`) ; `PATCH /api/v1/users/:userId` (admin, 204) change exactement l'avatar, la langue, ou les deux — une langue `null` refait suivre le site ; autre champ ou valeur hors liste : 400 sans rien changer ; compte d'un autre élevage : 404. La connexion renvoie `account` : nom, avatar et **langue effective** — celle de la personne, sinon celle de son site (le site dont elle est titulaire d'abord), sinon le français, langue des premiers clips. Le changement d'avatar ou de langue n'est pas tracé : il ne touche ni l'accès ni l'argent.
+
+- [x] L'admin choisit l'avatar d'un collaborateur à la création, et le change
+- [ ] Deux comptes d'un même site ne portent pas le même avatar (à confirmer avec `/designer`) — reportée : non imposée, l'écran d'entrée montre aussi le nom
+- [x] L'admin choisit la langue audio d'un collaborateur à la création, et la change : une langue dont les clips existent (wolof, français ; d'autres plus tard) — c'est la personne qui écoute, et un remplaçant ne parle pas forcément la langue du titulaire
+- [x] Sans langue choisie, le compte suit la langue par défaut de son site
 
 ## F — Ingestion et descente
 
@@ -654,12 +656,12 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Le stockage persistant est demandé à l'installation
 - [x] Les routes gardien et admin sont chargées séparément
 
-### G.2 — Se connecter sur le téléphone · **M** · 🎨 · ⚠ (cœur livré, écran « cahier » à venir)
+### G.2 — Se connecter sur le téléphone · **M** · 🎨 ✅
 > Spec : CdC « Identité » (avatar reconnaissable) · Zone : `apps/web/src/app/core/session/`, écran de connexion
 > Dépend de : G.1, E.2 · Revue : utilisable sans lire.
 > Cœur livré le 2026-11-07 (décision du fondateur : un écran simple maintenant, l'écran « cahier » et l'avatar après `/designer` et E.9). `SessionStore` garde le jeton, son échéance et le rôle sur le téléphone (pas de cookie) et un identifiant d'appareil créé une seule fois ; `AuthService` ouvre la session (`sign-in`, `choose-pin` au premier PIN) et rend le motif d'un refus, ou « pas de réseau », ou « service indisponible ». Écran simple `/sign-in` : numéro, PIN, puis nouveau PIN à la première connexion, messages en français. Le cahier s'ouvre à un gardien dont la session a expiré (il déclare hors-ligne) ; le bureau exige une session valide et le rôle admin. `@angular/forms` n'est pas ajouté : deux champs n'en valent pas un paquet.
 
-- [ ] L'utilisateur reconnaît son avatar, puis saisit son PIN — écran conçu le 2026-11-07 (`journal-gardien-entree.html`) : les comptes connus du téléphone en grands avatars, puis un pavé de grosses touches, ouvert au quatrième chiffre ; au premier choix, le nouveau code se tape deux fois (contrôle sur le téléphone, l'API ne change pas) ; reste à porter, avec E.9
+- [x] L'utilisateur reconnaît son avatar, puis saisit son PIN — écran conçu le 2026-11-07 (`journal-gardien-entree.html`), porté le 2026-11-07 : le téléphone retient les comptes qui s'y sont connectés (`yaar.accounts` : identifiant, numéro, rôle, nom, avatar — rien de financier), le plus récent d'abord, même après une déconnexion ; ils s'affichent en grands avatars nommés, « Un autre compte » mène au numéro. Pavé de grosses touches (`ui/keypad.ts`), quatre ronds pour un gardien, six pour un admin, envoi au dernier chiffre ; pour un numéro jamais vu sur ce téléphone, le rôle est inconnu et le code se valide d'une touche. Code faux : ronds rouges et post-it ; au premier code, celui du chef puis le sien deux fois, comparés sur le téléphone. La voix viendra avec les clips (épique I).
 - [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio) — conçu le 2026-11-07 : ronds rouges qui tremblent, post-it, voix ; reste à porter
 - [x] Une session ouverte survit à la fermeture de l'application
 - [x] Un collaborateur arrive sur le cahier ; un admin arrive sur le bureau
@@ -799,37 +801,42 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## J — L'écran du cahier
 
-### J.1 — Couverture et bandeau du jour · **M**
+### J.1 — Couverture et bandeau du jour · **M** ✅
 > Spec : CdC « En-tête et contexte » ; `journal-gardien.html` (`.app-head`, `.strip-jour`) · Zone : `apps/web/src/app/caretaker/`
 > Dépend de : H.5, F.3, G.2 · Revue : tout tient sans défiler à 360 px.
+> Livrée le 2026-11-07 avec J.2 et J.3, aucune dépendance ajoutée (`apps/web/src/app/caretaker/notebook/`). Le contexte du gardien (F.3) gagne deux champs, par ajout : le fuseau du site (`timeZone`), pour que le téléphone sache quel jour il est sans réseau, et son titulaire (`primaryCaretakerId`). Le téléphone garde le dernier contexte reçu (`yaar.context`, au nom du compte qui l'a reçu : un autre compte connecté sur ce téléphone ne le voit pas — rien de financier n'y est) ; le jour J et les trois jours se recalculent sur son horloge et le fuseau du site, donc ils avancent hors-ligne. **Un seul site par gardien pour l'instant** (décision du 2026-11-07) : le cahier s'ouvre sur le premier. Au-delà de deux bandes, chacune s'appelle par son âge (« Jour 12 », décision du 2026-11-07). La jauge poussin → poule se remplit sur 42 jours, en attendant la durée propre à la souche (N.4). Deux jetons ajoutés : `--color-campaign-young`, `--color-campaign-old`. **La voix** (bande sans campagne, bannière du jour passé) **vient avec l'épique I**.
 
-- [ ] La couverture montre l'avatar, le nom du gardien et son site
-- [ ] Le bandeau montre le jour J, la jauge poussin → poule et les vivants
-- [ ] Tant qu'aucun poussin n'est reçu, le bandeau ne montre pas de vivants : ni zéro, ni nombre négatif (QA de C.5 — à confirmer)
-- [ ] Le badge du titulaire est visible
-- [ ] Sans campagne en cours, l'écran le dit par picto et audio
-- [ ] Avec une seule campagne en cours, le cahier s'ouvre directement dessus : aucun choix n'est demandé (décision du 2026-11-07)
-- [ ] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande à chaque ouverture du cahier, en un tap sur de grandes cartes, puis en change par des intercalaires ; la confirmation de chaque déclaration redit la bande (décisions du 2026-11-07, `journal-gardien-entree.html`) ; il la choisit simplement (picto, couleur, audio) — deux bandes s'appellent « les petits » et « les grands », la plus jeune et la plus vieille (décision du 2026-11-07) ; au-delà de deux, nom à trouver —, sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration — écran à dessiner avec `/designer`
-- [ ] L'écran s'affiche hors-ligne avec le dernier contexte reçu
+- [x] La couverture montre l'avatar, le nom du gardien et son site
+- [x] Le bandeau montre le jour J, la jauge poussin → poule et les vivants
+- [x] Tant qu'aucun poussin n'est reçu, le bandeau ne montre pas de vivants : ni zéro, ni nombre négatif (QA de C.5 — confirmé le 2026-11-07 : le serveur envoie « inconnu », le bandeau n'en montre rien)
+- [x] Le badge du titulaire est visible — « Titulaire » sur la couverture ; à valider sur le terrain
+- [x] Sans campagne en cours, l'écran le dit par picto (l'audio avec I)
+- [x] Avec une seule campagne en cours, le cahier s'ouvre directement dessus : aucun choix n'est demandé (décision du 2026-11-07)
+- [x] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande à chaque ouverture du cahier, en un tap sur de grandes cartes, puis en change par des intercalaires ; la confirmation de chaque déclaration redit la bande (décisions du 2026-11-07, `journal-gardien-entree.html`) ; il la choisit simplement (picto, couleur, audio) — deux bandes s'appellent « les petits » et « les grands », la plus jeune et la plus vieille (décision du 2026-11-07) ; au-delà de deux, leur âge —, sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration. Rien ne s'écrit avant le choix ; la bande choisie devient l'intercalaire actif et le bandeau la redit. La confirmation de chaque déclaration qui redit la bande vient avec K.
+- [x] L'écran s'affiche hors-ligne avec le dernier contexte reçu
 
-### J.2 — Trois jours et bannière du jour passé · **M**
+### J.2 — Trois jours et bannière du jour passé · **M** ✅
 > Spec : CdC « Rattrapage » ; `journal-gardien.html` (`.jours`, `.banner-passe`) · Zone : `apps/web/src/app/caretaker/`
 > Dépend de : J.1, C.6 · Revue : on ne peut pas écrire pour un jour passé sans le savoir.
 
-- [ ] Aujourd'hui, hier et avant-hier sont visibles, chacun avec son mini-résumé
-- [ ] Un jour non déclaré et un jour à zéro déclaré ne se ressemblent pas
-- [ ] Choisir un jour passé affiche la bannière et la dit à voix haute
-- [ ] Une déclaration faite sous la bannière porte la date métier du jour choisi
+> Le mini-résumé vient du domaine (`summarizeDay`, C.6), calculé sur le journal reçu du serveur et sur ce que l'outbox garde : il compte aussi ce qui n'est pas encore parti.
 
-### J.3 — Le journal du jour · **M**
+- [x] Aujourd'hui, hier et avant-hier sont visibles, chacun avec son mini-résumé
+- [x] Un jour non déclaré et un jour à zéro déclaré ne se ressemblent pas — point d'interrogation pour un jour passé resté blanc, soleil pâle pour aujourd'hui pas encore écrit, tampon pour « rien perdu »
+- [ ] Choisir un jour passé affiche la bannière et la dit à voix haute — la bannière violette est faite ; la voix vient avec I
+- [x] Une déclaration faite sous la bannière porte la date métier du jour choisi — le cahier donne aux gestes (K) le site, la bande et le jour choisis (`declarationTarget`)
+
+### J.3 — Le journal du jour · **M** ✅
 > Spec : CdC « Journal du jour » ; `journal-gardien.html` (`.evt`) · Zone : `apps/web/src/app/caretaker/journal/`
 > Dépend de : J.2, G.4 · Revue : le journal est visible avant toute saisie.
 
-- [ ] Chaque ligne montre le picto, la quantité et l'auteur
-- [ ] Une ligne en attente porte l'horloge ; une ligne envoyée porte le tampon
-- [ ] Les déclarations des autres gardiens du site apparaissent
-- [ ] Une ligne corrigée montre sa valeur effective
-- [ ] Un journal vide le dit sans texte seul
+> Le journal effectif vient du domaine (`effectiveJournal`) : les lignes du serveur et celles du téléphone, la dernière écrite en haut ; un événement revenu du serveur ne compte qu'une fois. Une ligne annulée par l'admin reste visible, barrée, « annulée par le chef », et ne compte plus. Un refus du serveur n'est pas dans le journal : il se dira à part (G.5).
+
+- [x] Chaque ligne montre le picto, la quantité et l'auteur
+- [x] Une ligne en attente porte l'horloge ; une ligne envoyée porte le tampon — une ligne dont la correction attend encore attend aussi
+- [x] Les déclarations des autres gardiens du site apparaissent
+- [x] Une ligne corrigée montre sa valeur effective
+- [x] Un journal vide le dit sans texte seul
 
 ## K — Les gestes de déclaration
 
@@ -884,6 +891,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Seules les valeurs mesurées se corrigent (quantité, poids, papier du livreur), jamais en dessous de 1 ; aucun geste n'annule une déclaration
 - [ ] La ligne d'origine reste visible, avec sa correction
 - [ ] Les vivants suivent la valeur corrigée
+- [ ] Le contexte du gardien donne la date de saisie de la dernière correction d'une ligne (J.3 ne reçoit que la valeur effective) : sans elle, une correction écrite hors-ligne plus tôt passerait, sur le téléphone, devant une correction plus récente reçue du serveur
 - [ ] Aucun geste ne supprime une ligne du journal
 
 ## L — Tâches et météo

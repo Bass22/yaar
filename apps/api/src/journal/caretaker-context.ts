@@ -15,7 +15,7 @@ export async function caretakerContext(tx: Prisma.TransactionClient, session: Se
   const sites = await tx.site.findMany({
     where: session.role === 'admin' ? {} : { assignments: { some: { userId: session.userId } } },
     orderBy: { name: 'asc' },
-    select: { id: true, name: true, timeZone: true },
+    select: { id: true, name: true, timeZone: true, assignments: { where: { isPrimary: true }, select: { userId: true } } },
   });
   const journal = new PrismaJournal(tx, session.tenantId);
   const contexts: CaretakerSite[] = [];
@@ -25,7 +25,9 @@ export async function caretakerContext(tx: Prisma.TransactionClient, session: Se
   return { sites: contexts };
 }
 
-async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal, site: { id: string; name: string; timeZone: string }, now: Date): Promise<CaretakerSite> {
+type SiteRow = { id: string; name: string; timeZone: string; assignments: { userId: string }[] };
+
+async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal, site: SiteRow, now: Date): Promise<CaretakerSite> {
   const { today, yesterday, dayBeforeYesterday } = recentBusinessDays(now, unwrap(TimeZone(site.timeZone)));
   // Every campaign running on the site: several may run at once (decision of 2026-11-07).
   const running = await tx.campaign.findMany({ where: { siteId: site.id, closedAt: null }, orderBy: [{ placementDay: 'asc' }, { id: 'asc' }] });
@@ -34,7 +36,7 @@ async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal,
   for (const campaign of running) {
     campaigns.push(await campaignContext(tx, journal, campaign, days, today));
   }
-  return { siteId: site.id, name: site.name, today, campaigns };
+  return { siteId: site.id, name: site.name, timeZone: site.timeZone, today, primaryCaretakerId: site.assignments[0]?.userId ?? null, campaigns };
 }
 
 async function campaignContext(

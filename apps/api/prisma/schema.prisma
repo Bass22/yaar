@@ -19,6 +19,32 @@ datasource db {
   provider = "postgresql"
 }
 
+// The closed list of account avatars (E.9, 2026-11-07): drawn in packages/design-system as `avatar-<name>`.
+enum AccountAvatar {
+  baobab
+  mango
+  pirogue
+  teapot
+  calabash
+  sheep
+  goat
+  watermelon
+  fish
+  star
+  turtle
+  drum
+
+  @@map("account_avatar")
+}
+
+// The languages of the recorded voice clips (audio/<language>/).
+enum AudioLanguage {
+  wo
+  fr
+
+  @@map("audio_language")
+}
+
 enum UserRole {
   admin
   collaborator
@@ -66,6 +92,10 @@ model User {
   phone             String    @unique
   name              String
   role              UserRole
+  // Recognised at sign-in, on the phone (E.9). Empty for an account made before its avatar was chosen.
+  avatar            AccountAvatar?
+  // The language of the voice for this person (E.9): it follows the person, not the site. Empty: the site's.
+  audioLanguage     AudioLanguage? @map("audio_language")
   // argon2id digest of the PIN (E.1). Never the PIN, never shown to anyone.
   pinHash           String    @map("pin_hash")
   // Set while the PIN is the provisional one the admin gave (E.5): until then, signing in
@@ -97,6 +127,8 @@ model Site {
   timeZone   String   @map("time_zone")
   // Only the primary caretaker declares when the admin turns this on.
   strictMode Boolean  @default(false) @map("strict_mode")
+  // The voice of an account that chose none (E.9); set when the site is configured (O.1).
+  audioLanguage AudioLanguage? @map("audio_language")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)

@@ -116,7 +116,7 @@ describe('Trace des actions sensibles', () => {
   describe("les actions de l'admin", () => {
     it("créer un compte, le bloquer, le débloquer, le déconnecter partout, remplacer son PIN : tout est tracé avec l'admin et son appareil", async () => {
       tick();
-      const created = (await (await post('users', { id: AWA, phone: '+221770000052', name: 'Awa' }, gerant())).json()) as { provisionalPin: string };
+      const created = (await (await post('users', { id: AWA, phone: '+221770000052', name: 'Awa', avatar: 'baobab' }, gerant())).json()) as { provisionalPin: string };
       provisionalPin = created.provisionalPin;
       for (const action of ['block', 'unblock', 'sign-out-everywhere', 'reset-pin']) {
         tick();

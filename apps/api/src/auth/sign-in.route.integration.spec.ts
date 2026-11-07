@@ -53,12 +53,13 @@ describe('Route de connexion', () => {
     await db?.drop();
   });
 
-  it('un numéro et un PIN corrects ouvrent une session : 200, le jeton, son expiration et le rôle — rien d’autre', async () => {
+  it('un numéro et un PIN corrects ouvrent une session : 200, le jeton, son expiration, le rôle et ce que le téléphone retient du compte — rien d’autre', async () => {
     const response = await post(ousmane());
     const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    expect(Object.keys(body).sort()).toEqual(['expiresAt', 'role', 'token']);
+    expect(Object.keys(body).sort()).toEqual(['account', 'expiresAt', 'role', 'token']);
+    expect(Object.keys(body['account'] as object).sort()).toEqual(['avatar', 'language', 'name']);
     expect(body).toMatchObject({ role: 'collaborator', expiresAt: '2026-11-14T08:00:00.000Z' });
     expect(JSON.stringify(body)).not.toMatch(/4829|pin|\+221/i);
   });

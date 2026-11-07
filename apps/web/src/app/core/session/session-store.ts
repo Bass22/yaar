@@ -1,13 +1,18 @@
 import { Injectable } from '@angular/core';
-import type { SessionRole, SignInResponse } from '@contracts';
+import type { AccountAvatar, SessionAccount, SessionRole, SignInResponse } from '@contracts';
 
 /** What the phone knows of who uses it. An expired session still says who: the notebook stays open offline. */
 export type SessionState =
   | { readonly status: 'none' }
-  | { readonly status: 'active' | 'expired'; readonly userId: string; readonly role: SessionRole; readonly token: string; readonly expiresAt: string };
+  | { readonly status: 'active' | 'expired'; readonly userId: string; readonly role: SessionRole; readonly token: string; readonly expiresAt: string; readonly account: SessionAccount };
+
+/** An account that has signed in on this phone: shown on « who holds the notebook » (G.2, E.9). */
+export type KnownAccount = { readonly userId: string; readonly phone: string; readonly role: SessionRole; readonly name: string; readonly avatar: AccountAvatar | null };
 
 const SESSION_KEY = 'yaar.session';
 const DEVICE_KEY = 'yaar.device';
+const ACCOUNTS_KEY = 'yaar.accounts';
+const UNKNOWN_ACCOUNT: SessionAccount = { name: '', avatar: null, language: 'fr' };
 
 /**
  * The session kept on the phone (decision of 2026-11-07: held by the application, sent in the
@@ -29,11 +34,28 @@ export class SessionStore {
     }
     const expiresAt = saved['expiresAt'];
     const status = Date.parse(expiresAt) > this.now().getTime() ? 'active' : 'expired';
-    return { status, userId, role: saved['role'], token: saved['token'] as string, expiresAt };
+    const account = (saved['account'] as SessionAccount | undefined) ?? UNKNOWN_ACCOUNT;
+    return { status, userId, role: saved['role'], token: saved['token'] as string, expiresAt, account };
   }
 
-  save(session: SignInResponse): void {
-    this.storage.setItem(SESSION_KEY, JSON.stringify({ token: session.token, expiresAt: session.expiresAt, role: session.role }));
+  /** Keeps the session, and remembers the account on this phone, most recent first. */
+  save(session: SignInResponse, phone: string): void {
+    this.storage.setItem(SESSION_KEY, JSON.stringify({ token: session.token, expiresAt: session.expiresAt, role: session.role, account: session.account }));
+    const userId = subjectOf(session.token);
+    if (userId !== null) {
+      const known: KnownAccount = { userId, phone, role: session.role, name: session.account.name, avatar: session.account.avatar };
+      this.storage.setItem(ACCOUNTS_KEY, JSON.stringify([known, ...this.knownAccounts().filter((account) => account.userId !== userId)]));
+    }
+  }
+
+  /** The accounts that have signed in on this phone, most recent first. */
+  knownAccounts(): KnownAccount[] {
+    try {
+      const value: unknown = JSON.parse(this.storage.getItem(ACCOUNTS_KEY) ?? '[]');
+      return Array.isArray(value) ? value.filter((account): account is KnownAccount => typeof account === 'object' && account !== null && typeof account.userId === 'string' && typeof account.phone === 'string') : [];
+    } catch {
+      return [];
+    }
   }
 
   clear(): void {
@@ -63,13 +85,23 @@ function readJson(raw: string | null): Record<string, unknown> | null {
 
 // The `sub` claim of a token, read without checking it: the phone only needs to know whose it is.
 function subjectOf(token: unknown): string | null {
+  return claimOf(token, 'sub');
+}
+
+/** The farm a token names, read without checking it (the server is the authority): the notebook's events carry it. */
+export function tenantOf(token: string): string | null {
+  return claimOf(token, 'tenant');
+}
+
+function claimOf(token: unknown, claim: 'sub' | 'tenant'): string | null {
   if (typeof token !== 'string') {
     return null;
   }
   try {
     const payload = token.split('.')[1] ?? '';
-    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: unknown };
-    return typeof claims.sub === 'string' ? claims.sub : null;
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+    const value = claims[claim];
+    return typeof value === 'string' ? value : null;
   } catch {
     return null;
   }

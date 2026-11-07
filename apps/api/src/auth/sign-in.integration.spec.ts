@@ -19,6 +19,8 @@ const TENANT = '00000000-0000-4000-8000-00000000000a';
 const OUSMANE = '00000000-0000-4000-8000-000000000051';
 const LE_GERANT = '00000000-0000-4000-8000-000000000054';
 const BLOQUE = '00000000-0000-4000-8000-000000000055';
+const AWA = '00000000-0000-4000-8000-000000000052';
+const POULAILLER_WOLOF = '00000000-0000-4000-8000-0000000000a1';
 const LE_TELEPHONE = '00000000-0000-4000-8000-0000000000d1';
 
 // A clock the test moves by hand.
@@ -59,9 +61,21 @@ describe('Connexion', () => {
     await db.superuser.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
     await db.superuser.user.createMany({
       data: [
-        { id: OUSMANE, tenantId: TENANT, phone: '+221770000001', name: 'Ousmane', role: 'collaborator', pinHash: await real.hash(unwrap(Pin('4829', 'collaborator'))) },
+        { id: OUSMANE, tenantId: TENANT, phone: '+221770000001', name: 'Ousmane', role: 'collaborator', avatar: 'baobab', pinHash: await real.hash(unwrap(Pin('4829', 'collaborator'))) },
+        { id: AWA, tenantId: TENANT, phone: '+221770000002', name: 'Awa', role: 'collaborator', avatar: 'pirogue', audioLanguage: 'fr', pinHash: await real.hash(unwrap(Pin('4829', 'collaborator'))) },
         { id: LE_GERANT, tenantId: TENANT, phone: '+221770000054', name: 'Le gérant', role: 'admin', pinHash: await real.hash(unwrap(Pin('482913', 'admin'))) },
         { id: BLOQUE, tenantId: TENANT, phone: '+221770000055', name: 'Ancien gardien', role: 'collaborator', pinHash: await real.hash(unwrap(Pin('4829', 'collaborator'))), blockedAt: new Date('2026-11-01T00:00:00.000Z') },
+      ],
+    });
+  });
+
+  beforeAll(async () => {
+    // Ousmane and Awa keep the notebook of a site whose voice is Wolof by default.
+    await db.superuser.site.create({ data: { id: POULAILLER_WOLOF, tenantId: TENANT, name: 'Thiès', timeZone: 'Africa/Dakar', audioLanguage: 'wo' } });
+    await db.superuser.siteAssignment.createMany({
+      data: [
+        { tenantId: TENANT, siteId: POULAILLER_WOLOF, userId: OUSMANE, isPrimary: true },
+        { tenantId: TENANT, siteId: POULAILLER_WOLOF, userId: AWA, isPrimary: false },
       ],
     });
   });
@@ -100,6 +114,21 @@ describe('Connexion', () => {
       }
       expect(hasher.verifications).toBe(0);
       expect(await compteur(OUSMANE)).toMatchObject({ pinFailures: 0 });
+    });
+  });
+
+  // Spec: backlog E.9 — le téléphone retient qui tient le cahier ; la langue suit la personne, sinon son site (décision du 2026-11-07)
+  describe('ce que le téléphone retient du compte', () => {
+    it("la session dit le nom et l'avatar du compte, et la langue de son site quand il n'en a pas choisi", async () => {
+      expect(unwrap(await connecte({})).account).toEqual({ name: 'Ousmane', avatar: 'baobab', language: 'wo' });
+    });
+
+    it("la langue choisie pour la personne l'emporte sur celle du site", async () => {
+      expect(unwrap(await connecte({ phone: '+221770000002' })).account).toEqual({ name: 'Awa', avatar: 'pirogue', language: 'fr' });
+    });
+
+    it("sans avatar ni site, le compte n'a pas d'avatar et parle français, la langue des premiers clips", async () => {
+      expect(unwrap(await connecte({ phone: '+221770000054', pin: '482913' })).account).toEqual({ name: 'Le gérant', avatar: null, language: 'fr' });
     });
   });
 

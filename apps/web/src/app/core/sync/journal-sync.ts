@@ -28,6 +28,8 @@ export class JournalSync {
   readonly stopped = signal<SyncStop | null>(null);
   /** The phone cannot keep the outbox (storage disabled, full): declarations would be lost — the screens say so. */
   readonly storageUnavailable = signal(false);
+  /** Moves whenever the outbox may have changed — a declaration kept, an event sent: the notebook reads it again. */
+  readonly revision = signal(0);
 
   constructor() {
     const onOnline = () => void this.sync();
@@ -92,6 +94,7 @@ export class JournalSync {
     const outbox = await this.outbox;
     this.waiting.set(await outbox.waiting(session.userId));
     this.refused.set(await outbox.refused(session.userId));
+    this.revision.update((revision) => revision + 1);
   }
 
   private async send(events: readonly JournalEventPayload[], token: string): Promise<SyncAnswer> {

@@ -34,6 +34,9 @@ describe('Tokens du design « cahier »', () => {
     assert.equal(tokenValue('color-past-day-line'), '#8C86B8');
     assert.match(mockup, /\.nudge\{[^}]*background:#FCEFC9/);
     assert.equal(tokenValue('color-post-it'), '#FCEFC9');
+    // The two campaigns of a site (J.1): the colours of their cards and tabs in journal-gardien-entree.html.
+    assert.equal(tokenValue('color-campaign-young'), '#E8B10A');
+    assert.equal(tokenValue('color-campaign-old'), '#8C6D3E');
   });
 
   it('ombres dures, bords tracés à la main et lignes de cahier sont des tokens réutilisables', () => {
