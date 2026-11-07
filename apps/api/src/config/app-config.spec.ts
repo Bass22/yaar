@@ -1,4 +1,4 @@
-import { loadAppConfig } from './app-config';
+import { loadAppConfig, loadDatabaseUrl } from './app-config';
 
 // Spec: backlog D.1 — l'API refuse de démarrer sans DATABASE_URL (configuration validée au
 // démarrage) ; CLAUDE.md §4 règle 6 (fail-closed).
@@ -11,6 +11,15 @@ describe("Configuration de l'API", () => {
   it("la configuration se lit dans l'environnement : la base, et le port (3000 par défaut)", () => {
     expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000 });
     expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081 });
+  });
+
+  // Spec: backlog D.4, E.8 — les scripts de l'éditeur tournent dans la tâche de migration, qui n'a pas le secret des jetons
+  it("un script de l'éditeur ne lit que l'adresse de la base : il tourne sans JWT_SECRET, et refuse une adresse absente ou fausse comme l'API", () => {
+    expect(loadDatabaseUrl({ DATABASE_URL: UNE_BASE })).toBe(UNE_BASE);
+    for (const env of [{}, { DATABASE_URL: '' }, { DATABASE_URL: 'mysql://yaar:s3cr3t-de-test@db/yaar' }]) {
+      expect(() => loadDatabaseUrl(env)).toThrow(/DATABASE_URL/);
+      expect(() => loadDatabaseUrl(env)).not.toThrow(/s3cr3t/);
+    }
   });
 
   it('sans DATABASE_URL, la configuration est refusée et le message nomme la variable', () => {

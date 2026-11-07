@@ -27,7 +27,7 @@ describe("Amorçage d'un élevage", () => {
   let db: TestDatabase;
   let created = 0;
   const ids = (): string => `00000000-0000-4000-8000-${String(++created).padStart(12, '0')}`;
-  const amorce = (input: BootstrapInput) => bootstrapTenant(input, { prisma: db.owner, hasher, ids });
+  const amorce = (input: BootstrapInput) => bootstrapTenant(input, { prisma: db.owner, hasher, ids, now: () => new Date() });
 
   beforeAll(async () => {
     db = await createTestDatabase();
@@ -113,7 +113,7 @@ describe("Amorçage d'un élevage", () => {
     const clashing = [ids(), existingSite, ids()];
 
     // When
-    const result = bootstrapTenant(unElevage({ adminPhone: '+221770000015' }), { prisma: db.owner, hasher, ids: () => clashing.shift() ?? ids() });
+    const result = bootstrapTenant(unElevage({ adminPhone: '+221770000015' }), { prisma: db.owner, hasher, ids: () => clashing.shift() ?? ids(), now: () => new Date() });
 
     // Then
     await expect(result).rejects.toThrow(/Unique constraint/i);

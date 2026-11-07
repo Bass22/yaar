@@ -16,7 +16,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -105,7 +105,7 @@ CREATE TABLE "audit_events" (
     "id" UUID NOT NULL,
     "occurred_at" TIMESTAMPTZ(3) NOT NULL,
     "action" "audit_action" NOT NULL,
-    "actor_id" UUID NOT NULL,
+    "actor_id" UUID,
     "subject_id" UUID NOT NULL,
     "site_id" UUID,
     "device_id" UUID,

@@ -3,6 +3,7 @@ import { TimeZone } from '@domain/journal';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Pin, type PinRefusal } from '../auth/pin';
 import type { PinHasher } from '../auth/pin-hasher';
+import { recordAudit } from '../audit/audit';
 
 // Provisioning of a farm (CdC « Onboarding assisté »): a tenant, its first site and its first
 // admin, created by hand by the operator — never through a route. It runs as the owner of the
@@ -39,12 +40,14 @@ export type BootstrapDependencies = {
   readonly hasher: PinHasher;
   /** Identifiers are made by the caller, never by the database (CLAUDE.md §4 rule 2). */
   readonly ids: () => string;
+  /** The clock of the trace. */
+  readonly now: () => Date;
 };
 
-const E164 = /^\+[1-9][0-9]{7,14}$/;
+export const E164 = /^\+[1-9][0-9]{7,14}$/;
 const ISO_4217 = /^[A-Z]{3}$/;
 
-export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, ids }: BootstrapDependencies): Promise<Result<Bootstrapped, BootstrapRefusal>> {
+export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, ids, now }: BootstrapDependencies): Promise<Result<Bootstrapped, BootstrapRefusal>> {
   const names = [input.tenantName, input.siteName, input.adminName].map((name) => name.trim());
   if (names.some((name) => name === '')) {
     return err({ kind: 'MissingName' });
@@ -79,6 +82,7 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
       await tx.tenant.create({ data: { id: tenantId, name: tenantName, currency: input.currency } });
       await tx.site.create({ data: { id: siteId, tenantId, name: siteName, timeZone: timeZone.value } });
       await tx.user.create({ data: { id: adminId, tenantId, phone: input.adminPhone, name: adminName, role: 'admin', pinHash } });
+      await recordAudit(tx, tenantId, { action: 'AdminAdded', actorId: null, subjectId: adminId, deviceId: null }, now());
     });
   } catch (error) {
     // The unique index on the phone is the last word, whatever the check above saw.
@@ -90,9 +94,9 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
   return ok({ tenantId, siteId, adminId });
 }
 
-class PhoneAlreadyUsed extends Error {}
+export class PhoneAlreadyUsed extends Error {}
 
-function isUniqueViolationOn(error: unknown, column: string): boolean {
+export function isUniqueViolationOn(error: unknown, column: string): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
     return false;
   }

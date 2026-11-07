@@ -130,6 +130,19 @@ describe('Pile de conteneurs', () => {
     assert.doesNotMatch(compose, /:\/\/[^:\s$]+:[^$@\s]+@/, 'aucun mot de passe en clair dans une URL');
   });
 
+  // Spec: backlog D.4, E.8 — les scripts de l'éditeur tournent dans la tâche de migration : ils n'y trouvent que l'adresse de la base
+  it("la tâche de migration ne reçoit pas le secret des jetons, et les scripts de l'éditeur ne le demandent pas", () => {
+    const migrateService = /^  migrate:\n[\s\S]*?(?=^  \S)/m.exec(compose)?.[0] ?? '';
+
+    assert.match(migrateService, /DATABASE_URL/);
+    assert.doesNotMatch(migrateService, /JWT_SECRET/, 'la tâche de migration ne signe aucun jeton');
+    for (const script of ['apps/api/src/bootstrap-tenant.ts', 'apps/api/src/add-admin.ts']) {
+      const source = read(script);
+      assert.match(source, /loadDatabaseUrl\(process\.env\)/, `${script} lit l'adresse de la base`);
+      assert.doesNotMatch(source, /loadAppConfig/, `${script} ne lit pas la configuration de l'API, qui exige JWT_SECRET`);
+    }
+  });
+
   it('.env.example ne contient aucune valeur réelle', () => {
     const entries = read('infra/.env.example')
       .split('\n')

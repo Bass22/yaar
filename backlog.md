@@ -542,13 +542,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un collaborateur ne s'affecte pas lui-même, et n'atteint que les sites où il est affecté (E.3)
 - [x] ~~L'avatar du compte~~ → E.9
 
-### E.8 — Ajouter un admin à un élevage, par script · **S** · 🔒
-> Spec : CdC « Identité » (au moins un admin par élevage, créés par l'éditeur seul) · Zone : `apps/api/src/` (script, à côté de `bootstrap-tenant`)
+### E.8 — Ajouter un admin à un élevage, par script · **S** · 🔒 ✅
+> Spec : CdC « Identité » (au moins un admin par élevage, créés par l'éditeur seul) · Zone : `apps/api/src/{add-admin,tenants/add-admin}.ts`, `apps/api/build.mjs`, migration `0001_init`
 > Dépend de : D.4, E.5 · Revue : aucune route ne crée un admin.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `node dist/add-admin.js --tenant-id … --admin-name … --admin-phone …`, dans la tâche de migration, sous le rôle propriétaire ; le PIN (6 chiffres, pas trop simple) est demandé au clavier ou lu sur l'entrée standard, jamais en argument. L'élevage se désigne par son identifiant, affiché à l'amorçage (un nom d'élevage n'est pas unique). Le nouvel admin se connecte directement, sans PIN provisoire (décision du 2026-11-07 : la règle du premier PIN ne vaut pas pour l'admin). Le compte et sa trace s'écrivent ensemble.
+> **Choix à relire** : l'ajout d'un admin est tracé (`AdminAdded`), et l'amorçage trace désormais aussi le premier admin ; l'éditeur n'ayant de compte dans aucun élevage, l'auteur de ces traces est **vide** (`audit_events.actor_id` devient facultatif). « Au moins un admin » tient parce qu'aucune action ne retire un admin : un test recense toutes les routes du serveur, et une route ajoutée le fait échouer pour qu'on la relise ; pas de déclencheur en base. Retirer un admin (co-gérant parti) n'a pas de tranche : par script aussi, le jour où il le faudra, avec la garde « pas le dernier ».
+> **Changé en route** : joué dans Docker, le script a révélé un défaut d'E.2 — les scripts de l'éditeur lisaient toute la configuration de l'API, `JWT_SECRET` compris, que la tâche de migration ne reçoit pas : l'amorçage (D.4) ne tournait plus. Ils ne lisent plus que `DATABASE_URL` (`loadDatabaseUrl`) ; la tâche de migration ne reçoit toujours pas le secret des jetons, et `tools/infra.spec.mjs` le garde.
 
-- [ ] Le script de l'éditeur ajoute un admin à un élevage existant (numéro, nom, PIN demandé au clavier)
-- [ ] Un numéro déjà pris est refusé ; un élevage inconnu aussi
-- [ ] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
+- [x] Le script de l'éditeur ajoute un admin à un élevage existant (numéro, nom, PIN demandé au clavier)
+- [x] Un numéro déjà pris est refusé ; un élevage inconnu aussi
+- [x] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
 
 ### E.9 — L'avatar du compte · **S**
 > Spec : CdC « Identité » (avatar picto reconnaissable à la connexion) · Zone : `packages/design-system/`, `apps/api/src/users/`

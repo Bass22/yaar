@@ -84,6 +84,35 @@ describe("Démarrage de l'API", () => {
     expect(open.filter((route) => /tenant|elevage|signup|register|user/i.test(route))).toEqual([]);
   });
 
+  // Spec: backlog E.8 — un élevage garde toujours au moins un admin ; un admin n'est créé que par le script de l'éditeur
+  it("les routes du serveur sont celles-ci, et aucune ne crée un admin, ne change un rôle ni n'efface un compte : une route ajoutée fait échouer ce test, pour qu'on la relise", () => {
+    type Layer = { route?: { path: string; methods: Record<string, boolean> } };
+    const instance = app.getHttpAdapter().getInstance() as { router?: { stack: Layer[] } };
+    const routes = (instance.router?.stack ?? [])
+      .filter((layer) => layer.route !== undefined)
+      .flatMap((layer) => Object.keys(layer.route?.methods ?? {}).map((method) => `${method.toUpperCase()} ${layer.route?.path ?? ''}`))
+      .filter((route) => route !== 'GET /api/v1/unopened')
+      .sort();
+
+    expect(routes).toEqual([
+      'DELETE /api/v1/sites/:siteId/staff/:userId',
+      'GET /api/v1/health',
+      'GET /api/v1/health/ready',
+      'POST /api/v1/auth/choose-pin',
+      'POST /api/v1/auth/sign-in',
+      // Always a collaborator: the request does not choose the role (E.5).
+      'POST /api/v1/users',
+      // Collaborators only: neither one's own account nor another admin (E.4, E.5).
+      'POST /api/v1/users/:userId/block',
+      'POST /api/v1/users/:userId/reset-pin',
+      'POST /api/v1/users/:userId/sign-out-everywhere',
+      'POST /api/v1/users/:userId/unblock',
+      'PUT /api/v1/sites/:siteId/primary-caretaker',
+      'PUT /api/v1/sites/:siteId/staff/:userId',
+    ]);
+    expect(routes.filter((route) => /role|admin|DELETE \/api\/v1\/users/i.test(route))).toEqual([]);
+  });
+
   it("CORS n'est jamais activé : une origine étrangère n'obtient aucune autorisation", async () => {
     // When un autre site interroge l'API, puis demande la permission d'écrire
     const read = await fetch(`${origin}/api/v1/health`, { headers: { Origin: 'https://ailleurs.example' } });

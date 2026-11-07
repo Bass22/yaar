@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { Argon2PinHasher } from './auth/argon2-pin-hasher';
-import { loadAppConfig } from './config/app-config';
+import { loadDatabaseUrl } from './config/app-config';
 import { bootstrapTenant, type BootstrapRefusal } from './tenants/bootstrap-tenant';
 import { readSecretLine } from './tenants/read-secret-line';
 
@@ -47,7 +47,7 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const { databaseUrl } = loadAppConfig(process.env);
+  const databaseUrl = loadDatabaseUrl(process.env);
   if (process.stdin.isTTY) {
     process.stderr.write("PIN de l'admin (six chiffres, non affiché) : ");
   }
@@ -65,7 +65,7 @@ async function main(): Promise<number> {
         adminPhone: values['admin-phone'] ?? '',
         pin,
       },
-      { prisma, hasher: new Argon2PinHasher(), ids: () => randomUUID() },
+      { prisma, hasher: new Argon2PinHasher(), ids: () => randomUUID(), now: () => new Date() },
     );
     if (!result.ok) {
       console.error(`Amorçage refusé : ${EXPLANATIONS[result.error.kind]}.`);

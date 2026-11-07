@@ -3,8 +3,8 @@ import type { AuditAction, Prisma } from '@prisma/client';
 
 export type AuditEntry = {
   readonly action: AuditAction;
-  /** Who acted: the admin, or the account itself when it signs in. */
-  readonly actorId: string;
+  /** Who acted: the admin, or the account itself when it signs in; null for the operator, by script. */
+  readonly actorId: string | null;
   /** The account the action was about. */
   readonly subjectId: string;
   /** The site the action was about, when it was about one. */

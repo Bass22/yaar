@@ -20,6 +20,14 @@ export function loadAppConfig(env: Readonly<Record<string, string | undefined>>)
   return { databaseUrl: databaseUrlOf(env['DATABASE_URL']), jwtSecret: jwtSecretOf(env['JWT_SECRET']), port: portOf(env['PORT']) };
 }
 
+/**
+ * The address of the database, alone: what the operator's scripts need (bootstrap-tenant,
+ * add-admin). They run in the migration task, which never gets the secret of the tokens.
+ */
+export function loadDatabaseUrl(env: Readonly<Record<string, string | undefined>>): string {
+  return databaseUrlOf(env['DATABASE_URL']);
+}
+
 function databaseUrlOf(raw: string | undefined): string {
   if (raw === undefined || raw.trim() === '') {
     throw new Error('Configuration : DATABASE_URL est exigé (adresse postgresql:// de la base).');
