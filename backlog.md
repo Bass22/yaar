@@ -587,20 +587,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'auteur et l'élevage viennent de la session, jamais du corps
 - [x] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre)
 
-### F.4 — Ingérer un lot d'événements · **M** · 🧪 · ⚠
+### F.4 — Ingérer un lot d'événements · **M** · 🧪 · ⚠ ✅
 > Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
 > Dépend de : F.1 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur. Scindée de F.1 le 2026-11-07.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `ingestEvents(lot, session, ports)` rend le sort de chaque événement, dans l'ordre d'envoi : `Accepted`, `Duplicate` (identifiant déjà au journal, ou deux fois dans le lot — le premier venu reste, même si le contenu diffère) ou `Refused` avec son motif (décodage, règles du domaine, `UnknownCampaign`, `UnknownEvent`). Ports : `sites()` (tous les sites de l'élevage, avec équipe, fuseau et balance), `campaign`, `event`, `isRetracted`, `dayJournal`, `append(événement, appareil)`. Dans un lot, les déclarations passent d'abord, puis les corrections, puis les annulations. Les règles du jour, de la correction et de l'annulation, puis la politique de déclaration, avec l'auteur et le rôle de la session.
+> **Choix à relire** : l'ingestion ne lit aucune horloge — un événement daté par un téléphone en avance est jugé à sa date de saisie et accepté ; « prévenir l'admin » se calculera de la date de saisie et de la date de réception gardées en base (O.4), sans signal de plus ici. Une bande inconnue et une bande d'un autre élevage reçoivent le même refus. Lecture événement par événement : simple, suffisant pour des lots de téléphone ; à revoir si F.2 mesure un lot lent.
 
-- [ ] Un événement valide est accepté et rejoint le journal
-- [ ] Un événement dont la date de saisie est postérieure à sa réception est accepté, et l'admin est prévenu (décision du 2026-11-07) ; l'instant où le juger et le seuil d'alerte sont reportés (tableau des décisions) : F.4 le juge d'abord à sa date de saisie, comme tout événement
-- [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
-- [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
-- [ ] Dans un lot, une déclaration s'insère avant ce qui la corrige ou l'annule : la base refuse de nommer un événement absent (D.3)
-- [ ] Un événement refusé par la politique de déclaration donne un motif typé
-- [ ] « Rien perdu » est jugé contre le journal du jour (`validateAgainstDay`) : refusé si des morts ont été écrits avant lui
-- [ ] Une annulation est jugée par `validateRetraction` contre la déclaration qu'elle nomme ; le serveur lit dans le journal si celle-ci est déjà annulée, pour une annulation comme pour une correction
-- [ ] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
-- [ ] Rejouer un lot entier ne change rien au journal (property-based)
+- [x] Un événement valide est accepté et rejoint le journal
+- [x] Un événement dont la date de saisie est postérieure à sa réception est accepté (décision du 2026-11-07) ; l'alerte à l'admin se calcule des deux dates gardées en base (O.4) ; l'instant où le juger et le seuil d'alerte sont reportés (tableau des décisions)
+- [x] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
+- [x] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
+- [x] Dans un lot, une déclaration s'insère avant ce qui la corrige ou l'annule : la base refuse de nommer un événement absent (D.3)
+- [x] Un événement refusé par la politique de déclaration donne un motif typé
+- [x] « Rien perdu » est jugé contre le journal du jour (`validateAgainstDay`) : refusé si des morts ont été écrits avant lui
+- [x] Une annulation est jugée par `validateRetraction` contre la déclaration qu'elle nomme ; le serveur lit dans le journal si celle-ci est déjà annulée, pour une annulation comme pour une correction
+- [x] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
+- [x] Rejouer un lot entier ne change rien au journal (property-based)
 
 ### F.2 — L'API reçoit le journal · **M** · 🔒 · 🧪
 > Spec : Archi §4 (`journal`), §5 · Zone : `apps/api/src/journal/` (contrôleur, dépôt Prisma)

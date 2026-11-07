@@ -139,6 +139,7 @@ Rien à construire en V1, mais ne pas fermer :
 | PIN provisoire donné par l'admin ; premier choix du PIN ; PIN oublié | `provisionalPin` (`provisionalPinExpiresAt`) ; `choosePin` ; `resetPin` |
 | Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
+| Ingestion d'un lot ; sort d'un événement (accepté, doublon, refusé) | `ingestEvents` ; `IngestionOutcome` (`Accepted`, `Duplicate`, `Refused`) |
 | Rattrapage (aujourd'hui, hier, avant-hier) ; rôle de l'auteur | catch-up (`CatchUpWindowPassed`) ; `Role`, `authorRole` |
 
 Rôles : `admin` (gérant), `collaborator` (gardien), `investor` (V2, lecture seule). Un terme absent de la table s'y ajoute avant d'être codé.
