@@ -4,12 +4,21 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/web/src",
-  "tags": ["scope:web"],
-  "implicitDependencies": ["domain", "contracts", "design-system", "kit"],
+  "tags": [
+    "scope:web"
+  ],
+  "implicitDependencies": [
+    "domain",
+    "contracts",
+    "design-system",
+    "kit"
+  ],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -22,7 +31,9 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.scss"]
+        "styles": [
+          "apps/web/src/styles.scss"
+        ]
       },
       "configurations": {
         "production": {
@@ -38,7 +49,8 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "serviceWorker": "apps/web/ngsw-config.json"
         },
         "development": {
           "optimization": false,

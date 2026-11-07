@@ -32,8 +32,9 @@
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
 
 		# Les fichiers dont le nom ne change pas et qui pilotent tout le reste : jamais mis
-		# en cache, sinon une ancienne version de l'application descendrait indéfiniment.
-		@volatile path / /index.html
+		# en cache, sinon une ancienne version de l'application descendrait indéfiniment — le
+		# service worker et son index d'abord : ils décident de ce que le téléphone garde (G.1).
+		@volatile path / /index.html /ngsw-worker.js /ngsw.json /safety-worker.js /manifest.webmanifest
 		header @volatile Cache-Control "no-cache"
 
 		# Repli SPA : une route Angular n'est pas un fichier ; sans cette ligne, rafraîchir

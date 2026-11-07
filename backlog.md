@@ -67,7 +67,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Écran « Équipe » du bureau (créer un collaborateur, montrer son PIN provisoire, bloquer, PIN oublié) : à maquetter avec `/designer` | CdC (non précisé) | Aucune tranche d'écran ne le porte encore |
 | ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
-| ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Reste ouvert : le sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
+| ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Le sort d'une outbox non synchronisée à la fin d'une session est tranché le 2026-11-07 : elle reste sur le téléphone, et repart quand le même compte se reconnecte ; un autre compte connecté sur ce téléphone ne l'envoie jamais sous son nom | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
 | Une tâche sanitaire non faite est-elle reportée au lendemain ? | CdC (non précisé) | L.1 |
 | Source de la météo, et seuil de chaleur qui déclenche la tâche bicarbonate | CdC (non précisé) | L.3 |
@@ -640,53 +640,70 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## G — PWA et outbox hors-ligne
 
-### G.1 — L'application s'installe et démarre sans réseau · **M**
+### G.1 — L'application s'installe et démarre sans réseau · **M** ✅
 > Spec : Archi §5 « Service worker » · Zone : `apps/web` (manifest, service worker)
 > Dépend de : A.3 · Revue : ce qui est précaché, et son poids.
+> Livrée le 2026-11-07. **Dépendances ajoutées** (accord du fondateur) : `@angular/service-worker` 21.2 (MIT), `@fontsource/andika` et `@fontsource/shantell-sans` 5.3 (OFL) ; audit d'exécution à zéro, licences vérifiées. Manifeste (`public/manifest.webmanifest`, seul endroit où s'écrit « Yaar »), icônes 192 et 512 px masquables rendues depuis `public/icons/app-icon.svg` (`app-icon-192.png`, `app-icon-512.png`) — **première version de l'icône, à reprendre avec `/designer`**. Service worker Angular en production (`ngsw-config.json`) : précache de la coquille, du code, des styles, des polices et des icônes (environ 480 Ko). Polices des maquettes servies par l'application, sous-ensemble latin seulement (français et wolof). Stockage persistant demandé au démarrage, sans jamais bloquer. Vues `caretaker` et `admin` chargées à la demande ; code de départ : 62 Ko compressés.
+> **Non vérifié** : le démarrage hors-ligne sur un vrai téléphone (cahier de recette, recette manuelle) ; les tests portent sur la configuration et le build.
 
-- [ ] L'application s'installe sur l'écran d'accueil avec son icône (192 et 512 px, maskable)
-- [ ] Après une première visite, elle démarre sans réseau
-- [ ] Les polices sont servies par l'application, jamais par un CDN
-- [ ] Le stockage persistant est demandé à l'installation
-- [ ] Les routes gardien et admin sont chargées séparément
+- [x] L'application s'installe sur l'écran d'accueil avec son icône (192 et 512 px, maskable)
+- [x] Après une première visite, elle démarre sans réseau (configuration du précache vérifiée ; essai sur appareil à faire)
+- [x] Les polices sont servies par l'application, jamais par un CDN
+- [x] Le stockage persistant est demandé à l'installation
+- [x] Les routes gardien et admin sont chargées séparément
 
-### G.2 — Se connecter sur le téléphone · **M** · 🎨 · ⚠
+### G.2 — Se connecter sur le téléphone · **M** · 🎨 · ⚠ (cœur livré, écran « cahier » à venir)
 > Spec : CdC « Identité » (avatar reconnaissable) · Zone : `apps/web/src/app/core/session/`, écran de connexion
 > Dépend de : G.1, E.2 · Revue : utilisable sans lire.
+> Cœur livré le 2026-11-07 (décision du fondateur : un écran simple maintenant, l'écran « cahier » et l'avatar après `/designer` et E.9). `SessionStore` garde le jeton, son échéance et le rôle sur le téléphone (pas de cookie) et un identifiant d'appareil créé une seule fois ; `AuthService` ouvre la session (`sign-in`, `choose-pin` au premier PIN) et rend le motif d'un refus, ou « pas de réseau », ou « service indisponible ». Écran simple `/sign-in` : numéro, PIN, puis nouveau PIN à la première connexion, messages en français. Le cahier s'ouvre à un gardien dont la session a expiré (il déclare hors-ligne) ; le bureau exige une session valide et le rôle admin. `@angular/forms` n'est pas ajouté : deux champs n'en valent pas un paquet.
 
-- [ ] L'utilisateur reconnaît son avatar, puis saisit son PIN
-- [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio)
-- [ ] Une session ouverte survit à la fermeture de l'application
-- [ ] Un collaborateur arrive sur le cahier ; un admin arrive sur le bureau
+- [ ] L'utilisateur reconnaît son avatar, puis saisit son PIN — avec E.9 et `/designer`
+- [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio) — avec `/designer` ; aujourd'hui, un message en français
+- [x] Une session ouverte survit à la fermeture de l'application
+- [x] Un collaborateur arrive sur le cahier ; un admin arrive sur le bureau
 
-### G.3 — L'outbox garde chaque déclaration · **M** · 🧪
+### G.3 — L'outbox garde chaque déclaration · **M** · 🧪 ✅
 > Spec : Archi §5 « Outbox locale » · Zone : `apps/web/src/app/core/outbox/`
 > Dépend de : G.1, C.1 · Revue : rien n'est perdu entre le tap et le stockage.
+> Livrée le 2026-11-07. **Dépendance de développement ajoutée** : `fake-indexeddb` 6.2 (Apache-2.0), une IndexedDB en mémoire pour les tests. `Outbox` écrit dans IndexedDB sans bibliothèque ; une écriture ne résout qu'une fois sa transaction validée. Chaque entrée garde son auteur : elle ne part que sous ce compte (décision du 2026-11-07). Une entrée jamais partie se corrige sur place (`replace`) ; tentée une fois, elle ne change plus. Stockage indisponible : `OutboxUnavailable`, et `JournalSync.storageUnavailable` le signale aux écrans.
 
-- [ ] Une déclaration est enregistrée localement avant tout appel réseau
-- [ ] Elle survit à la fermeture de l'application et au redémarrage du téléphone
-- [ ] Chaque événement de l'outbox a un état : en attente (jamais parti), envoi en doute (tenté, sans réponse), envoyé ou refusé
-- [ ] L'UUID est généré sur le téléphone, une seule fois, à la création
-- [ ] Si le stockage local échoue, l'utilisateur en est averti et rien n'est marqué « noté »
+- [x] Une déclaration est enregistrée localement avant tout appel réseau
+- [x] Elle survit à la fermeture de l'application et au redémarrage du téléphone (prouvé par une réouverture de la base ; le redémarrage réel est à la recette sur appareil)
+- [x] Chaque événement de l'outbox a un état : en attente (jamais parti), envoi en doute (tenté, sans réponse), envoyé ou refusé
+- [x] L'UUID est généré sur le téléphone, une seule fois, à la création
+- [x] Si le stockage local échoue, l'utilisateur en est averti et rien n'est marqué « noté » (l'avertissement à l'écran vient avec les écrans du cahier)
 
-### G.4 — La synchro envoie sans perdre ni doubler · **M** · 🧪
+### G.4 — La synchro envoie sans perdre ni doubler · **M** · 🧪 ✅
 > Spec : Archi §5 « Synchronisation » · Zone : `apps/web/src/app/core/sync/`
 > Dépend de : G.3, F.2 · Revue : la reprise après coupure, cas par cas.
+> Livrée le 2026-11-07. `synchronize(outbox, session, transport, now)` : par lots de 100 (`BATCH_SIZE`, le plafond de l'API), dans l'ordre de création, chaque lot marqué en doute avant de partir. `JournalSync` (service Angular, démarré avec l'application) synchronise à l'ouverture, au retour du réseau et après chaque déclaration, un envoi à la fois ; il expose `waiting` (pastille), `refused` et `stopped`.
+> **Choix à relire** : une réponse du serveur autre que 200 ou 401 (panne, requête refusée en bloc) laisse le lot en doute, et il repart à la synchro suivante — pas de nouvelle tentative en boucle, seulement à l'ouverture, au retour du réseau ou à la déclaration suivante.
 
-- [ ] Les événements en attente partent à l'ouverture et au retour du réseau
-- [ ] Une coupure pendant l'envoi laisse les événements en doute : ils repartent ensuite, à l'identique, et ne se modifient plus sur le téléphone (une modification locale serait ignorée comme doublon)
-- [ ] Un événement signalé comme doublon par le serveur passe à « envoyé »
-- [ ] Les événements partent dans l'ordre de leur création
-- [ ] La pastille de synchro reflète le nombre d'événements en attente
+- [x] Les événements en attente partent à l'ouverture et au retour du réseau
+- [x] Une coupure pendant l'envoi laisse les événements en doute : ils repartent ensuite, à l'identique, et ne se modifient plus sur le téléphone (une modification locale serait ignorée comme doublon)
+- [x] Un événement signalé comme doublon par le serveur passe à « envoyé »
+- [x] Les événements partent dans l'ordre de leur création
+- [x] La pastille de synchro reflète le nombre d'événements en attente (la valeur ; la pastille elle-même vient avec H.5)
 
-### G.5 — Refus du serveur et session expirée · **M** · 🧪 · ⚠
+### G.5 — Refus du serveur et session expirée · **M** · 🧪 · ⚠ (cœur livré, signal à l'écran à venir)
 > Spec : Archi §6 « Mode strict » ; CdC « La confiance est visible » · Zone : `apps/web/src/app/core/sync/`
 > Dépend de : G.4, E.4 · Revue : aucun renvoi en boucle, aucune perte silencieuse.
+> Cœur livré le 2026-11-07. Un refus est gardé avec son motif et ne repart jamais. Une session expirée n'envoie rien et garde tout ; un 401 avant l'échéance du jeton est une session révoquée (compte bloqué, ou « déconnecter partout ») : la synchro s'arrête et `stopped` le dit ; rien n'est perdu (décision du 2026-11-07 : l'outbox reste sur le téléphone, et ne part que sous le compte de son auteur).
 
-- [ ] Un événement refusé par le serveur n'est pas renvoyé indéfiniment
-- [ ] Un refus est signalé au gardien par picto et audio
-- [ ] Une session expirée conserve l'outbox ; la synchro reprend après reconnexion
-- [ ] Une session révoquée arrête la synchro et le dit à l'utilisateur
+- [x] Un événement refusé par le serveur n'est pas renvoyé indéfiniment
+- [ ] Un refus est signalé au gardien par picto et audio — les données sont prêtes (`JournalSync.refused`), l'affichage vient avec les écrans du cahier (J, K) et I (audio)
+- [x] Une session expirée conserve l'outbox ; la synchro reprend après reconnexion
+- [x] Une session révoquée arrête la synchro et le dit à l'utilisateur (`JournalSync.stopped` ; l'écran qui le dit vient avec le cahier)
+
+### G.6 — L'outbox se vide de ce qui est envoyé · **S** · 🧪
+> Spec : Archi §5 « Outbox locale » ; CLAUDE.md §4 règle 3 · Zone : `apps/web/src/app/core/outbox/`
+> Dépend de : G.4 · Revue : jamais un événement en attente ou en doute ne disparaît. Ajoutée le 2026-11-07 (question du fondateur : « la mémoire des téléphones est nettoyée ? »).
+> Aujourd'hui rien ne nettoie l'outbox : les événements envoyés et refusés y restent. Pas urgent — environ 300 octets par déclaration, soit 1 Mo par an pour un gardien qui en écrit dix par jour — mais à faire avant que les téléphones vivent des années.
+
+- [ ] Un événement envoyé s'efface du téléphone quelques jours après son envoi (7 jours, dans une constante) : le serveur l'a, et le cahier le reçoit de lui
+- [ ] Un événement refusé reste jusqu'à ce que son refus ait été vu, pour qu'aucune erreur ne disparaisse en silence
+- [ ] Un événement en attente ou en doute ne s'efface jamais, quel que soit son âge
+- [ ] Le nettoyage tourne au démarrage, sans retarder l'ouverture du cahier
 
 ---
 
@@ -779,6 +796,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Tant qu'aucun poussin n'est reçu, le bandeau ne montre pas de vivants : ni zéro, ni nombre négatif (QA de C.5 — à confirmer)
 - [ ] Le badge du titulaire est visible
 - [ ] Sans campagne en cours, l'écran le dit par picto et audio
+- [ ] Avec une seule campagne en cours, le cahier s'ouvre directement dessus : aucun choix n'est demandé (décision du 2026-11-07)
+- [ ] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande simplement (picto, couleur, audio), sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration — écran à dessiner avec `/designer`
 - [ ] L'écran s'affiche hors-ligne avec le dernier contexte reçu
 
 ### J.2 — Trois jours et bannière du jour passé · **M**
@@ -905,6 +924,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'événement part sans attendre le média et le référence par empreinte
 - [ ] Un envoi de média échoué est repris
 - [ ] Le journal montre qu'un média n'est pas encore parti
+- [ ] Un média bien reçu par le serveur s'efface du téléphone : photos et vocaux pèsent des centaines de kilo-octets chacun, c'est là que la mémoire d'un téléphone d'entrée de gamme se remplit (ajouté le 2026-11-07) ; un média pas encore parti ne s'efface jamais
+- [ ] Le stockage pris par les médias en attente est borné, et un dépassement est dit au gardien plutôt que de perdre un média
 
 ### M.3 — Envoyer une photo au chef · **M**
 > Spec : CdC « Prévenir le chef » ; `journal-gardien.html` (`.viseur`) · Zone : `apps/web/src/app/caretaker/gestures/photo/`

@@ -31,6 +31,7 @@ Tenu par `/qa`, et par `/security-engineer` pour ses constats restés ouverts. I
 | 2026-11-07 | F.4 — ingérer un lot | **Validé** | 19 tests du cas d'usage sur des ports en mémoire, dont une propriété (rejouer un lot ne change rien au journal) ; 12 sabotages détectés sur 12, sur une copie. Les tests sont passés du premier coup : le rouge n'a pas été observé, les sabotages en tiennent lieu |
 | 2026-11-07 | F.2 — l'API reçoit le journal | **Validé ; R-8 levée ; un défaut du domaine trouvé et corrigé** | 11 tests de la route sur PostgreSQL réel (dont la relecture en base de chaque type de fait), 1 test de la table (appareil obligatoire) ; 10 sabotages détectés sur 10, sur une copie. **Défaut** trouvé par la propriété de rejeu de F.4, sur un lot tiré au hasard : « rien perdu » était jugé avec une annulation écrite après lui, donc refusé puis accepté au renvoi — corrigé dans `validateAgainstDay`, test du domaine ajouté, 3 000 lots tirés ensuite sans contre-exemple. Une suite complète a dépassé des délais une fois, non reproduit |
 | 2026-11-07 | F.3 — le contexte du gardien, sans argent | **Validé ; R-3 levée** | 11 tests de la route sur PostgreSQL réel, plusieurs campagnes en cours par site comprises (décision du fondateur, après une première version qui n'en rendait qu'une) (dont un balayage de toutes les clés de la réponse contre les mots de l'argent) ; 10 sabotages détectés sur 10, sur une copie (le filtre « campagne non clôturée » passait d'abord inaperçu : cas d'un site à la campagne clôturée ajouté) |
+| 2026-11-07 | Épique G — PWA, connexion, outbox, synchro | **Validé, écrans à venir** | 43 tests du web (dont l'outbox sur une vraie IndexedDB en mémoire et la synchro contre un faux serveur), 4 règles d'outillage sur le manifeste, le service worker et les polices ; 20 sabotages détectés sur 20, sur une copie. Un test de la synchro dépendait d'un délai de 20 ms et a échoué une fois sous charge : rendu déterministe. **Non vérifié** : installation, démarrage hors-ligne et survie de l'outbox au redémarrage sur un vrai téléphone (voir la recette manuelle) |
 
 ## 2. Réserves ouvertes
 
@@ -80,4 +81,11 @@ Ce qui n'a pas pu être exécuté, et la tranche à partir de laquelle ce sera p
 
 Les essais qu'aucun test automatisé ne remplace : matériel d'entrée de gamme, 3G, téléphone resté trois jours sans réseau, nombre de taps, audio entendu, picto reconnu sans lire.
 
-Vide pour l'instant : aucun écran n'existe (les premiers arrivent au lot 2). Chaque scénario s'écrit ici quand la tranche d'écran passe `/qa`, sous cette forme : étapes, résultat attendu avec sa référence au cahier des charges, appareil, résultat observé, date. La liste se rejoue en entier avant chaque mise en service chez un pilote.
+Scénarios en attente d'un appareil (épique G, 2026-11-07) — sur un Android d'entrée de gamme, avec le build de production servi en HTTPS :
+
+1. **Installer** : ouvrir l'adresse dans Chrome, « Ajouter à l'écran d'accueil » ; attendu : l'icône Yaar (fond vert, Y crème) sur l'écran d'accueil, l'application s'ouvre sans barre d'adresse (G.1).
+2. **Démarrer sans réseau** : après une première ouverture, couper les données et le Wi-Fi, fermer l'application, la rouvrir ; attendu : elle s'affiche, polices comprises (G.1).
+3. **L'outbox survit au redémarrage** : hors réseau, enregistrer une déclaration (dès que les écrans du cahier existent), éteindre le téléphone, le rallumer, rouvrir ; attendu : la déclaration est toujours en attente, puis part au retour du réseau, une seule fois (G.3, G.4).
+4. **Session expirée hors réseau** : avec une session de plus de 7 jours, rouvrir l'application sans réseau ; attendu : le cahier s'ouvre et les déclarations sont gardées ; elles partent après la reconnexion (G.2, G.5).
+
+Chaque scénario s'écrit ici quand la tranche d'écran passe `/qa`, sous cette forme : étapes, résultat attendu avec sa référence au cahier des charges, appareil, résultat observé, date. La liste se rejoue en entier avant chaque mise en service chez un pilote.
