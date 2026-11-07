@@ -53,6 +53,7 @@ model Tenant {
   siteAssignments SiteAssignment[]
   campaigns       Campaign[]
   journalEvents   JournalEvent[]
+  auditEvents     AuditEvent[]
 
   @@map("tenants")
 }
@@ -176,4 +177,42 @@ model JournalEvent {
 
   @@id([tenantId, id])
   @@map("journal_events")
+}
+
+// What a sensitive action did, who did it, when and from which device (CLAUDE.md §4 rule 14).
+enum AuditAction {
+  SignInSucceeded
+  SignInFailed
+  SignInRefused
+  PinChosen
+  AccountCreated
+  AccountBlocked
+  AccountUnblocked
+  SignedOutEverywhere
+  PinReset
+
+  @@map("audit_action")
+}
+
+// The audit trail: append-only, like the journal (triggers in the migration). It holds no
+// secret: no PIN, no token, no phone number — identifiers and a reason from a closed list.
+model AuditEvent {
+  tenantId   String      @map("tenant_id") @db.Uuid
+  id         String      @db.Uuid
+  occurredAt DateTime    @map("occurred_at") @db.Timestamptz(3)
+  action     AuditAction
+  // Who acted: the admin, or the account itself when it signs in.
+  actorId    String      @map("actor_id") @db.Uuid
+  // The account the action was about.
+  subjectId  String      @map("subject_id") @db.Uuid
+  // The device of the actor, as it names itself (UUID made on the device).
+  deviceId   String?     @map("device_id") @db.Uuid
+  // Why a sign-in was refused or failed: the kind of the refusal.
+  reason     String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, id])
+  @@index([tenantId, subjectId, occurredAt])
+  @@map("audit_events")
 }

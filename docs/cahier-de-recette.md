@@ -22,6 +22,8 @@ Tenu par `/qa`, et par `/security-engineer` pour ses constats restés ouverts. I
 | 2026-11-07 | E.2 — connexion (passage sécurité) | **Validé avec réserves** (R-14 à R-17) ; R-12 et R-13 levées | 10 tests du cas d'usage et 5 de la route sur PostgreSQL réel, 9 du jeton ; sabotages sur une copie (voir backlog) |
 | 2026-11-07 | E.3 — routes fermées par défaut (passage sécurité) | **Validé** | 15 tests à travers le serveur HTTP sur PostgreSQL réel (jeton absent, falsifié, expiré ; tenant du jeton contre adresse et corps ; compte bloqué, jetons invalidés, rôle changé ; rôles ; sites ; transaction unique) ; 17 sabotages détectés sur 17, sur une copie |
 | 2026-11-07 | E.4 — bloquer un compte | **Validé** | 10 tests à travers le serveur HTTP sur PostgreSQL réel ; 12 sabotages détectés sur 12, sur une copie |
+| 2026-11-07 | E.5 — comptes de l'équipe et premier PIN | **Validé** | 14 tests à travers le serveur HTTP sur PostgreSQL réel ; 20 sabotages détectés sur 20, sur une copie |
+| 2026-11-07 | E.6 — trace des actions sensibles | **Validé** | 8 tests à travers le serveur HTTP sur PostgreSQL réel ; 17 sabotages détectés sur 17, sur une copie |
 
 ## 2. Réserves ouvertes
 

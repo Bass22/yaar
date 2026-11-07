@@ -1,5 +1,6 @@
 import { err, ok, type Result } from '@kit';
 import type { Prisma } from '@prisma/client';
+import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
 
 export type AccountAccessRefusal =
@@ -31,25 +32,28 @@ export async function blockAccount(tx: Prisma.TransactionClient, admin: Session,
     return err({ kind: 'OnlyCollaboratorsCanBeBlocked' });
   }
   await tx.user.update({ where: { id: target.id }, data: { blockedAt: target.blockedAt ?? now, sessionsValidFrom: now } });
+  await recordAudit(tx, admin.tenantId, { action: 'AccountBlocked', actorId: admin.userId, subjectId: target.id, deviceId: admin.deviceId }, now);
   return ok(undefined);
 }
 
 /** Lifts a block. The tokens issued before stay refused: the account signs in again. */
-export async function unblockAccount(tx: Prisma.TransactionClient, userId: string): Promise<Result<void, AccountAccessRefusal>> {
+export async function unblockAccount(tx: Prisma.TransactionClient, admin: Session, userId: string, now: Date): Promise<Result<void, AccountAccessRefusal>> {
   const target = await targetOf(tx, userId);
   if (target === null) {
     return err({ kind: 'AccountNotFound' });
   }
   await tx.user.update({ where: { id: target.id }, data: { blockedAt: null } });
+  await recordAudit(tx, admin.tenantId, { action: 'AccountUnblocked', actorId: admin.userId, subjectId: target.id, deviceId: admin.deviceId }, now);
   return ok(undefined);
 }
 
 /** Every token issued so far stops working; the account is not blocked and signs in again. */
-export async function signOutEverywhere(tx: Prisma.TransactionClient, userId: string, now: Date): Promise<Result<void, AccountAccessRefusal>> {
+export async function signOutEverywhere(tx: Prisma.TransactionClient, actor: Session, userId: string, now: Date): Promise<Result<void, AccountAccessRefusal>> {
   const target = await targetOf(tx, userId);
   if (target === null) {
     return err({ kind: 'AccountNotFound' });
   }
   await tx.user.update({ where: { id: target.id }, data: { sessionsValidFrom: now } });
+  await recordAudit(tx, actor.tenantId, { action: 'SignedOutEverywhere', actorId: actor.userId, subjectId: target.id, deviceId: actor.deviceId }, now);
   return ok(undefined);
 }

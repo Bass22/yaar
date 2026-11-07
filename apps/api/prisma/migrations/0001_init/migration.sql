@@ -15,6 +15,9 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 -- CreateEnum
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
+-- CreateEnum
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset');
+
 -- CreateTable
 CREATE TABLE "tenants" (
     "id" UUID NOT NULL,
@@ -96,6 +99,20 @@ CREATE TABLE "journal_events" (
     CONSTRAINT "journal_events_pkey" PRIMARY KEY ("tenant_id","id")
 );
 
+-- CreateTable
+CREATE TABLE "audit_events" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "occurred_at" TIMESTAMPTZ(3) NOT NULL,
+    "action" "audit_action" NOT NULL,
+    "actor_id" UUID NOT NULL,
+    "subject_id" UUID NOT NULL,
+    "device_id" UUID,
+    "reason" TEXT,
+
+    CONSTRAINT "audit_events_pkey" PRIMARY KEY ("tenant_id","id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -113,6 +130,9 @@ CREATE INDEX "campaigns_tenant_id_site_id_idx" ON "campaigns"("tenant_id", "site
 
 -- CreateIndex
 CREATE UNIQUE INDEX "campaigns_tenant_id_id_key" ON "campaigns"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "audit_events_tenant_id_subject_id_occurred_at_idx" ON "audit_events"("tenant_id", "subject_id", "occurred_at");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -152,6 +172,9 @@ ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_corrects_f
 
 -- AddForeignKey
 ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_retracts_fkey" FOREIGN KEY ("tenant_id", "retracts") REFERENCES "journal_events"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
@@ -256,21 +279,21 @@ CREATE POLICY tenant_isolation ON "journal_events"
 -- Append-only for everyone (CLAUDE.md §4 rule 1). The missing privileges above stop the
 -- application; these triggers stop the owner of the table too, and a migration written by
 -- mistake. Correcting an event is adding another one, never touching this one.
-CREATE FUNCTION journal_events_refuse_change() RETURNS trigger
+CREATE FUNCTION refuse_change() RETURNS trigger
   LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'journal_events is append-only: % is refused', TG_OP
+  RAISE EXCEPTION '% is append-only: % is refused', TG_TABLE_NAME, TG_OP
     USING ERRCODE = 'restrict_violation';
 END
 $$;
 
 CREATE TRIGGER journal_events_no_update_no_delete
   BEFORE UPDATE OR DELETE ON "journal_events"
-  FOR EACH ROW EXECUTE FUNCTION journal_events_refuse_change();
+  FOR EACH ROW EXECUTE FUNCTION refuse_change();
 
 CREATE TRIGGER journal_events_no_truncate
   BEFORE TRUNCATE ON "journal_events"
-  FOR EACH STATEMENT EXECUTE FUNCTION journal_events_refuse_change();
+  FOR EACH STATEMENT EXECUTE FUNCTION refuse_change();
 
 -- The reception date is the database's own clock, whatever the client sent (rule 2).
 CREATE FUNCTION journal_events_stamp_reception() RETURNS trigger
@@ -284,3 +307,21 @@ $$;
 CREATE TRIGGER journal_events_received_at
   BEFORE INSERT ON "journal_events"
   FOR EACH ROW EXECUTE FUNCTION journal_events_stamp_reception();
+
+-- The audit trail (CLAUDE.md §4 rule 14): read and added to by the application, never changed
+-- nor erased — by anyone.
+GRANT SELECT, INSERT ON "audit_events" TO yaar_app;
+
+ALTER TABLE "audit_events" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "audit_events" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "audit_events"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+CREATE TRIGGER audit_events_no_update_no_delete
+  BEFORE UPDATE OR DELETE ON "audit_events"
+  FOR EACH ROW EXECUTE FUNCTION refuse_change();
+
+CREATE TRIGGER audit_events_no_truncate
+  BEFORE TRUNCATE ON "audit_events"
+  FOR EACH STATEMENT EXECUTE FUNCTION refuse_change();

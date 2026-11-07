@@ -31,7 +31,7 @@ export class UsersController {
   @Post(':userId/reset-pin')
   @HttpCode(HttpStatus.OK)
   async resetPin(@CurrentSession() session: Session, @Param('userId') userId: string): Promise<ProvisionalPin> {
-    return teamAnswer(await this.prisma.runInTenant(session.tenantId, (tx) => resetPin(tx, this.hasher, userId, this.clock.now())));
+    return teamAnswer(await this.prisma.runInTenant(session.tenantId, (tx) => resetPin(tx, this.hasher, session, userId, this.clock.now())));
   }
 
   @Post(':userId/block')
@@ -43,13 +43,13 @@ export class UsersController {
   @Post(':userId/unblock')
   @HttpCode(HttpStatus.NO_CONTENT)
   async unblock(@CurrentSession() session: Session, @Param('userId') userId: string): Promise<void> {
-    answer(await this.prisma.runInTenant(session.tenantId, (tx) => unblockAccount(tx, userId)));
+    answer(await this.prisma.runInTenant(session.tenantId, (tx) => unblockAccount(tx, session, userId, this.clock.now())));
   }
 
   @Post(':userId/sign-out-everywhere')
   @HttpCode(HttpStatus.NO_CONTENT)
   async signOutEverywhere(@CurrentSession() session: Session, @Param('userId') userId: string): Promise<void> {
-    answer(await this.prisma.runInTenant(session.tenantId, (tx) => signOutEverywhere(tx, userId, this.clock.now())));
+    answer(await this.prisma.runInTenant(session.tenantId, (tx) => signOutEverywhere(tx, session, userId, this.clock.now())));
   }
 }
 

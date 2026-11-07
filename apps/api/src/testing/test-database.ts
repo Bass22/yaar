@@ -12,7 +12,9 @@ import { resolve } from 'node:path';
 // triggers): a stub would prove nothing. Adapted from build-track (test-database.ts).
 //
 // One container per Jest worker, one database per spec file: booting a container per spec
-// made build-track's suite time out at random on a busy machine.
+// made build-track's suite time out at random on a busy machine. The migrations run once per
+// container, into a template database that every spec file copies (CREATE DATABASE … TEMPLATE):
+// running the Prisma command line once per file made the whole suite exceed its time limits.
 
 export type TestDatabase = {
   /** Connection string of the owner of the database, the role that ran the migrations. */
@@ -35,6 +37,7 @@ const prismaCli = createRequire(__filename).resolve('prisma/build/index.js');
 
 /** The worker's container, started once and reused; Testcontainers removes it when the process exits. */
 let container: Promise<StartedPostgreSqlContainer> | null = null;
+const TEMPLATE = 'yaar_template';
 let created = 0;
 
 async function onCluster<T>(clusterUrl: string, work: (cluster: PrismaClient) => Promise<T>): Promise<T> {
@@ -55,9 +58,13 @@ function startContainer(): Promise<StartedPostgreSqlContainer> {
     .then(async (started) => {
       // The application role is shared by every database of the cluster: it gets its login
       // once, here, as the deployment gives it (infra/postgres/init-app-role.sh).
-      await onCluster(started.getConnectionUri(), (cluster) =>
-        cluster.$executeRawUnsafe(`CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`),
-      );
+      await onCluster(started.getConnectionUri(), async (cluster) => {
+        await cluster.$executeRawUnsafe(`CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_ROLE_PASSWORD}'`);
+        await cluster.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE}"`);
+      });
+      const template = new URL(started.getConnectionUri());
+      template.pathname = `/${TEMPLATE}`;
+      migrate(template.toString());
       return started;
     });
   return container;
@@ -74,14 +81,14 @@ export async function createTestDatabase(options: { migrated?: boolean } = {}): 
   const clusterUrl = (await startContainer()).getConnectionUri();
   // Unique per Jest worker (a process) and per spec file (a counter).
   const name = `yaar_test_${process.pid}_${++created}`;
-  await onCluster(clusterUrl, (cluster) => cluster.$executeRawUnsafe(`CREATE DATABASE "${name}"`));
+  // A copy of the migrated template, or an empty database when the test applies migrations itself.
+  await onCluster(clusterUrl, (cluster) =>
+    cluster.$executeRawUnsafe(options.migrated === false ? `CREATE DATABASE "${name}"` : `CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE}"`),
+  );
 
   const target = new URL(clusterUrl);
   target.pathname = `/${name}`;
   const url = target.toString();
-  if (options.migrated !== false) {
-    migrate(url);
-  }
   const asApp = new URL(url);
   asApp.username = APP_ROLE;
   asApp.password = APP_ROLE_PASSWORD;

@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { err, ok, type Result } from '@kit';
 import type { Prisma } from '@prisma/client';
 import type { CreateAccountRequest, ProvisionalPin } from '@contracts';
+import { recordAudit } from '../audit/audit';
 import { Pin } from '../auth/pin';
 import type { PinHasher } from '../auth/pin-hasher';
 import type { Session } from '../auth/session';
@@ -53,6 +54,7 @@ export async function createAccount(
   await tx.user.create({
     data: { id: request.id, tenantId: admin.tenantId, phone: request.phone, name, role: 'collaborator', pinHash: await deps.hasher.hash(pin), provisionalPinExpiresAt },
   });
+  await recordAudit(tx, admin.tenantId, { action: 'AccountCreated', actorId: admin.userId, subjectId: request.id, deviceId: admin.deviceId }, now);
   return ok({ id: request.id, role: 'collaborator', provisionalPin: pin.reveal(), provisionalPinExpiresAt: provisionalPinExpiresAt.toISOString() });
 }
 
@@ -60,7 +62,7 @@ export async function createAccount(
  * A forgotten PIN: the admin gives a new provisional one. The former PIN stops working, every
  * token issued so far too, and the next sign-in chooses a PIN again. Collaborators only.
  */
-export async function resetPin(tx: Prisma.TransactionClient, hasher: PinHasher, userId: string, now: Date): Promise<Result<ProvisionalPin, TeamAccountRefusal>> {
+export async function resetPin(tx: Prisma.TransactionClient, hasher: PinHasher, admin: Session, userId: string, now: Date): Promise<Result<ProvisionalPin, TeamAccountRefusal>> {
   const target = UUID.test(userId) ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }) : null;
   if (target === null) {
     return err({ kind: 'AccountNotFound' });
@@ -74,5 +76,6 @@ export async function resetPin(tx: Prisma.TransactionClient, hasher: PinHasher, 
     where: { id: target.id },
     data: { pinHash: await hasher.hash(pin), provisionalPinExpiresAt, sessionsValidFrom: now, pinFailures: 0, pinLastFailureAt: null },
   });
+  await recordAudit(tx, admin.tenantId, { action: 'PinReset', actorId: admin.userId, subjectId: target.id, deviceId: admin.deviceId }, now);
   return ok({ provisionalPin: pin.reveal(), provisionalPinExpiresAt: provisionalPinExpiresAt.toISOString() });
 }

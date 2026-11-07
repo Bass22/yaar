@@ -518,14 +518,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un PIN oublié se remplace de la même façon : l'admin donne un PIN provisoire, qui invalide les jetons émis avant
 - [x] Le nouveau PIN suit les règles d'E.1 (4 chiffres, pas trop simple) et diffère du provisoire
 
-### E.6 — Les actions sensibles laissent une trace · **S** · 🔒
-> Spec : Archi §6 « Audit » ; `CLAUDE.md` §4 règle 14 · Zone : `apps/api/src/audit/`
+### E.6 — Les actions sensibles laissent une trace · **S** · 🔒 ✅
+> Spec : Archi §6 « Audit » ; `CLAUDE.md` §4 règle 14 · Zone : `apps/api/src/audit/audit.ts`, migration `0001_init`
 > Dépend de : E.4, E.5 · Revue : le journal d'audit ne se modifie pas et ne contient aucun secret.
+> Livré le 2026-11-07, aucune dépendance ajoutée. Table `audit_events` : élevage, instant (horloge du serveur), action (liste fermée : `SignInSucceeded`, `SignInFailed`, `SignInRefused`, `PinChosen`, `AccountCreated`, `AccountBlocked`, `AccountUnblocked`, `SignedOutEverywhere`, `PinReset`), auteur, compte concerné, appareil et raison d'un refus. Écrite par `recordAudit` dans la transaction de l'action : l'action et sa trace sont validées ou annulées ensemble. En ajout seul pour tout le monde, comme le journal (droits `SELECT, INSERT`, déclencheurs ; la fonction de refus est devenue commune aux deux tables). Cloisonnée par élevage.
+> **Choix à relire** : un essai sur un numéro inconnu ne laisse aucune trace — il n'appartient à aucun élevage, et toute table porte `tenant_id`. Chaque essai refusé pendant l'attente est tracé : marteler un numéro écrit une ligne par essai. Aucun écran ne lit encore la trace.
+> **Changé en route** : les migrations sont appliquées une fois par conteneur de test, dans une base modèle que chaque fichier recopie. Rejouées une fois par fichier, elles faisaient dépasser à la suite complète ses délais (183 tests, moins de 2 minutes désormais).
 
-- [ ] Une connexion, réussie ou ratée, est tracée avec l'appareil
-- [ ] La création d'un compte et la révocation d'une session sont tracées avec leur auteur
-- [ ] Une entrée d'audit ne se modifie ni ne se supprime
-- [ ] Aucune entrée ne contient de PIN ni de jeton
+- [x] Une connexion, réussie, ratée ou refusée, est tracée avec le compte, l'appareil et l'instant (numéro inconnu : aucune trace)
+- [x] La création d'un compte, son blocage, sa levée, « déconnecter partout » et le remplacement d'un PIN sont tracés avec leur auteur et son appareil ; le premier choix du PIN aussi
+- [x] Une action refusée ne laisse pas la trace d'une action faite
+- [x] Une entrée d'audit ne se modifie ni ne se supprime, ni par l'application, ni par le propriétaire de la base
+- [x] Aucune entrée ne contient de PIN, de jeton ni de numéro de téléphone
 
 ### E.7 — Affecter l'équipe aux sites · **S** · 🔒
 > Spec : CdC « Gouvernance des déclarations » · Zone : `apps/api/src/users/`, `apps/api/src/sites/`

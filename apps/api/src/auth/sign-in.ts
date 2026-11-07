@@ -1,6 +1,8 @@
 import { err, ok, unwrap, type Clock, type Result } from '@kit';
 import { Instant, instantOf, TenantId, type Role } from '@domain/journal';
 import type { ChoosePinRefusal, ChoosePinRequest, SignInRefusal, SignInRequest, SignInResponse } from '@contracts';
+import type { AuditAction } from '@prisma/client';
+import { recordAudit } from '../audit/audit';
 import type { PrismaService } from '../database/prisma.service';
 import { issueAccessToken } from './access-token';
 import { Pin, typedPin } from './pin';
@@ -42,18 +44,18 @@ export async function signIn(request: SignInRequest, deps: SignInDependencies): 
     return err({ kind: 'InvalidRequest' });
   }
   const now = instantOf(deps.clock.now());
-  const checked = await checkCredentials(request.phone, request.pin, now, deps);
+  const checked = await checkCredentials(request.phone, request.pin, request.deviceId, now, deps);
   if (!checked.ok) {
     return checked;
   }
   const account = checked.value;
   if (account.blockedAt !== null) {
-    return err({ kind: 'AccountBlocked' });
+    return refuse(account, request.deviceId, { kind: 'AccountBlocked' }, now, deps);
   }
   if (account.provisionalPinExpiresAt !== null) {
-    return err({ kind: isPast(account.provisionalPinExpiresAt, now) ? 'ProvisionalPinExpired' : 'PinMustBeChosen' });
+    return refuse(account, request.deviceId, { kind: isPast(account.provisionalPinExpiresAt, now) ? 'ProvisionalPinExpired' : 'PinMustBeChosen' }, now, deps);
   }
-  return ok(await openSession(account, request.deviceId, now, deps, {}));
+  return ok(await openSession(account, request.deviceId, now, deps, {}, 'SignInSucceeded'));
 }
 
 /**
@@ -66,19 +68,19 @@ export async function choosePin(request: ChoosePinRequest, deps: SignInDependenc
     return err({ kind: 'InvalidRequest' });
   }
   const now = instantOf(deps.clock.now());
-  const checked = await checkCredentials(request.phone, request.provisionalPin, now, deps);
+  const checked = await checkCredentials(request.phone, request.provisionalPin, request.deviceId, now, deps);
   if (!checked.ok) {
     return checked;
   }
   const account = checked.value;
   if (account.blockedAt !== null) {
-    return err({ kind: 'AccountBlocked' });
+    return refuse(account, request.deviceId, { kind: 'AccountBlocked' }, now, deps);
   }
   if (account.provisionalPinExpiresAt === null) {
-    return err({ kind: 'PinAlreadyChosen' });
+    return refuse(account, request.deviceId, { kind: 'PinAlreadyChosen' }, now, deps);
   }
   if (isPast(account.provisionalPinExpiresAt, now)) {
-    return err({ kind: 'ProvisionalPinExpired' });
+    return refuse(account, request.deviceId, { kind: 'ProvisionalPinExpired' }, now, deps);
   }
   const newPin = Pin(request.newPin, account.role);
   if (!newPin.ok) {
@@ -88,12 +90,12 @@ export async function choosePin(request: ChoosePinRequest, deps: SignInDependenc
     return err({ kind: 'SameAsProvisionalPin' });
   }
   const pinHash = await deps.hasher.hash(newPin.value);
-  return ok(await openSession(account, request.deviceId, now, deps, { pinHash, provisionalPinExpiresAt: null }));
+  return ok(await openSession(account, request.deviceId, now, deps, { pinHash, provisionalPinExpiresAt: null }, 'PinChosen'));
 }
 
 // Finds the account and checks the PIN typed against its digest, counting failures. Shared by
 // both ways in, so that the provisional PIN is guarded exactly like any other.
-async function checkCredentials(phone: string, rawPin: string, now: Instant, deps: SignInDependencies): Promise<Result<Account, SignInRefusal>> {
+async function checkCredentials(phone: string, rawPin: string, deviceId: string, now: Instant, deps: SignInDependencies): Promise<Result<Account, SignInRefusal>> {
   const { prisma, hasher } = deps;
   const pin = typedPin(rawPin);
   if (!pin.ok) {
@@ -107,15 +109,19 @@ async function checkCredentials(phone: string, rawPin: string, now: Instant, dep
   const lastFailureAt = user.pinLastFailureAt === null ? null : unwrap(Instant(user.pinLastFailureAt.toISOString()));
   const attempts = { failures: user.pinFailures, lastFailureAt };
   const waitUntil = retryAt(attempts, now);
+  const tenantId = unwrap(TenantId(user.tenantId));
   if (waitUntil !== null) {
+    await prisma.runInTenant(tenantId, (tx) =>
+      recordAudit(tx, tenantId, { action: 'SignInRefused', actorId: user.id, subjectId: user.id, deviceId, reason: 'TooManyAttempts' }, new Date(now)),
+    );
     return err({ kind: 'TooManyAttempts', retryAt: waitUntil });
   }
-  const tenantId = unwrap(TenantId(user.tenantId));
   if (!(await hasher.verify(user.pinHash as PinHash, pin.value))) {
     const next = afterFailure(attempts, now);
-    await prisma.runInTenant(tenantId, (tx) =>
-      tx.user.update({ where: { id: user.id }, data: { pinFailures: { increment: 1 }, pinLastFailureAt: new Date(next.lastFailureAt ?? now) } }),
-    );
+    await prisma.runInTenant(tenantId, async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { pinFailures: { increment: 1 }, pinLastFailureAt: new Date(next.lastFailureAt ?? now) } });
+      await recordAudit(tx, tenantId, { action: 'SignInFailed', actorId: user.id, subjectId: user.id, deviceId, reason: 'InvalidCredentials' }, new Date(now));
+    });
     return err({ kind: 'InvalidCredentials' });
   }
   return ok({ id: user.id, tenantId, role: user.role, blockedAt: user.blockedAt, provisionalPinExpiresAt: user.provisionalPinExpiresAt });
@@ -127,11 +133,23 @@ async function openSession(
   now: Instant,
   deps: SignInDependencies,
   change: { pinHash?: string; provisionalPinExpiresAt?: null },
+  action: AuditAction,
 ): Promise<SignInResponse> {
-  await deps.prisma.runInTenant(account.tenantId, (tx) => tx.user.update({ where: { id: account.id }, data: { pinFailures: 0, pinLastFailureAt: null, ...change } }));
+  await deps.prisma.runInTenant(account.tenantId, async (tx) => {
+    await tx.user.update({ where: { id: account.id }, data: { pinFailures: 0, pinLastFailureAt: null, ...change } });
+    await recordAudit(tx, account.tenantId, { action, actorId: account.id, subjectId: account.id, deviceId }, new Date(now));
+  });
   const token = issueAccessToken({ sub: account.id, tenant: account.tenantId, role: account.role, device: deviceId }, now, deps.jwtSecret);
   const expiresAt = instantOf(new Date(Date.parse(now) + SESSION_LIFETIME_SECONDS[account.role] * 1_000));
   return { token, expiresAt, role: account.role };
 }
 
 const isPast = (instant: Date, now: Instant): boolean => instant.getTime() <= Date.parse(now);
+
+// A refusal said to someone who typed the right PIN: traced, then returned.
+async function refuse<R extends { readonly kind: string }>(account: Account, deviceId: string, refusal: R, now: Instant, deps: SignInDependencies): Promise<Result<never, R>> {
+  await deps.prisma.runInTenant(account.tenantId, (tx) =>
+    recordAudit(tx, account.tenantId, { action: 'SignInRefused', actorId: account.id, subjectId: account.id, deviceId, reason: refusal.kind }, new Date(now)),
+  );
+  return err(refusal);
+}
