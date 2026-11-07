@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- First version of the application icon (CdC « Nom du produit et logo ») : forest green,
+       a cream Y, a sun of five corn grains, two curves of fields. Maskable: everything that
+       matters stays inside the central safe circle (radius 40 %). To review with /designer. -->
+  <rect width="512" height="512" fill="#1E4530"/>
+  <g fill="#E9C46A">
+    <ellipse cx="256" cy="118" rx="11" ry="16"/>
+    <ellipse cx="214" cy="132" rx="11" ry="16" transform="rotate(-35 214 132)"/>
+    <ellipse cx="298" cy="132" rx="11" ry="16" transform="rotate(35 298 132)"/>
+    <ellipse cx="186" cy="166" rx="11" ry="16" transform="rotate(-70 186 166)"/>
+    <ellipse cx="326" cy="166" rx="11" ry="16" transform="rotate(70 326 166)"/>
+  </g>
+  <path d="M188 190 L256 290 L324 190 M256 290 L256 372" fill="none" stroke="#F4EBD9" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 376 C190 344 322 344 392 376" fill="none" stroke="#7FA36B" stroke-width="12" stroke-linecap="round"/>
+  <path d="M146 404 C210 382 302 382 366 404" fill="none" stroke="#7FA36B" stroke-width="10" stroke-linecap="round"/>
+</svg>
