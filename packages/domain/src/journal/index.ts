@@ -64,4 +64,4 @@ export type { IdName, Refusal, RefusalKind } from './refusal';
 export { validateRetraction, type RetractionContext } from './retraction';
 export type { Role } from './role';
 export { validateDeclaration, type DeclarationContext } from './validate-declaration';
-export { Weight, type Scale } from './weight';
+export { Weight } from './weight';

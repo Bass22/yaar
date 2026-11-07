@@ -44,7 +44,7 @@ const recu = (count: number, orderLine = 61, deliveryNote: DeliveryNote = PAPIER
 const pesee = (grams: readonly number[], request = 71): Fact => ({
   type: 'Weighing',
   weighingRequestId: unwrap(WeighingRequestId(uuid(request))),
-  weights: grams.map((weight) => unwrap(Weight(weight, { capacityGrams: 5_000 }))),
+  weights: grams.map((weight) => unwrap(Weight(weight))),
 });
 const tacheFaite = (task = 81): Fact => ({ type: 'TaskDone', taskId: unwrap(TaskId(uuid(task))) });
 const vocal = (digit = 'b'): Fact => ({ type: 'VoiceMessage', media: empreinte(digit) });

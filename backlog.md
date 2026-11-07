@@ -77,7 +77,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Champs de saisie propres à chaque type de coût | CdC « Points ouverts » | P.6 |
 | Un règlement supérieur à la dette : refusé, ou il crée une créance ? | CdC (non précisé) | R.2 |
 | Une vente diminue-t-elle le compteur de vivants vu par le gardien ? | CdC (non précisé) | W.1 |
-| Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale) | CdC « Points ouverts » | T.3 |
+| ~~Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale)~~ ✅ tranché le 2026-11-07 : la balance n'est pas modélisée — un poids est un entier de grammes positif, saisi tel que lu (le gardien peut le taper), sans capacité ; la forme de la saisie se décide avec `/designer` | CdC « Demande de pesée » | ~~T.3~~ |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
@@ -199,13 +199,13 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### B.2 — Les quantités et les poids sont entiers · **S** ✅
 > Spec : `CLAUDE.md` §4 règle 7 ; CdC « Demande de pesée » · Zone : `packages/domain/src/journal/{quantity,weight}.ts`
 > Dépend de : A.2 · Revue : le gardien ne manipule jamais de fraction.
-> Livré le 2026-11-06, aucune dépendance ajoutée. `Quantity` et `Weight` sont des types marqués : un nombre non vérifié ne passe pas pour eux, et l'un ne passe pas pour l'autre. Trois motifs rejoignent la liste fermée (`InvalidQuantity`, `InvalidWeight`, `WeightOutOfScale`). La balance (`Scale`) ne porte ici que sa capacité en grammes, fournie par l'appelant : les modèles de balance restent la décision ouverte de T.3. **Un poids s'enregistre au gramme près** (décision du 2026-11-06) : le pas de 50 g n'est qu'une aide à la saisie sur le cadran (T.3), le domaine et le serveur ne le vérifient pas — une lecture depuis une photo ou une balance digitale tombe entre deux graduations.
+> Livré le 2026-11-06, aucune dépendance ajoutée. `Quantity` et `Weight` sont des types marqués : un nombre non vérifié ne passe pas pour eux, et l'un ne passe pas pour l'autre. Trois motifs rejoignent la liste fermée (`InvalidQuantity`, `InvalidWeight`, `WeightOutOfScale`). La balance (`Scale`) ne porte ici que sa capacité en grammes, fournie par l'appelant : les modèles de balance restent la décision ouverte de T.3. **Révisé le 2026-11-07** : la balance n'est pas modélisée — `Scale` et `WeightOutOfScale` sont retirés, un poids n'est plus borné par aucune capacité. **Un poids s'enregistre au gramme près** (décision du 2026-11-06) : le pas de 50 g n'est qu'une aide à la saisie sur le cadran (T.3), le domaine et le serveur ne le vérifient pas — une lecture depuis une photo ou une balance digitale tombe entre deux graduations.
 
 - [x] Une quantité déclarée est un entier strictement positif
 - [x] Zéro n'est pas une quantité : il se déclare par un événement dédié
 - [x] Un poids s'exprime en grammes entiers, au gramme près ; le pas de 50 g du cadran n'est pas une règle du domaine
 - [x] Un poids nul ou négatif est refusé
-- [x] Un poids hors de l'échelle de la balance du site est refusé ; sans capacité connue, aucun poids n'est accepté
+- [x] ~~Un poids hors de l'échelle de la balance du site est refusé ; sans capacité connue, aucun poids n'est accepté~~ — retiré le 2026-11-07 : la balance n'est pas modélisée (`Scale` et `WeightOutOfScale` supprimés)
 
 ### B.3 — Identifiants typés et résultat typé · **S** ✅
 > Spec : `CLAUDE.md` §4 règle 2, §8 · Zone : `packages/kit/src/` (`result.ts`, `brand.ts`), identifiants et motifs de refus du métier dans `packages/domain/src/journal/` (`ids.ts`, `refusal.ts`)
@@ -579,9 +579,9 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### F.1 — Décoder un événement reçu · **M** · 🧪 ✅
 > Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/decode-event.ts`, `packages/contracts/src/journal.ts`, `packages/domain/src/journal/validate-declaration.ts`
 > Dépend de : C.2, C.3, C.5 · Revue : rien du corps ne choisit l'auteur ni l'élevage ; une entrée inconnue est refusée.
-> Scindée le 2026-11-07 : l'ingestion du lot devient F.4, la colonne de l'appareil passe en F.2. Livrée le 2026-11-07, aucune dépendance ajoutée. `decodeJournalEvent(raw, { tenantId, authorId, scaleOf })` rend un `JournalEvent` gelé, construit par le domaine, ou un refus `DecodingRefusal` : `MalformedEvent` (champ absent, mauvais type JSON, valeur hors d'une liste fermée — le champ est nommé, `fact.quantity`), `UnknownField` (nommé), `UnknownEventType`, `ScaleUnknown`, ou le motif du constructeur de la valeur (`InvalidId`, `InvalidQuantity`, `InvalidInstant`…). Format d'échange `JournalEventPayload` dans `packages/contracts` : le fait est imbriqué sous `fact` ; un test de l'API décode un exemple de chaque forme du contrat. `validateDeclaration` (et donc la correction et l'annulation) reçoit désormais `author: { id, role }`, la forme de `authorizeDeclaration`, et refuse comme une faute un auteur qui n'est pas celui de l'événement.
-> **Déplacé le 2026-11-07, à la demande du fondateur** : le décodeur était d'abord dans le domaine, comme le disait le backlog d'origine. « Décoder » n'est pas un mot du métier, et le domaine connaissait alors le format d'échange (noms des champs JSON, fait imbriqué sous `fact`) : c'est une traduction à la frontière, qui vit maintenant dans l'API, à côté de l'ingestion. Le domaine lui fournit la liste fermée des faits et les constructeurs des valeurs ; les motifs propres au décodage (`MalformedEvent`, `UnknownField`, `UnknownEventType`, `ScaleUnknown`) ne sont plus dans sa liste fermée. Il reviendra au domaine le jour où le téléphone devra décoder le journal reçu (F.3), pas avant.
-> **Choix à relire** : un corps qui nomme l'auteur, l'élevage, l'appareil ou une date de réception est **refusé** (`UnknownField`), pas ignoré — la règle « entrée inconnue rejetée » l'emporte sur la formule « ignorés » du backlog d'origine ; un téléphone honnête ne les envoie pas. Une pesée sans aucun poids est refusée ; le nombre de poids d'une pesée (cinq ?) n'est pas encore une règle. Une pesée se juge sur la balance du site : tant que la balance n'a pas de source (T.3), le dépôt de F.2 devra en fournir une, sinon toute pesée est refusée (`ScaleUnknown`). Une valeur inconnue dans une liste fermée imbriquée (type de perte, papier du livreur) est un `MalformedEvent` qui la nomme ; seul le type de fait a son motif propre.
+> Scindée le 2026-11-07 : l'ingestion du lot devient F.4, la colonne de l'appareil passe en F.2. Livrée le 2026-11-07, aucune dépendance ajoutée. `decodeJournalEvent(raw, { tenantId, authorId })` rend un `JournalEvent` gelé, construit par le domaine, ou un refus `DecodingRefusal` : `MalformedEvent` (champ absent, mauvais type JSON, valeur hors d'une liste fermée — le champ est nommé, `fact.quantity`), `UnknownField` (nommé), `UnknownEventType`, ou le motif du constructeur de la valeur (`InvalidId`, `InvalidQuantity`, `InvalidInstant`…). Format d'échange `JournalEventPayload` dans `packages/contracts` : le fait est imbriqué sous `fact` ; un test de l'API décode un exemple de chaque forme du contrat. `validateDeclaration` (et donc la correction et l'annulation) reçoit désormais `author: { id, role }`, la forme de `authorizeDeclaration`, et refuse comme une faute un auteur qui n'est pas celui de l'événement.
+> **Déplacé le 2026-11-07, à la demande du fondateur** : le décodeur était d'abord dans le domaine, comme le disait le backlog d'origine. « Décoder » n'est pas un mot du métier, et le domaine connaissait alors le format d'échange (noms des champs JSON, fait imbriqué sous `fact`) : c'est une traduction à la frontière, qui vit maintenant dans l'API, à côté de l'ingestion. Le domaine lui fournit la liste fermée des faits et les constructeurs des valeurs ; les motifs propres au décodage (`MalformedEvent`, `UnknownField`, `UnknownEventType`) ne sont plus dans sa liste fermée. Il reviendra au domaine le jour où le téléphone devra décoder le journal reçu (F.3), pas avant.
+> **Choix à relire** : un corps qui nomme l'auteur, l'élevage, l'appareil ou une date de réception est **refusé** (`UnknownField`), pas ignoré — la règle « entrée inconnue rejetée » l'emporte sur la formule « ignorés » du backlog d'origine ; un téléphone honnête ne les envoie pas. Une pesée sans aucun poids est refusée ; le nombre de poids d'une pesée (cinq ?) n'est pas encore une règle. (La balance du site, d'abord exigée pour juger une pesée, n'est plus modélisée depuis le 2026-11-07 : `ScaleUnknown` est retiré.) Une valeur inconnue dans une liste fermée imbriquée (type de perte, papier du livreur) est un `MalformedEvent` qui la nomme ; seul le type de fait a son motif propre.
 
 - [x] Un événement reçu en JSON est décodé en `JournalEvent` : type hors liste, champ manquant ou valeur invalide donnent un motif typé (DTO dans `packages/contracts`)
 - [x] L'auteur et l'élevage viennent de la session, jamais du corps
@@ -590,7 +590,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### F.4 — Ingérer un lot d'événements · **M** · 🧪 · ⚠ ✅
 > Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
 > Dépend de : F.1 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur. Scindée de F.1 le 2026-11-07.
-> Livrée le 2026-11-07, aucune dépendance ajoutée. `ingestEvents(lot, session, ports)` rend le sort de chaque événement, dans l'ordre d'envoi : `Accepted`, `Duplicate` (identifiant déjà au journal, ou deux fois dans le lot — le premier venu reste, même si le contenu diffère) ou `Refused` avec son motif (décodage, règles du domaine, `UnknownCampaign`, `UnknownEvent`). Ports : `sites()` (tous les sites de l'élevage, avec équipe, fuseau et balance), `campaign`, `event`, `isRetracted`, `dayJournal`, `append(événement, appareil)`. Dans un lot, les déclarations passent d'abord, puis les corrections, puis les annulations. Les règles du jour, de la correction et de l'annulation, puis la politique de déclaration, avec l'auteur et le rôle de la session.
+> Livrée le 2026-11-07, aucune dépendance ajoutée. `ingestEvents(lot, session, ports)` rend le sort de chaque événement, dans l'ordre d'envoi : `Accepted`, `Duplicate` (identifiant déjà au journal, ou deux fois dans le lot — le premier venu reste, même si le contenu diffère) ou `Refused` avec son motif (décodage, règles du domaine, `UnknownCampaign`, `UnknownEvent`). Ports : `sites()` (tous les sites de l'élevage, avec équipe et fuseau), `campaign`, `event`, `isRetracted`, `dayJournal`, `append(événement, appareil)`. Dans un lot, les déclarations passent d'abord, puis les corrections, puis les annulations. Les règles du jour, de la correction et de l'annulation, puis la politique de déclaration, avec l'auteur et le rôle de la session.
 > **Choix à relire** : l'ingestion ne lit aucune horloge — un événement daté par un téléphone en avance est jugé à sa date de saisie et accepté ; « prévenir l'admin » se calculera de la date de saisie et de la date de réception gardées en base (O.4), sans signal de plus ici. Une bande inconnue et une bande d'un autre élevage reçoivent le même refus. Lecture événement par événement : simple, suffisant pour des lots de téléphone ; à revoir si F.2 mesure un lot lent.
 
 - [x] Un événement valide est accepté et rejoint le journal
@@ -616,7 +616,6 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un lot au-delà de la taille maximale est refusé
 - [ ] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` (réserve R-8) ; il vient de la session
 - [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base (déjà posée par la base depuis D.3)
-- [ ] La balance du site, dont dépend le décodage d'une pesée, a une source (modèles de balance : décision ouverte, T.3)
 
 ### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒
 > Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/contracts`
@@ -984,7 +983,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Onboarding assisté » (configuration du site) · Zone : `apps/api/src/sites/`
 > Dépend de : E.5 · Revue : le mode strict est désactivé par défaut ; c'est un choix de l'admin.
 
-- [ ] L'admin crée un site et choisit son modèle de balance
+- [ ] L'admin crée un site
 - [ ] Il choisit la langue audio du site
 - [ ] Il attache un protocole sanitaire au site
 - [ ] Il active ou désactive le mode strict ; par défaut il est désactivé
@@ -1275,21 +1274,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une fois la pesée déclarée, la carte disparaît
 - [ ] Sans demande, aucune carte
 
-### T.3 — Le cadran réplique la balance du site · **M** · ⚠
-> Spec : CdC « L'interface imite l'objet réel » ; `journal-gardien.html` (`#cadran`) · Zone : `packages/design-system/dial/`
-> Dépend de : H.3, B.2 · Revue : la géométrie est une fonction pure, testée sans écran.
+### T.3 — Saisir un poids en grammes · **M** · ⚠
+> Spec : CdC « Demande de pesée » ; `journal-gardien.html` (`#cadran`, à revoir) · Zone : `packages/design-system/`
+> Dépend de : H.3, B.2 · Revue : simple pour un gardien qui ne lit pas forcément.
+> Reformulée le 2026-11-07 : la balance n'est pas modélisée (décision du fondateur) ; le cadran qui répliquait le modèle de balance du site est abandonné.
 
-- [ ] Un angle de l'aiguille donne un poids, et inversement, selon le modèle de balance
-- [ ] L'aiguille s'arrête sur des pas de 50 g
-- [ ] L'aiguille ne sort pas de l'échelle du modèle
-- [ ] Le cadran se manipule au doigt sans ralentir sur un téléphone d'entrée de gamme
+- [ ] La forme de la saisie est choisie avec `/designer` : chiffres tapés, ou cadran générique sans modèle de balance ; la maquette est mise à jour
+- [ ] Le poids saisi est un entier de grammes positif ; aucune capacité de balance ne le borne
+- [ ] La saisie borne le poids selon le type d'animal (un poulet de chair ne pèse pas 18 kg), pour rattraper une faute de frappe : **côté écran seulement** pour le moment, le serveur ne la vérifie pas (décision du 2026-11-07) ; les bornes viennent du référentiel de l'espèce ou de la souche
+- [ ] La saisie se fait au doigt sans ralentir sur un téléphone d'entrée de gamme
 
 ### T.4 — Le gardien pèse cinq poulets · **M** · 🧪
 > Spec : CdC « Demande de pesée » ; `journal-gardien.html` (`.slots`) · Zone : `apps/web/src/app/caretaker/weighing/`
 > Dépend de : T.3, T.2, K.1 · Revue : la consigne anti-biais est dite.
 
 - [ ] La consigne vocale demande des poulets pris dans des coins différents
-- [ ] Chaque poids réglé à l'aiguille remplit une case, et la voix le relit
+- [ ] Chaque poids saisi remplit une case, et la voix le relit
 - [ ] Toucher une case remplie permet de la corriger avant l'envoi
 - [ ] L'envoi n'est possible qu'avec cinq poids
 - [ ] La pesée part dans l'outbox avec ses cinq poids

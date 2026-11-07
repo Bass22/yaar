@@ -24,7 +24,7 @@ import { Weight } from './weight';
 
 const uuid = (rank: number): string => `00000000-0000-4000-8000-${String(rank).padStart(12, '0')}`;
 const quantite = (count: number): Quantity => unwrap(Quantity(count));
-const poids = (grams: number): Weight => unwrap(Weight(grams, { capacityGrams: 5_000 }));
+const poids = (grams: number): Weight => unwrap(Weight(grams));
 const empreinte = (hexDigit: string): MediaFingerprint => unwrap(MediaFingerprint(hexDigit.repeat(64)));
 
 // The caretaker writes on the evening of November 5th, for that same day.

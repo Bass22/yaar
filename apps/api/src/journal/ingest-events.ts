@@ -14,7 +14,6 @@ import {
   type JournalEvent,
   type JournalEventId,
   type Refusal,
-  type Scale,
   type SiteStaff,
   type TimeZone,
 } from '@domain/journal';
@@ -29,13 +28,11 @@ import { decodeJournalEvent, type DecodingRefusal } from './decode-event';
 export type SiteContext = {
   readonly staff: SiteStaff;
   readonly timeZone: TimeZone;
-  /** `null` while the scale of the site has no source (T.3): its weighings are refused. */
-  readonly scale: Scale | null;
 };
 
 /** The journal of the farm of the session, and what judging an event reads. */
 export type IngestionPorts = {
-  /** Every site of the farm: a farm has few, and decoding a weighing needs the scale. */
+  /** Every site of the farm: a farm has few. */
   sites(): Promise<readonly SiteContext[]>;
   /** A campaign of the farm; `null` when unknown — or of another farm, which this journal does not see. */
   campaign(id: CampaignId): Promise<Campaign | null>;
@@ -75,7 +72,7 @@ export async function ingestEvents(batch: readonly unknown[], session: Session, 
   const authorId = unwrap(UserId(session.userId));
   const decoded = batch.map((raw, index) => ({
     index,
-    event: decodeJournalEvent(raw, { tenantId: session.tenantId, authorId, scaleOf: (siteId) => sites.get(siteId)?.scale ?? null }),
+    event: decodeJournalEvent(raw, { tenantId: session.tenantId, authorId }),
   }));
 
   const outcomes: IngestionOutcome[] = [];

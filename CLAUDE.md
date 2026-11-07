@@ -129,7 +129,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
-| Quantité déclarée ; poids lu (grammes) ; balance du site | `Quantity` ; `Weight` ; `Scale` |
+| Quantité déclarée ; poids (grammes entiers, saisi tel que lu : la balance n'est pas modélisée) | `Quantity` ; `Weight` |
 | Vente ; prêt de poulets | `Sale` ; `BirdLoan` |
 | Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
@@ -199,4 +199,4 @@ Il n'y a pas de générateur installé : un nouveau projet se crée en copiant u
 
 ## 11. Décisions ouvertes — ne pas les trancher en silence
 
-Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, champs spécifiques par type de coût, modèles de balance, seuils d'alerte par défaut, format des clips audio, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.
+Architecture §12 et cahier des charges « Points ouverts » : TTL et refresh du JWT, champs spécifiques par type de coût, seuils d'alerte par défaut, format des clips audio, hébergeur. Si une tâche bute sur l'une d'elles, pose la question au fondateur au lieu de choisir à sa place.

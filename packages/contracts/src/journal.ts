@@ -16,7 +16,7 @@ export type FactPayload =
       readonly receivedQuantity: number;
       readonly deliveryNote: { readonly kind: 'Photographed'; readonly media: string } | { readonly kind: 'NoPaper' };
     }
-  /** Whole grams, as read on the scale of the site. */
+  /** Whole grams, typed as read: the scale is not modelled. */
   | { readonly type: 'Weighing'; readonly weighingRequestId: Uuid; readonly weights: readonly number[] }
   | { readonly type: 'TaskDone'; readonly taskId: Uuid }
   /** `media`: the SHA-256 fingerprint of the file, 64 lowercase hexadecimal characters. */

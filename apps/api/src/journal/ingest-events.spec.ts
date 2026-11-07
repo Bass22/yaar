@@ -40,7 +40,6 @@ const gerant = session(LE_GERANT, 'admin');
 const site = (siteId: string, primary: string, substitutes: string[], strictMode = false): SiteContext => ({
   staff: { siteId: unwrap(SiteId(siteId)), primaryCaretaker: unwrap(UserId(primary)), substitutes: substitutes.map((id) => unwrap(UserId(id))), strictMode },
   timeZone: unwrap(TimeZone('Africa/Dakar')),
-  scale: { capacityGrams: 5_000 },
 });
 const campaign = (id: string, siteId: string): Campaign => ({ id: unwrap(CampaignId(id)), siteId: unwrap(SiteId(siteId)), placementDay: unwrap(BusinessDay('2026-10-15')), closedAt: null });
 

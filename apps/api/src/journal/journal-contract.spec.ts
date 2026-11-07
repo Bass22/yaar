@@ -1,5 +1,5 @@
 import { unwrap } from '@kit';
-import { SiteId, TenantId, UserId } from '@domain/journal';
+import { TenantId, UserId } from '@domain/journal';
 import type { JournalEventPayload } from '@contracts';
 import { decodeJournalEvent } from './decode-event';
 
@@ -30,7 +30,7 @@ const examples: readonly JournalEventPayload[] = [
 
 describe("Contrat d'échange du journal", () => {
   it('chaque forme et chaque type de fait du contrat se décode en un événement du journal', () => {
-    const context = { tenantId: unwrap(TenantId(uuid(2))), authorId: unwrap(UserId(uuid(5))), scaleOf: (siteId: SiteId) => (siteId === uuid(3) ? { capacityGrams: 5_000 } : null) };
+    const context = { tenantId: unwrap(TenantId(uuid(2))), authorId: unwrap(UserId(uuid(5))) };
 
     for (const example of examples) {
       expect(decodeJournalEvent(example, context)).toMatchObject({ ok: true, value: { id: example.id } });

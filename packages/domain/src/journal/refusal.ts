@@ -10,8 +10,6 @@ export type Refusal =
   | { readonly kind: 'InvalidQuantity'; readonly value: number }
   /** A weight is a positive whole number of grams. */
   | { readonly kind: 'InvalidWeight'; readonly grams: number }
-  /** The weight is beyond what the scale of the site can read. */
-  | { readonly kind: 'WeightOutOfScale'; readonly grams: number; readonly capacityGrams: number }
   /** Not a real calendar date written `YYYY-MM-DD`. */
   | { readonly kind: 'InvalidBusinessDay' }
   /** Not a time zone the platform knows (IANA name such as `Africa/Dakar`). */

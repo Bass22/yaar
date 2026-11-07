@@ -29,18 +29,14 @@ import { decodeJournalEvent, type DecodingContext } from './decode-event';
 
 const uuid = (rank: number): string => `00000000-0000-4000-8000-${String(rank).padStart(12, '0')}`;
 const MEDIA = 'a'.repeat(64);
-const SCALE = { capacityGrams: 5_000 };
 
 const TENANT = unwrap(TenantId(uuid(2)));
-const SITE = unwrap(SiteId(uuid(3)));
-const SITE_WITHOUT_SCALE = unwrap(SiteId(uuid(33)));
 const OUSMANE = unwrap(UserId(uuid(5)));
 
 // The session of the caller: it alone says who writes and for which farm.
 const deLaSession: DecodingContext = {
   tenantId: TENANT,
   authorId: OUSMANE,
-  scaleOf: (siteId) => (siteId === SITE ? SCALE : null),
 };
 
 // What the phone sends for three deaths on November 5th, unless said otherwise.
@@ -91,7 +87,7 @@ describe("Décoder un événement reçu du téléphone", () => {
       [
         'une pesée : les poids lus, jamais leur moyenne',
         { type: 'Weighing', weighingRequestId: uuid(8), weights: [1820, 1905, 1760, 1880, 1850] },
-        { type: 'Weighing', weighingRequestId: unwrap(WeighingRequestId(uuid(8))), weights: [1820, 1905, 1760, 1880, 1850].map((grams) => unwrap(Weight(grams, SCALE))) },
+        { type: 'Weighing', weighingRequestId: unwrap(WeighingRequestId(uuid(8))), weights: [1820, 1905, 1760, 1880, 1850].map((grams) => unwrap(Weight(grams))) },
       ],
       ['une tâche faite', { type: 'TaskDone', taskId: uuid(9) }, { type: 'TaskDone', taskId: unwrap(TaskId(uuid(9))) }],
       ['un message vocal', { type: 'VoiceMessage', media: MEDIA }, { type: 'VoiceMessage', media: unwrap(MediaFingerprint(MEDIA)) }],
@@ -219,23 +215,20 @@ describe("Décoder un événement reçu du téléphone", () => {
     });
   });
 
-  describe('une pesée se lit sur la balance du site', () => {
-    it("un poids au-delà de la balance du site, ou qui n'est pas un nombre entier de grammes, est refusé", () => {
-      const pesee = (weights: unknown[]) => envoi({ fact: { type: 'Weighing', weighingRequestId: uuid(8), weights } });
+  describe('une pesée : des poids en grammes, tapés tels quels (la balance n\'est pas modélisée, décision du 2026-11-07)', () => {
+    const pesee = (weights: unknown[]) => envoi({ fact: { type: 'Weighing', weighingRequestId: uuid(8), weights } });
 
-      expect(decode(pesee([1820, 5_001]))).toEqual({ ok: false, error: { kind: 'WeightOutOfScale', grams: 5_001, capacityGrams: 5_000 } });
+    it("un poids lourd passe : aucune capacité de balance ne le borne", () => {
+      expect(decode(pesee([1820, 12_500])).ok).toBe(true);
+    });
+
+    it("un poids qui n'est pas un nombre entier de grammes positif est refusé", () => {
       expect(decode(pesee([1820.5]))).toEqual({ ok: false, error: { kind: 'InvalidWeight', grams: 1820.5 } });
+      expect(decode(pesee([0]))).toEqual({ ok: false, error: { kind: 'InvalidWeight', grams: 0 } });
     });
 
     it("une pesée sans aucun poids est refusée", () => {
-      expect(decode(envoi({ fact: { type: 'Weighing', weighingRequestId: uuid(8), weights: [] } }))).toEqual({ ok: false, error: { kind: 'MalformedEvent', field: 'fact.weights' } });
-    });
-
-    it("une pesée sur un site dont la balance est inconnue est refusée : ses poids ne se jugent pas ; les autres faits de ce site passent", () => {
-      const onUnknownScale = envoi({ siteId: SITE_WITHOUT_SCALE, fact: { type: 'Weighing', weighingRequestId: uuid(8), weights: [1820] } });
-
-      expect(decode(onUnknownScale)).toEqual({ ok: false, error: { kind: 'ScaleUnknown' } });
-      expect(decode(envoi({ siteId: SITE_WITHOUT_SCALE })).ok).toBe(true);
+      expect(decode(pesee([]))).toEqual({ ok: false, error: { kind: 'MalformedEvent', field: 'fact.weights' } });
     });
   });
 });

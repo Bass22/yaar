@@ -21,7 +21,6 @@ import {
   type Fact,
   type JournalEvent,
   type Refusal,
-  type Scale,
 } from '@domain/journal';
 
 // Translation at the border of the API: what a phone sent becomes an event of the journal.
@@ -40,16 +39,12 @@ export type DecodingRefusal =
   /** A field the event does not have — the author, the farm and the device come from the session. */
   | { readonly kind: 'UnknownField'; readonly field: string }
   /** A type of fact outside the closed list. */
-  | { readonly kind: 'UnknownEventType' }
-  /** A weighing on a site whose scale is not known: its weights cannot be judged. */
-  | { readonly kind: 'ScaleUnknown' };
+  | { readonly kind: 'UnknownEventType' };
 
 /** What the server knows of the caller, from the session alone. */
 export type DecodingContext = {
   readonly tenantId: TenantId;
   readonly authorId: UserId;
-  /** The scale of a site of the farm, `null` when unknown: a weighing is judged on it. */
-  readonly scaleOf: (siteId: SiteId) => Scale | null;
 };
 
 type Json = Readonly<Record<string, unknown>>;
@@ -86,7 +81,7 @@ export const decodeJournalEvent = (raw: unknown, context: DecodingContext): Resu
     const retracts = JournalEventId(raw['retracts']);
     return retracts.ok ? ok(Retraction(envelope.value, retracts.value)) : retracts;
   }
-  const fact = factOf(raw['fact'], context.scaleOf(envelope.value.siteId));
+  const fact = factOf(raw['fact']);
   if (!fact.ok) {
     return fact;
   }
@@ -111,7 +106,7 @@ function envelopeOf(raw: Json, { tenantId, authorId }: DecodingContext): Result<
   return ok({ id: id.value, tenantId, siteId: siteId.value, campaignId: campaignId.value, authorId, businessDate: businessDate.value, recordedAt: recordedAt.value });
 }
 
-function factOf(raw: unknown, scale: Scale | null): Result<Fact, DecodingRefusal> {
+function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
   if (!isObject(raw)) {
     return malformed('fact');
   }
@@ -161,12 +156,9 @@ function factOf(raw: unknown, scale: Scale | null): Result<Fact, DecodingRefusal
       if (!Array.isArray(grams) || grams.length === 0 || grams.some((value) => typeof value !== 'number')) {
         return malformed('fact.weights');
       }
-      if (scale === null) {
-        return err({ kind: 'ScaleUnknown' });
-      }
       const weights: Weight[] = [];
       for (const value of grams as number[]) {
-        const weight = Weight(value, scale);
+        const weight = Weight(value);
         if (!weight.ok) return weight;
         weights.push(weight.value);
       }
