@@ -9,3 +9,4 @@ export type {
   SignInResponse,
 } from './auth';
 export type { DesignatePrimaryCaretakerRequest, SiteStaffRefusal } from './sites';
+export type { FactPayload, JournalEventPayload } from './journal';

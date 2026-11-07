@@ -1,16 +1,17 @@
 import { err, ok, type Result } from '@kit';
 import { recentBusinessDays, type TimeZone } from './business-day';
 import type { Campaign } from './campaign';
+import type { Author } from './declaration-policy';
 import type { JournalEvent } from './journal-event';
 import type { Refusal } from './refusal';
-import type { Role } from './role';
 
 export type DeclarationContext = {
   /** The campaign the event names. */
   readonly campaign: Campaign;
   /** The time zone of the site: it says which day it was when the event was written. */
   readonly timeZone: TimeZone;
-  readonly authorRole: Role;
+  /** The author of the event, with the role their session gives them: the form the policy takes too. */
+  readonly author: Author;
 };
 
 /**
@@ -24,9 +25,9 @@ export const validateDeclaration = <Event extends JournalEvent>(
   event: Event,
   context: DeclarationContext,
 ): Result<Event, Refusal> => {
-  const { campaign, timeZone, authorRole } = context;
-  if (campaign.id !== event.campaignId) {
-    throw new TypeError('A declaration is validated against its own campaign.');
+  const { campaign, timeZone, author } = context;
+  if (campaign.id !== event.campaignId || author.id !== event.authorId) {
+    throw new TypeError('A declaration is validated against its own campaign and its own author.');
   }
   if (campaign.siteId !== event.siteId) {
     return err({ kind: 'SiteNotOfCampaign' });
@@ -44,7 +45,7 @@ export const validateDeclaration = <Event extends JournalEvent>(
     return err({ kind: 'BusinessDateBeforePlacement' });
   }
   // Only the admin fills an older day. Any other role gets the caretaker's three days.
-  if (authorRole !== 'admin' && event.businessDate < dayBeforeYesterday) {
+  if (author.role !== 'admin' && event.businessDate < dayBeforeYesterday) {
     return err({ kind: 'CatchUpWindowPassed' });
   }
   return ok(event);

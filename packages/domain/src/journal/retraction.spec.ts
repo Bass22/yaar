@@ -70,7 +70,7 @@ const juge = (
   retraction: Retraction,
   retracted: JournalEvent,
   { authorRole = 'admin', campaign = uneCampagneEnCours(), alreadyRetracted = false }: Judgement = {},
-) => validateRetraction(retraction, { retracted, alreadyRetracted, campaign, timeZone: DAKAR, authorRole });
+) => validateRetraction(retraction, { retracted, alreadyRetracted, campaign, timeZone: DAKAR, author: { id: retraction.authorId, role: authorRole } });
 
 const lEquipe = { siteId: unwrap(SiteId(uuid(3))), primaryCaretaker: OUSMANE, substitutes: [], strictMode: false };
 
@@ -184,7 +184,7 @@ describe('Annulation', () => {
     it("une correction ne vise pas une annulation : on ne corrige que la déclaration d'origine", () => {
       const retraction = annule();
       const ofTheRetraction = CounterDeclaration(signe({ id: eventId(100) }), retraction.id, morts(2));
-      const context = { corrected: retraction, correctedIsRetracted: false, campaign: uneCampagneEnCours(), timeZone: DAKAR, authorRole: 'admin' } as const;
+      const context = { corrected: retraction, correctedIsRetracted: false, campaign: uneCampagneEnCours(), timeZone: DAKAR, author: { id: ofTheRetraction.authorId, role: 'admin' } } as const;
 
       expect(validateCounterDeclaration(ofTheRetraction, context)).toEqual({ ok: false, error: { kind: 'CorrectsACounterDeclaration' } });
     });
@@ -192,7 +192,7 @@ describe('Annulation', () => {
     it('une déclaration annulée ne se corrige plus', () => {
       // Given une correction écrite après l'annulation
       const counter = corrige(morts(5), { recordedAt: instant('2026-11-05T21:00:00.000Z') });
-      const context = { corrected: troisMortsDOusmane(), campaign: uneCampagneEnCours(), timeZone: DAKAR, authorRole: 'collaborator' } as const;
+      const context = { corrected: troisMortsDOusmane(), campaign: uneCampagneEnCours(), timeZone: DAKAR, author: { id: counter.authorId, role: 'collaborator' } } as const;
 
       // Then
       expect(validateCounterDeclaration(counter, { ...context, correctedIsRetracted: true })).toEqual({

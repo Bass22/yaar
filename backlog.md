@@ -46,7 +46,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 |---|---|---|
 | ~~Outil de test du domaine et du web (Jest ou Vitest)~~ ✅ tranché le 2026-11-05 : Vitest pour le web et les packages, Jest pour l'API | `CLAUDE.md` §7 | ~~A.1~~ |
 | ~~Champ `version` dans le schéma d'événements dès le lot 1 ?~~ ✅ tranché le 2026-11-06 : non — le schéma n'évolue que par ajout, le sens d'un champ ne change jamais ; le contrat d'échange est versionné par `/api/v1` | Archi §12 | ~~C.1~~ |
-| Horloge du téléphone fausse (date de saisie postérieure à la réception, ou invraisemblable) : refuser l'événement, ou l'accepter en le signalant à l'admin ? (C.2 juge le futur, les trois jours et la clôture d'une **déclaration** sur sa date de saisie ; une correction se juge de même, C.4). Chaque événement ayant une date côté client et une date côté serveur, l'écart entre les deux est mesurable — et pour une correction, écrite en ligne, il devrait être de quelques secondes) | CdC (non précisé) | F.1 |
+| ~~Horloge du téléphone fausse (date de saisie postérieure à la réception) : refuser l'événement, ou l'accepter en le signalant à l'admin ?~~ ✅ tranché le 2026-11-07 : accepter et prévenir l'admin ; la date de saisie est gardée telle qu'écrite, à côté de la date de réception | CdC « Rattrapage » | ~~F.4~~ |
+| Horloge en avance, deux détails reportés le 2026-11-07 (« pas urgent ; on suppose que le gardien se connecte tous les jours ») : 1) à quel instant juger l'événement — proposition : à sa date de réception, l'instant le plus tard où il a pu être écrit (sinon un téléphone en avance de cinq jours se verrait refuser une déclaration du jour même) ; la date de saisie reste stockée telle qu'écrite ; 2) à partir de quel écart prévenir l'admin — proposition : au-delà de 5 minutes, dans une constante | CdC « Rattrapage » | Rien tant que le gardien se connecte chaque jour ; à reprendre avant les pilotes |
 | ~~L'admin doit-il pouvoir travailler hors-ligne dès la V1 ?~~ ✅ tranché le 2026-11-06 : oui pour la saisie, en trois volets — écritures d'argent ajoutées et jamais modifiées (identifiant créé sur l'appareil) ; coût, paiement, vente et déclaration à la place du gardien en file d'attente ; référentiels, modification de commande, clôture et comptes restent en ligne | Archi, décisions postérieures | ~~O.3, P.1, P.7~~ |
 | Combien de temps les éleveurs pilotes restent-ils sans aucun réseau (heures ou jours) ? La réponse décide du calcul local complet des chiffres du bureau | CdC « Points ouverts » | Rien en V1 |
 | Par quel écran l'admin annule-t-il une déclaration (C.7) ? Même question que la suivante | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche O.4, U.2 |
@@ -436,6 +437,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'image de l'API n'embarque pas la ligne de commande Prisma ; la tâche de migration a son étape
 - [x] La pile complète démarre : migrations appliquées, API saine
 
+### D.6 — Le propriétaire de la base n'est pas superutilisateur · **S** · 🔒
+> Spec : Archi §6 ; `CLAUDE.md` §4 règle 5 · Zone : `infra/docker-compose.yml`, `infra/postgres/`, `apps/api/prisma/migrations/0001_init`
+> Dépend de : D.2, D.4 · Revue : aucune tâche courante ne tourne en superutilisateur. Ajoutée le 2026-11-07 (réserve R-18, recommandation sécurité).
+
+- [ ] Les tables appartiennent à un rôle propriétaire qui n'est ni superutilisateur ni dispensé de RLS ; migrations et scripts de l'éditeur tournent sous lui
+- [ ] Le superutilisateur de PostgreSQL ne sert qu'à l'initialisation du serveur ; son mot de passe ne va à aucun conteneur applicatif
+- [ ] Sous le propriétaire, sans élevage fixé, aucune ligne du journal n'est lisible (la RLS forcée s'applique à lui) ; les scripts de l'éditeur fixent l'élevage qu'ils touchent
+- [ ] La pile complète démarre, l'amorçage et l'ajout d'un admin marchent, joués dans Docker
+
 ## E — Identité et sessions
 
 ### E.1 — Le PIN est haché et ses essais sont comptés · **S** · 🔒 ✅
@@ -563,35 +573,45 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## F — Ingestion et descente
 
-### F.1 — Ingérer un lot d'événements · **M** · 🧪 · ⚠
-> Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
-> Dépend de : C.2, C.3, C.5 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur.
+### F.1 — Décoder un événement reçu · **M** · 🧪 ✅
+> Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/decode-event.ts`, `packages/contracts/src/journal.ts`, `packages/domain/src/journal/validate-declaration.ts`
+> Dépend de : C.2, C.3, C.5 · Revue : rien du corps ne choisit l'auteur ni l'élevage ; une entrée inconnue est refusée.
+> Scindée le 2026-11-07 : l'ingestion du lot devient F.4, la colonne de l'appareil passe en F.2. Livrée le 2026-11-07, aucune dépendance ajoutée. `decodeJournalEvent(raw, { tenantId, authorId, scaleOf })` rend un `JournalEvent` gelé, construit par le domaine, ou un refus `DecodingRefusal` : `MalformedEvent` (champ absent, mauvais type JSON, valeur hors d'une liste fermée — le champ est nommé, `fact.quantity`), `UnknownField` (nommé), `UnknownEventType`, `ScaleUnknown`, ou le motif du constructeur de la valeur (`InvalidId`, `InvalidQuantity`, `InvalidInstant`…). Format d'échange `JournalEventPayload` dans `packages/contracts` : le fait est imbriqué sous `fact` ; un test de l'API décode un exemple de chaque forme du contrat. `validateDeclaration` (et donc la correction et l'annulation) reçoit désormais `author: { id, role }`, la forme de `authorizeDeclaration`, et refuse comme une faute un auteur qui n'est pas celui de l'événement.
+> **Déplacé le 2026-11-07, à la demande du fondateur** : le décodeur était d'abord dans le domaine, comme le disait le backlog d'origine. « Décoder » n'est pas un mot du métier, et le domaine connaissait alors le format d'échange (noms des champs JSON, fait imbriqué sous `fact`) : c'est une traduction à la frontière, qui vit maintenant dans l'API, à côté de l'ingestion. Le domaine lui fournit la liste fermée des faits et les constructeurs des valeurs ; les motifs propres au décodage (`MalformedEvent`, `UnknownField`, `UnknownEventType`, `ScaleUnknown`) ne sont plus dans sa liste fermée. Il reviendra au domaine le jour où le téléphone devra décoder le journal reçu (F.3), pas avant.
+> **Choix à relire** : un corps qui nomme l'auteur, l'élevage, l'appareil ou une date de réception est **refusé** (`UnknownField`), pas ignoré — la règle « entrée inconnue rejetée » l'emporte sur la formule « ignorés » du backlog d'origine ; un téléphone honnête ne les envoie pas. Une pesée sans aucun poids est refusée ; le nombre de poids d'une pesée (cinq ?) n'est pas encore une règle. Une pesée se juge sur la balance du site : tant que la balance n'a pas de source (T.3), le dépôt de F.2 devra en fournir une, sinon toute pesée est refusée (`ScaleUnknown`). Une valeur inconnue dans une liste fermée imbriquée (type de perte, papier du livreur) est un `MalformedEvent` qui la nomme ; seul le type de fait a son motif propre.
 
-- [ ] Un événement reçu en JSON est décodé par le domaine en `JournalEvent` : type hors liste, champ manquant ou valeur invalide donnent un motif typé (DTO dans `packages/contracts`)
+- [x] Un événement reçu en JSON est décodé en `JournalEvent` : type hors liste, champ manquant ou valeur invalide donnent un motif typé (DTO dans `packages/contracts`)
+- [x] L'auteur et l'élevage viennent de la session, jamais du corps
+- [x] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre)
+
+### F.4 — Ingérer un lot d'événements · **M** · 🧪 · ⚠
+> Spec : Archi §5 ; `CLAUDE.md` §4 règle 2 · Zone : `apps/api/src/journal/ingest-events.ts` (ports en mémoire)
+> Dépend de : F.1 · Revue : l'auteur vient de la session ; un doublon n'est pas une erreur. Scindée de F.1 le 2026-11-07.
+
 - [ ] Un événement valide est accepté et rejoint le journal
-- [ ] Un événement dont la date de saisie est postérieure à sa réception suit la règle décidée (voir le tableau des décisions)
+- [ ] Un événement dont la date de saisie est postérieure à sa réception est accepté, et l'admin est prévenu (décision du 2026-11-07) ; l'instant où le juger et le seuil d'alerte sont reportés (tableau des décisions) : F.4 le juge d'abord à sa date de saisie, comme tout événement
 - [ ] Un événement déjà reçu (même UUID) est ignoré et signalé comme doublon, sans erreur
 - [ ] Un lot mêlant acceptés, doublons et refusés renvoie le sort de chaque événement
-- [ ] L'auteur, le tenant et l'appareil viennent de la session ; ceux du corps sont ignorés
-- [ ] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` avec les sessions par appareil (E.4) — elle manque depuis D.3 (réserve R-8)
 - [ ] Dans un lot, une déclaration s'insère avant ce qui la corrige ou l'annule : la base refuse de nommer un événement absent (D.3)
-- [ ] Les règles de C.2 et de C.3 reçoivent l'auteur sous une seule forme (aujourd'hui `authorRole` pour l'une, `author` — identifiant et rôle — pour l'autre : incohérence à lever ici, où les deux sont appelées ensemble)
 - [ ] Un événement refusé par la politique de déclaration donne un motif typé
 - [ ] « Rien perdu » est jugé contre le journal du jour (`validateAgainstDay`) : refusé si des morts ont été écrits avant lui
 - [ ] Une annulation est jugée par `validateRetraction` contre la déclaration qu'elle nomme ; le serveur lit dans le journal si celle-ci est déjà annulée, pour une annulation comme pour une correction
-- [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base et la garde avec l'événement ; une date de réception venue du client est ignorée
 - [ ] Une contre-déclaration est jugée par `validateCounterDeclaration` contre la déclaration qu'elle nomme, lue dans le journal ; une origine inconnue donne un motif typé
 - [ ] Rejouer un lot entier ne change rien au journal (property-based)
 
 ### F.2 — L'API reçoit le journal · **M** · 🔒 · 🧪
 > Spec : Archi §4 (`journal`), §5 · Zone : `apps/api/src/journal/` (contrôleur, dépôt Prisma)
-> Dépend de : F.1, D.3, E.3 · Revue : tests sur une vraie base ; la taille d'un lot est plafonnée.
+> Dépend de : F.4, D.3, E.3 · Revue : tests sur une vraie base ; la taille d’un lot est plafonnée.
 
+- [ ] Avant le code : modèle de menaces du journal par `/security-engineer` — trajet de la donnée (téléphone, outbox, API, base, descente, sauvegardes), tableau abus → contrôle → test ; c'est la première route qui touche le journal (recommandation du 2026-11-07)
 - [ ] `POST /api/v1/journal/evenements` accepte un lot et renvoie le sort de chaque événement
 - [ ] Le même lot envoyé deux fois ne crée aucune ligne en double
 - [ ] Un UUID déjà utilisé par un autre tenant ne révèle rien et n'écrase rien
 - [ ] Un champ inconnu dans le corps fait refuser l'événement
 - [ ] Un lot au-delà de la taille maximale est refusé
+- [ ] L'appareil est enregistré avec l'événement : la colonne s'ajoute à `journal_events` (réserve R-8) ; il vient de la session
+- [ ] Le serveur pose sa date de réception (`receivedAt`) à l'enregistrement en base (déjà posée par la base depuis D.3)
+- [ ] La balance du site, dont dépend le décodage d'une pesée, a une source (modèles de balance : décision ouverte, T.3)
 
 ### F.3 — Le gardien reçoit son contexte, sans argent · **M** · 🔒
 > Spec : Archi §5 « Descente » ; `CLAUDE.md` §4 règle 4 · Zone : `apps/api/src/journal/caretaker-context/`, `packages/contracts`
@@ -601,7 +621,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Il renvoie le journal effectif des trois derniers jours, avec l'auteur de chaque ligne
 - [ ] Ce journal ne contient aucune perte hors mortalité (manquants, dons) : le gardien ne voit que les morts ; les vivants renvoyés, eux, en tiennent compte
 - [ ] Une ligne annulée par l'admin y est donnée comme annulée : le téléphone cesse de la compter et de la rappeler
-- [ ] Un collaborateur ne reçoit que le contexte de ses sites
+- [ ] Un collaborateur ne reçoit que le contexte de ses sites : le filtre est dans la requête du serveur, jamais à l'écran ; un site retiré ne descend plus dès la requête suivante
 - [ ] Aucun champ de la réponse ne porte de montant, de prix ni de solde (test de garde sur le type)
 - [ ] Sans campagne en cours, la réponse le dit explicitement
 
@@ -1499,7 +1519,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] Une sauvegarde contient la base et le volume des médias
 - [ ] Une restauration sur une instance vide redonne les mêmes chiffres et les mêmes médias
-- [ ] Les sauvegardes sont chiffrées
+- [ ] Les sauvegardes sont chiffrées, et leur accès est restreint à l'éditeur : elles contiennent le journal de tous les élevages (réserve R-19)
 
 ### Z.5 — Mettre en production · **M** · 🔒 · ⚠
 > Spec : Archi §9 · Zone : `infra/` (compose de production, Caddy)

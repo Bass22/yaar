@@ -45,8 +45,9 @@ function troisMortsPourLe(businessDate: string, recordedAt = '2026-11-05T18:30:0
   );
 }
 
-function declarePar(authorRole: Role, overrides: Partial<DeclarationContext> = {}): DeclarationContext {
-  return { campaign: uneCampagneEnCours(), timeZone: DAKAR, authorRole, ...overrides };
+// The author of the event, with the role the session gives them.
+function declarePar(role: Role, overrides: Partial<DeclarationContext> = {}): DeclarationContext {
+  return { campaign: uneCampagneEnCours(), timeZone: DAKAR, author: { id: unwrap(UserId(uuid(5))), role }, ...overrides };
 }
 
 const parLeGardien = (overrides: Partial<DeclarationContext> = {}): DeclarationContext =>
@@ -54,6 +55,12 @@ const parLeGardien = (overrides: Partial<DeclarationContext> = {}): DeclarationC
 const parLAdmin = (overrides: Partial<DeclarationContext> = {}): DeclarationContext => declarePar('admin', overrides);
 
 describe("Validation d'une déclaration", () => {
+  it("la règle reçoit l'auteur sous la même forme que la politique de déclaration, et c'est celui de l'événement : un autre est une faute de l'appelant", () => {
+    const someoneElse = { id: unwrap(UserId(uuid(6))), role: 'admin' as const };
+
+    expect(() => validateDeclaration(troisMortsPourLe('2026-11-05'), declarePar('admin', { author: someoneElse }))).toThrow(TypeError);
+  });
+
   it("une déclaration du jour, sur le site de la campagne en cours, est acceptée telle quelle", () => {
     // Given
     const event = troisMortsPourLe('2026-11-05');
@@ -90,13 +97,13 @@ describe("Validation d'une déclaration", () => {
       // Given des poussins mis en place le 4 novembre
       const campaign = uneCampagneEnCours({ placementDay: jour('2026-11-04') });
 
-      for (const authorRole of ['collaborator', 'admin'] as const) {
+      for (const role of ['collaborator', 'admin'] as const) {
         // Then la veille de la mise en place est refusée, le jour même est accepté
-        expect(validateDeclaration(troisMortsPourLe('2026-11-03'), declarePar(authorRole, { campaign }))).toEqual({
+        expect(validateDeclaration(troisMortsPourLe('2026-11-03'), declarePar(role, { campaign }))).toEqual({
           ok: false,
           error: { kind: 'BusinessDateBeforePlacement' },
         });
-        expect(validateDeclaration(troisMortsPourLe('2026-11-04'), declarePar(authorRole, { campaign })).ok).toBe(true);
+        expect(validateDeclaration(troisMortsPourLe('2026-11-04'), declarePar(role, { campaign })).ok).toBe(true);
       }
     });
   });
@@ -166,9 +173,9 @@ describe("Validation d'une déclaration", () => {
       // Given une campagne clôturée le 5 novembre à midi
       const campaign = uneCampagneEnCours({ closedAt: instant('2026-11-05T12:00:00.000Z') });
 
-      for (const authorRole of ['collaborator', 'admin'] as const) {
+      for (const role of ['collaborator', 'admin'] as const) {
         // When la déclaration est écrite à 18 h 30
-        const result = validateDeclaration(troisMortsPourLe('2026-11-05'), declarePar(authorRole, { campaign }));
+        const result = validateDeclaration(troisMortsPourLe('2026-11-05'), declarePar(role, { campaign }));
 
         // Then
         expect(result).toEqual({ ok: false, error: { kind: 'CampaignClosed' } });
@@ -195,8 +202,8 @@ describe("Validation d'une déclaration", () => {
       // Given une campagne ouverte sur un autre poulailler
       const campaign = uneCampagneEnCours({ siteId: ANOTHER_SITE });
 
-      for (const authorRole of ['collaborator', 'admin'] as const) {
-        expect(validateDeclaration(troisMortsPourLe('2026-11-05'), declarePar(authorRole, { campaign }))).toEqual({
+      for (const role of ['collaborator', 'admin'] as const) {
+        expect(validateDeclaration(troisMortsPourLe('2026-11-05'), declarePar(role, { campaign }))).toEqual({
           ok: false,
           error: { kind: 'SiteNotOfCampaign' },
         });

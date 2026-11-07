@@ -93,12 +93,13 @@ function corrige(fact: Fact, overrides: Partial<EventEnvelope> = {}, target = ev
 }
 
 type Judgement = { readonly authorRole?: Role; readonly campaign?: Campaign };
+// The author of the correction judged, with the role the session gives them.
 
 const juge = (
   counter: CounterDeclaration,
   corrected: JournalEvent,
   { authorRole = 'collaborator', campaign = uneCampagneEnCours() }: Judgement = {},
-) => validateCounterDeclaration(counter, { corrected, correctedIsRetracted: false, campaign, timeZone: DAKAR, authorRole });
+) => validateCounterDeclaration(counter, { corrected, correctedIsRetracted: false, campaign, timeZone: DAKAR, author: { id: counter.authorId, role: authorRole } });
 
 describe('Contre-déclaration', () => {
   describe('une correction tracée', () => {
