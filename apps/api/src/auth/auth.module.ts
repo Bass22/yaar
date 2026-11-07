@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import type { Clock } from '@kit';
 import { Argon2PinHasher } from './argon2-pin-hasher';
@@ -12,6 +12,8 @@ export { CLOCK } from './clock.token';
 
 const systemClock: Clock = { now: () => new Date() };
 
+// Global: the clock and the PIN hasher are the same for every module.
+@Global()
 @Module({
   controllers: [SignInController],
   providers: [
@@ -22,5 +24,6 @@ const systemClock: Clock = { now: () => new Date() };
     { provide: APP_GUARD, useClass: SessionGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantTransactionInterceptor },
   ],
+  exports: [CLOCK, PIN_HASHER],
 })
 export class AuthModule {}

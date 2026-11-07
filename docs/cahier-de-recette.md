@@ -21,6 +21,7 @@ Tenu par `/qa`, et par `/security-engineer` pour ses constats restés ouverts. I
 | 2026-11-07 | D.4 — amorçage d'un élevage | **Validé** | 10 tests sur PostgreSQL réel ; toutes les routes du serveur appelées sans session ; 11 sabotages détectés sur 11 sur une copie ; script joué dans la pile Docker (création, PIN trop simple et fuseau inconnu refusés, PIN absent des sorties et de la base). Migrations fusionnées en une seule, mêmes tests et mêmes sabotages |
 | 2026-11-07 | E.2 — connexion (passage sécurité) | **Validé avec réserves** (R-14 à R-17) ; R-12 et R-13 levées | 10 tests du cas d'usage et 5 de la route sur PostgreSQL réel, 9 du jeton ; sabotages sur une copie (voir backlog) |
 | 2026-11-07 | E.3 — routes fermées par défaut (passage sécurité) | **Validé** | 15 tests à travers le serveur HTTP sur PostgreSQL réel (jeton absent, falsifié, expiré ; tenant du jeton contre adresse et corps ; compte bloqué, jetons invalidés, rôle changé ; rôles ; sites ; transaction unique) ; 17 sabotages détectés sur 17, sur une copie |
+| 2026-11-07 | E.4 — bloquer un compte | **Validé** | 10 tests à travers le serveur HTTP sur PostgreSQL réel ; 12 sabotages détectés sur 12, sur une copie |
 
 ## 2. Réserves ouvertes
 

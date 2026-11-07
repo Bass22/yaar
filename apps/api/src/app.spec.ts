@@ -81,7 +81,7 @@ describe("Démarrage de l'API", () => {
 
     // Then seules les sondes et la connexion répondent, et aucune route ne parle d'élevage ou de compte
     expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready', 'POST /api/v1/auth/sign-in']);
-    expect(routes.map((route) => route.path).filter((path) => /tenant|elevage|signup|register|user/i.test(path))).toEqual([]);
+    expect(open.filter((route) => /tenant|elevage|signup|register|user/i.test(route))).toEqual([]);
   });
 
   it("CORS n'est jamais activé : une origine étrangère n'obtient aucune autorisation", async () => {

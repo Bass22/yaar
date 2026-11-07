@@ -61,6 +61,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Longueur du PIN~~ ✅ tranché le 2026-11-06 : 4 chiffres pour un gardien, 6 pour l'admin | CdC « Identité » | ~~E.1~~ |
 | ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
 | ~~Faut-il refuser les PIN trop simples (0000, 1234, 111111) à la création d'un compte ?~~ ✅ tranché le 2026-11-06 : oui — un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre | CdC « Identité » | ~~E.1~~ |
+| Un admin peut-il bloquer un autre admin du même élevage ? (aujourd'hui non : seuls les collaborateurs se bloquent, E.4) | CdC (non précisé) | E.4 |
 | ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
 | ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Reste ouvert : le sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
@@ -485,16 +486,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un jeton émis avant `sessions_valid_from`, d'un compte bloqué, d'un rôle changé ou d'un compte inconnu de l'élevage est refusé (lecture du compte à chaque requête, dans la transaction de l'élevage)
 - [x] Une route rejoint la transaction de la requête : ce qu'elle écrit avant d'échouer est annulé
 
-### E.4 — Bloquer un compte le déconnecte partout · **M** · 🔒
-> Spec : CdC « Identité » (téléphone volé) ; Archi §6 · Zone : `apps/api/src/auth/`, `apps/api/src/users/`
+### E.4 — Bloquer un compte le déconnecte partout · **M** · 🔒 ✅
+> Spec : CdC « Identité » (téléphone volé) ; Archi §6 · Zone : `apps/api/src/users/{account-access,users.controller,users.module}.ts`
 > Dépend de : E.3 · Revue : le blocage vaut dès la requête suivante, synchro comprise.
-> Reformulée le 2026-11-07 : pas de révocation appareil par appareil en V1 (décision du fondateur). Bloquer un compte, changer son PIN ou le « déconnecter partout » avancent `sessions_valid_from` : tout jeton émis avant ne vaut plus rien.
+> Reformulée le 2026-11-07 : pas de révocation appareil par appareil en V1 (décision du fondateur). Livrée le 2026-11-07, aucune dépendance ajoutée. Trois routes réservées à l'admin, qui répondent 204 : `POST /api/v1/users/:id/block` (pose `blocked_at`, gardée si déjà bloqué, et `sessions_valid_from`), `…/unblock` (lève le blocage ; les jetons émis avant restent refusés), `…/sign-out-everywhere` (invalide les jetons sans bloquer). Un compte d'un autre élevage, ou un identifiant qui n'en est pas un : 404. Le mécanisme de refus est celui d'E.3 : le compte est relu à chaque requête.
+> **Choix à relire** : l'admin ne bloque que des collaborateurs — ni son propre compte (409), ni un autre admin (403), pour qu'un co-gérant ne puisse pas en enfermer un autre dehors. « Déconnecter partout » vaut pour un collaborateur comme pour l'admin lui-même (ordinateur oublié). Un gardien ne peut rien de tout cela, pas même pour lui. L'horloge du serveur est désormais un fournisseur commun à toute l'API.
+> **Reporté** : la trace de ces actions (qui a bloqué qui, quand, depuis quel appareil) est l'objet d'E.6 ; l'écran du bureau qui les déclenche n'a pas encore de tranche.
 
-- [ ] L'admin bloque un compte de son équipe, et le débloque
-- [ ] Un compte bloqué est refusé à la requête suivante, synchro comprise, sur tous ses appareils
-- [ ] Débloquer un compte n'accepte pas les jetons émis avant : il faut se reconnecter
-- [ ] « Déconnecter partout » invalide les jetons sans bloquer le compte
-- [ ] L'admin ne bloque ni son propre compte ni un compte d'un autre élevage
+- [x] L'admin bloque un compte de son équipe, et le débloque
+- [x] Un compte bloqué est refusé à la requête suivante, sur tous ses appareils
+- [x] Débloquer un compte n'accepte pas les jetons émis avant : il faut se reconnecter
+- [x] « Déconnecter partout » invalide les jetons sans bloquer le compte
+- [x] L'admin ne bloque ni son propre compte, ni un autre admin, ni un compte d'un autre élevage ; un gardien ne bloque personne
 
 ### E.5 — L'admin crée les comptes de son équipe · **M** · 🔒
 > Spec : CdC « Utilisateurs, rôles » · Zone : `apps/api/src/users/`
