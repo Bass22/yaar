@@ -35,7 +35,7 @@ const clientFor = (url: string): PrismaClient => new PrismaClient({ adapter: new
 // The CLI installed in node_modules, not `npx`: no package lookup, no network.
 const prismaCli = createRequire(__filename).resolve('prisma/build/index.js');
 
-/** The worker's container, started once and reused; Testcontainers removes it when the process exits. */
+/** The worker's container, started once and reused; the run removes it when it ends. */
 let container: Promise<StartedPostgreSqlContainer> | null = null;
 const TEMPLATE = 'yaar_template';
 let created = 0;
@@ -49,8 +49,20 @@ async function onCluster<T>(clusterUrl: string, work: (cluster: PrismaClient) =>
   }
 }
 
+// Set by the global setup of Jest (apps/api/jest.test-containers.js), which removes these
+// containers at the end of the run, or at the next run if this one is killed.
+function labelsOfThisRun(): Record<string, string> {
+  const run = process.env['YAAR_TEST_RUN'];
+  const pid = process.env['YAAR_TEST_RUN_PID'];
+  if (run === undefined || pid === undefined) {
+    throw new Error('The test run has no label: run the API tests through apps/api/jest.config.js.');
+  }
+  return { 'yaar.test-run': run, 'yaar.test-run-pid': pid };
+}
+
 function startContainer(): Promise<StartedPostgreSqlContainer> {
   container ??= new PostgreSqlContainer(POSTGRES_IMAGE)
+    .withLabels(labelsOfThisRun())
     // The superuser of a PostgreSQL can run programs: its password is drawn for the run, even
     // though the port is only published for the time of the tests.
     .withPassword(randomBytes(24).toString('hex'))

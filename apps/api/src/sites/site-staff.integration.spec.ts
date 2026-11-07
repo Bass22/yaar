@@ -15,7 +15,8 @@ import { designatePrimaryCaretaker } from './site-staff';
 
 // Spec: Cahier des charges — « Gouvernance des déclarations » (un titulaire par site, des
 // remplaçants autorisés ; décisions du 2026-11-07 : retirer le titulaire laisse le site sans
-// titulaire, un nouveau titulaire fait de l'ancien un remplaçant) ; backlog E.7. Tourne sur un
+// titulaire, un nouveau titulaire fait de l'ancien un remplaçant, le premier affecté sur un
+// site sans titulaire le devient) ; backlog E.7. Tourne sur un
 // PostgreSQL réel, à travers le serveur HTTP.
 jest.setTimeout(180_000);
 
@@ -137,8 +138,8 @@ describe("Affecter l'équipe aux sites", () => {
   });
 
   describe('affecter un collaborateur à un site', () => {
-    it("l'admin affecte un collaborateur à un site : il y est remplaçant, l'atteint dès la requête suivante, et l'affectation est tracée", async () => {
-      // Given Ousmane n'atteint pas le poulailler Nord
+    it("affecté à un site sans titulaire, un collaborateur en devient titulaire : il l'atteint dès la requête suivante, et la désignation est tracée (décision du 2026-11-07)", async () => {
+      // Given un poulailler Nord sans personne, qu'Ousmane n'atteint pas
       expect(await reaches(OUSMANE, POULAILLER_NORD)).toBe(false);
       const before = (await trace()).length;
 
@@ -147,10 +148,31 @@ describe("Affecter l'équipe aux sites", () => {
 
       // Then
       expect(response.status).toBe(204);
-      expect(await staffOf(POULAILLER_NORD)).toEqual([{ userId: OUSMANE, isPrimary: false }]);
+      expect(await staffOf(POULAILLER_NORD)).toEqual([{ userId: OUSMANE, isPrimary: true }]);
       expect(await reaches(OUSMANE, POULAILLER_NORD)).toBe(true);
       expect((await trace()).slice(before)).toEqual([
-        { action: 'SiteAssigned', actorId: LE_GERANT, subjectId: OUSMANE, siteId: POULAILLER_NORD, deviceId: ORDINATEUR_DU_GERANT, occurredAt: new Date(now) },
+        { action: 'PrimaryCaretakerDesignated', actorId: LE_GERANT, subjectId: OUSMANE, siteId: POULAILLER_NORD, deviceId: ORDINATEUR_DU_GERANT, occurredAt: new Date(now) },
+      ]);
+    });
+
+    it("affecté à un site qui a un titulaire, un collaborateur y est remplaçant, et l'affectation est tracée", async () => {
+      // Given Ousmane titulaire du Nord
+      await assign(POULAILLER_NORD, OUSMANE);
+      tick();
+      const before = (await trace()).length;
+
+      // When le gérant y affecte Awa
+      const response = await assign(POULAILLER_NORD, AWA);
+
+      // Then
+      expect(response.status).toBe(204);
+      expect(await staffOf(POULAILLER_NORD)).toEqual([
+        { userId: OUSMANE, isPrimary: true },
+        { userId: AWA, isPrimary: false },
+      ]);
+      expect(await reaches(AWA, POULAILLER_NORD)).toBe(true);
+      expect((await trace()).slice(before)).toEqual([
+        { action: 'SiteAssigned', actorId: LE_GERANT, subjectId: AWA, siteId: POULAILLER_NORD, deviceId: ORDINATEUR_DU_GERANT, occurredAt: new Date(now) },
       ]);
     });
 
@@ -199,7 +221,7 @@ describe("Affecter l'équipe aux sites", () => {
       ]);
     });
 
-    it("retirer le titulaire laisse le site sans titulaire : ses remplaçants restent (décision du 2026-11-07)", async () => {
+    it("retirer le titulaire laisse le site sans titulaire : ses remplaçants restent remplaçants, personne n'est promu (décision du 2026-11-07)", async () => {
       // Given Ousmane titulaire, Awa remplaçante
       await designate(POULAILLER_NORD, { userId: OUSMANE });
       await assign(POULAILLER_NORD, AWA);
@@ -211,6 +233,22 @@ describe("Affecter l'équipe aux sites", () => {
       expect(response.status).toBe(204);
       expect(await staffOf(POULAILLER_NORD)).toEqual([{ userId: AWA, isPrimary: false }]);
       expect(await reaches(OUSMANE, POULAILLER_NORD)).toBe(false);
+    });
+
+    it("un site resté sans titulaire : le prochain collaborateur affecté en devient titulaire", async () => {
+      // Given Ousmane titulaire et Awa remplaçante, puis Ousmane retiré
+      await assign(POULAILLER_NORD, OUSMANE);
+      await assign(POULAILLER_NORD, AWA);
+      await unassign(POULAILLER_NORD, OUSMANE);
+
+      // When le gérant affecte Modou
+      expect((await assign(POULAILLER_NORD, MODOU)).status).toBe(204);
+
+      // Then Modou est titulaire, Awa reste remplaçante
+      expect(await staffOf(POULAILLER_NORD)).toEqual([
+        { userId: AWA, isPrimary: false },
+        { userId: MODOU, isPrimary: true },
+      ]);
     });
 
     it("retirer une affectation sur un site n'enlève pas les autres sites du collaborateur", async () => {

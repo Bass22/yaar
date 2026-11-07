@@ -37,8 +37,10 @@ async function staffTarget(tx: Prisma.TransactionClient, siteId: string, userId:
 }
 
 /**
- * The admin lets a collaborator write in the notebook of a site, as a substitute. Assigning
- * someone already there changes nothing — a primary stays primary — and leaves no trace.
+ * The admin lets a collaborator write in the notebook of a site, as a substitute — or as its
+ * primary caretaker when the site has none (decision of 2026-11-07: one site, one caretaker, one
+ * gesture). Assigning someone already there changes nothing — a primary stays primary — and
+ * leaves no trace.
  */
 export async function assignToSite(tx: Prisma.TransactionClient, admin: Session, siteId: string, userId: string, now: Date): Promise<Result<void, SiteStaffRefusal>> {
   const target = await staffTarget(tx, siteId, userId);
@@ -49,8 +51,10 @@ export async function assignToSite(tx: Prisma.TransactionClient, admin: Session,
   if (existing !== null) {
     return ok(undefined);
   }
-  await tx.siteAssignment.create({ data: { tenantId: admin.tenantId, siteId, userId: target.value, isPrimary: false } });
-  await recordAudit(tx, admin.tenantId, { action: 'SiteAssigned', actorId: admin.userId, subjectId: target.value, siteId, deviceId: admin.deviceId }, now);
+  const isPrimary = (await tx.siteAssignment.count({ where: { siteId, isPrimary: true } })) === 0;
+  await tx.siteAssignment.create({ data: { tenantId: admin.tenantId, siteId, userId: target.value, isPrimary } });
+  const action = isPrimary ? 'PrimaryCaretakerDesignated' : 'SiteAssigned';
+  await recordAudit(tx, admin.tenantId, { action, actorId: admin.userId, subjectId: target.value, siteId, deviceId: admin.deviceId }, now);
   return ok(undefined);
 }
 
