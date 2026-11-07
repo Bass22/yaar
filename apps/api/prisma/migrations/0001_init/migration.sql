@@ -36,7 +36,7 @@ CREATE TABLE "users" (
     "pin_failures" INTEGER NOT NULL DEFAULT 0,
     "pin_last_failure_at" TIMESTAMPTZ(3),
     "blocked_at" TIMESTAMPTZ(3),
-    "sessions_valid_from" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sessions_valid_from" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")

@@ -72,9 +72,9 @@ model User {
   pinLastFailureAt  DateTime? @map("pin_last_failure_at") @db.Timestamptz(3)
   // A blocked account is refused on every request, on every device (E.4).
   blockedAt         DateTime? @map("blocked_at") @db.Timestamptz(3)
-  // A session token issued before this instant is refused: blocking, a new PIN or
-  // "sign out everywhere" move it forward.
-  sessionsValidFrom DateTime  @default(now()) @map("sessions_valid_from") @db.Timestamptz(3)
+  // A session token issued before this instant — to the second, rounded up — is refused:
+  // blocking, a new PIN or "sign out everywhere" set it. Empty until one of them happens.
+  sessionsValidFrom DateTime? @map("sessions_valid_from") @db.Timestamptz(3)
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)

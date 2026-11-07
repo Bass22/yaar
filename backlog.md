@@ -61,6 +61,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Longueur du PIN~~ ✅ tranché le 2026-11-06 : 4 chiffres pour un gardien, 6 pour l'admin | CdC « Identité » | ~~E.1~~ |
 | ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
 | ~~Faut-il refuser les PIN trop simples (0000, 1234, 111111) à la création d'un compte ?~~ ✅ tranché le 2026-11-06 : oui — un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre | CdC « Identité » | ~~E.1~~ |
+| ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
 | ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Reste ouvert : le sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
@@ -469,17 +470,20 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un compte bloqué ne se connecte pas
 - [x] Un jeton expiré, falsifié, d'un autre algorithme ou au contenu inattendu est refusé à la vérification
 
-### E.3 — Les routes sont fermées par défaut · **M** · 🔒
-> Spec : `CLAUDE.md` §4 règle 6 · Zone : `apps/api/src/auth/` (gardes globales)
+### E.3 — Les routes sont fermées par défaut · **M** · 🔒 ✅
+> Spec : `CLAUDE.md` §4 règles 5 et 6 ; CdC « Identité » · Zone : `apps/api/src/auth/{session,session.guard,tenant-transaction.interceptor,site-access}.ts`
 > Dépend de : E.2 · Revue : l'ouverture d'une route est explicite et testée.
-> Déjà en place depuis A.3 : `@Public()` et `ClosedByDefaultGuard`, qui refuse tout ce qui n'est pas ouvert. Cette tranche remplace le refus par la vérification de la session.
+> Livré le 2026-11-07, aucune dépendance ajoutée. `SessionGuard` (global) remplace `ClosedByDefaultGuard` : hors `@Public()`, une requête doit porter `Authorization: Bearer <jeton>` ; un jeton absent, mal formé, falsifié ou expiré donne un 401 nu, et le rôle exigé par `@Roles(…)` un 403. La session (utilisateur, élevage, rôle, appareil) vient du jeton seul ; `@CurrentSession()` la donne à la route. `TenantTransactionInterceptor` (global) ouvre pour chaque requête une transaction de son élevage et y relit le compte : bloqué, jeton émis avant `sessions_valid_from` (arrondie à la seconde supérieure : un jeton émis dans la même seconde est refusé), rôle changé ou compte absent de cet élevage → 401, la route ne tourne pas. Une route qui appelle `runInTenant(session.tenantId, …)` rejoint cette transaction : ce qu'elle écrit avant d'échouer est annulé. `canReachSite` : l'admin atteint tous les sites de son élevage, un collaborateur ceux où il est affecté.
+> **Changé en route** : `sessions_valid_from` est vide par défaut (aucune invalidation) au lieu de valoir la date de création — sinon un compte créé et connecté dans la même seconde aurait vu son premier jeton refusé.
+> **Choix à relire** : une route qui interroge la base sans `runInTenant` ne voit rien (fail-closed) — elle ne rejoint pas d'elle-même la transaction de la requête. Chaque requête authentifiée garde une connexion du pool et une transaction ouverte pendant toute sa durée, avec la limite de Prisma (5 secondes par défaut) : l'ingestion d'un gros lot (F.1) devra la relever ou découper. Strict mode : règle de déclaration (C.3), pas d'accès.
 
-- [ ] Une route sans marque explicite exige une session valide
-- [ ] Le tenant d'une requête vient du jeton, jamais d'un paramètre ni du corps
-- [ ] Une route réservée à l'admin refuse un collaborateur
-- [ ] Un collaborateur n'atteint que les ressources de ses sites
-- [ ] Un jeton expiré ou falsifié est refusé
-- [ ] Un jeton émis avant `sessions_valid_from`, ou d'un compte bloqué, est refusé (lecture du compte à chaque requête, dans la transaction de l'élevage)
+- [x] Une route sans marque explicite exige une session valide ; une route `@Public()` reste ouverte, même avec un jeton invalide
+- [x] Le tenant d'une requête vient du jeton, jamais d'un paramètre ni du corps
+- [x] Une route réservée à l'admin refuse un collaborateur
+- [x] Un collaborateur n'atteint que les ressources de ses sites ; personne n'atteint un site d'un autre élevage
+- [x] Un jeton expiré, falsifié ou mal transporté est refusé, sans que la route ne tourne
+- [x] Un jeton émis avant `sessions_valid_from`, d'un compte bloqué, d'un rôle changé ou d'un compte inconnu de l'élevage est refusé (lecture du compte à chaque requête, dans la transaction de l'élevage)
+- [x] Une route rejoint la transaction de la requête : ce qu'elle écrit avant d'échouer est annulé
 
 ### E.4 — Bloquer un compte le déconnecte partout · **M** · 🔒
 > Spec : CdC « Identité » (téléphone volé) ; Archi §6 · Zone : `apps/api/src/auth/`, `apps/api/src/users/`
@@ -501,6 +505,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'admin désigne le titulaire d'un site ; un site n'a qu'un titulaire
 - [ ] Deux comptes du même tenant ne partagent pas un numéro
 - [ ] Un collaborateur ne peut ni créer un compte ni changer son rôle
+- [ ] Un compte non admin est créé avec un PIN provisoire. Sa première connexion demande le PIN provisoire **et** un nouveau PIN, en une seule étape : aucune session n'existe avant que le nouveau soit choisi (décision du 2026-11-07 — sinon l'admin, qui connaît le provisoire, pourrait se connecter à sa place)
+- [ ] Avec le seul PIN provisoire, la connexion ordinaire est refusée et dit qu'il faut choisir son PIN
+- [ ] Un PIN provisoire non utilisé expire au bout de 7 jours : l'admin en donne un autre
+- [ ] Un PIN oublié se remplace de la même façon : l'admin donne un PIN provisoire, qui invalide les jetons émis avant
+- [ ] Le nouveau PIN suit les règles d'E.1 (4 chiffres, pas trop simple) et diffère du provisoire
 
 ### E.6 — Les actions sensibles laissent une trace · **S** · 🔒
 > Spec : Archi §6 « Audit » ; `CLAUDE.md` §4 règle 14 · Zone : `apps/api/src/audit/`

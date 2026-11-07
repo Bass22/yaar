@@ -121,7 +121,6 @@ describe('Migrations', () => {
       { column_name: 'tenants.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'users.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'users.pin_failures', column_default: '0' },
-      { column_name: 'users.sessions_valid_from', column_default: 'CURRENT_TIMESTAMP' },
     ]);
   });
 
