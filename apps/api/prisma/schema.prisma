@@ -67,6 +67,9 @@ model User {
   role              UserRole
   // argon2id digest of the PIN (E.1). Never the PIN, never shown to anyone.
   pinHash           String    @map("pin_hash")
+  // Set while the PIN is the provisional one the admin gave (E.5): until then, signing in
+  // means choosing one's own PIN. Past this instant, the provisional PIN no longer works.
+  provisionalPinExpiresAt DateTime? @map("provisional_pin_expires_at") @db.Timestamptz(3)
   // Failed PIN attempts in a row (E.1): the wait before the next one grows with them.
   pinFailures       Int       @default(0) @map("pin_failures")
   pinLastFailureAt  DateTime? @map("pin_last_failure_at") @db.Timestamptz(3)

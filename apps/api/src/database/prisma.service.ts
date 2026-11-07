@@ -59,7 +59,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       await tx.$queryRaw`SELECT set_config('app.sign_in_phone', ${phone}, true)`;
       return tx.user.findUnique({
         where: { phone },
-        select: { id: true, tenantId: true, phone: true, role: true, pinHash: true, pinFailures: true, pinLastFailureAt: true, blockedAt: true },
+        select: { id: true, tenantId: true, phone: true, role: true, pinHash: true, pinFailures: true, pinLastFailureAt: true, blockedAt: true, provisionalPinExpiresAt: true },
       });
     });
   }

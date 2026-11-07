@@ -135,6 +135,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Référentiel ; justificatif (reçu) | `ReferenceData` ; `Receipt` |
 | PIN (4 chiffres pour un gardien, 6 pour l'admin) ; son empreinte argon2id ; essais ratés et attente avant le suivant | `Pin` ; `pinHash` (`PinHasher`) ; `PinAttempts`, `retryAt` |
 | Amorçage d'un élevage (tenant, premier site, premier admin) | `bootstrapTenant` (`dist/bootstrap-tenant.js`) |
+| PIN provisoire donné par l'admin ; premier choix du PIN ; PIN oublié | `provisionalPin` (`provisionalPinExpiresAt`) ; `choosePin` ; `resetPin` |
 | Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
 | Rattrapage (aujourd'hui, hier, avant-hier) ; rôle de l'auteur | catch-up (`CatchUpWindowPassed`) ; `Role`, `authorRole` |

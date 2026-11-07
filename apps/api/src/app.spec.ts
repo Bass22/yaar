@@ -59,7 +59,7 @@ describe("Démarrage de l'API", () => {
   });
 
   // Spec: backlog D.4 — rien n'est ouvert au self-signup : un élevage se crée par le script, jamais par une route
-  it("les seules routes ouvertes sans session sont les deux sondes et la connexion : aucune ne crée un élevage ni un compte", async () => {
+  it("les seules routes ouvertes sans session sont les deux sondes, la connexion et le choix du premier PIN : aucune ne crée un élevage ni un compte", async () => {
     // Given toutes les routes que le serveur connaît, lues dans son routeur
     type Layer = { route?: { path: string; methods: Record<string, boolean> } };
     const instance = app.getHttpAdapter().getInstance() as { router?: { stack: Layer[] }; _router?: { stack: Layer[] } };
@@ -80,7 +80,7 @@ describe("Démarrage de l'API", () => {
     }
 
     // Then seules les sondes et la connexion répondent, et aucune route ne parle d'élevage ou de compte
-    expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready', 'POST /api/v1/auth/sign-in']);
+    expect(open.sort()).toEqual(['GET /api/v1/health', 'GET /api/v1/health/ready', 'POST /api/v1/auth/choose-pin', 'POST /api/v1/auth/sign-in']);
     expect(open.filter((route) => /tenant|elevage|signup|register|user/i.test(route))).toEqual([]);
   });
 

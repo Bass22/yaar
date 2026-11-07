@@ -1,26 +1,34 @@
 import { BadRequestException, Body, Controller, HttpCode, HttpException, HttpStatus, Inject, Post, Res } from '@nestjs/common';
 import type { Clock } from '@kit';
-import type { SignInRequest, SignInResponse } from '@contracts';
+import type { ChoosePinRefusal, ChoosePinRequest, SignInRequest, SignInResponse } from '@contracts';
 import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { PrismaService } from '../database/prisma.service';
 import { Public } from './public.decorator';
 import { PIN_HASHER, type PinHasher } from './pin-hasher';
-import { signIn } from './sign-in';
+import { choosePin, signIn } from './sign-in';
 import { CLOCK } from './clock.token';
 
-const FIELDS = ['deviceId', 'phone', 'pin'];
-
-// Whitelist at the border: exactly three strings, nothing else. A refusal never echoes the body.
-function signInRequestOf(body: unknown): SignInRequest {
+// Whitelist at the border: exactly these fields, all strings, nothing else. A refusal never
+// echoes the body.
+function stringsOf(body: unknown, fields: readonly string[]): Record<string, string> {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw new BadRequestException();
   }
-  const keys = Object.keys(body).sort();
-  const fields = body as Record<string, unknown>;
-  if (keys.join() !== FIELDS.join() || FIELDS.some((field) => typeof fields[field] !== 'string')) {
+  const values = body as Record<string, unknown>;
+  if (Object.keys(values).sort().join() !== [...fields].sort().join() || fields.some((field) => typeof values[field] !== 'string')) {
     throw new BadRequestException();
   }
-  return { phone: fields['phone'] as string, pin: fields['pin'] as string, deviceId: fields['deviceId'] as string };
+  return values as Record<string, string>;
+}
+
+function signInRequestOf(body: unknown): SignInRequest {
+  const { phone, pin, deviceId } = stringsOf(body, ['phone', 'pin', 'deviceId']);
+  return { phone: phone ?? '', pin: pin ?? '', deviceId: deviceId ?? '' };
+}
+
+function choosePinRequestOf(body: unknown): ChoosePinRequest {
+  const { phone, provisionalPin, newPin, deviceId } = stringsOf(body, ['phone', 'provisionalPin', 'newPin', 'deviceId']);
+  return { phone: phone ?? '', provisionalPin: provisionalPin ?? '', newPin: newPin ?? '', deviceId: deviceId ?? '' };
 }
 
 @Public()
@@ -36,7 +44,24 @@ export class SignInController {
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
   async signIn(@Body() body: unknown, @Res({ passthrough: true }) response: { setHeader(name: string, value: string): unknown }): Promise<SignInResponse> {
-    const result = await signIn(signInRequestOf(body), { prisma: this.prisma, hasher: this.hasher, clock: this.clock, jwtSecret: this.config.jwtSecret });
+    const result = await signIn(signInRequestOf(body), this.deps());
+    return this.answer(result, response);
+  }
+
+  @Post('choose-pin')
+  @HttpCode(HttpStatus.OK)
+  async choosePin(@Body() body: unknown, @Res({ passthrough: true }) response: { setHeader(name: string, value: string): unknown }): Promise<SignInResponse> {
+    return this.answer(await choosePin(choosePinRequestOf(body), this.deps()), response);
+  }
+
+  private deps() {
+    return { prisma: this.prisma, hasher: this.hasher, clock: this.clock, jwtSecret: this.config.jwtSecret };
+  }
+
+  private answer(
+    result: { ok: true; value: SignInResponse } | { ok: false; error: ChoosePinRefusal },
+    response: { setHeader(name: string, value: string): unknown },
+  ): SignInResponse {
     if (result.ok) {
       return result.value;
     }
@@ -47,7 +72,15 @@ export class SignInController {
       case 'InvalidCredentials':
         throw new HttpException({ kind: refusal.kind }, HttpStatus.UNAUTHORIZED);
       case 'AccountBlocked':
+      case 'PinMustBeChosen':
+      case 'ProvisionalPinExpired':
         throw new HttpException({ kind: refusal.kind }, HttpStatus.FORBIDDEN);
+      case 'PinAlreadyChosen':
+        throw new HttpException(refusal, HttpStatus.CONFLICT);
+      case 'InvalidPin':
+      case 'TrivialPin':
+      case 'SameAsProvisionalPin':
+        throw new HttpException(refusal, HttpStatus.BAD_REQUEST);
       case 'TooManyAttempts':
         response.setHeader('Retry-After', String(Math.max(1, Math.ceil((Date.parse(refusal.retryAt) - this.clock.now().getTime()) / 1_000))));
         throw new HttpException(refusal, HttpStatus.TOO_MANY_REQUESTS);

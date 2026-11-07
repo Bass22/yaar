@@ -33,6 +33,7 @@ CREATE TABLE "users" (
     "name" TEXT NOT NULL,
     "role" "user_role" NOT NULL,
     "pin_hash" TEXT NOT NULL,
+    "provisional_pin_expires_at" TIMESTAMPTZ(3),
     "pin_failures" INTEGER NOT NULL DEFAULT 0,
     "pin_last_failure_at" TIMESTAMPTZ(3),
     "blocked_at" TIMESTAMPTZ(3),

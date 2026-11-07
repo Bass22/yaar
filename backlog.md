@@ -62,6 +62,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Essais de PIN ratés : ralentir ou bloquer ?~~ ✅ tranché le 2026-11-06 : trois essais libres, puis 30 s, 1 min, 5 min, 15 min, 1 h au plus ; jamais de blocage définitif | CdC « Identité » | ~~E.1~~ |
 | ~~Faut-il refuser les PIN trop simples (0000, 1234, 111111) à la création d'un compte ?~~ ✅ tranché le 2026-11-06 : oui — un seul chiffre répété, ou des chiffres qui se suivent dans un sens ou dans l'autre | CdC « Identité » | ~~E.1~~ |
 | Un admin peut-il bloquer un autre admin du même élevage ? (aujourd'hui non : seuls les collaborateurs se bloquent, E.4) | CdC (non précisé) | E.4 |
+| ~~Combien d'admins par élevage, et qui les crée ?~~ ✅ tranché le 2026-11-07 : au moins un, pas forcément un seul ; créés par le seul script de l'éditeur (D.4, E.8) | CdC « Identité » | ~~E.5~~ |
+| Écran « Équipe » du bureau (créer un collaborateur, montrer son PIN provisoire, bloquer, PIN oublié) : à maquetter avec `/designer` | CdC (non précisé) | Aucune tranche d'écran ne le porte encore |
 | ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
 | ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Reste ouvert : le sort d'une outbox non synchronisée à la déconnexion | Archi §6 | G.2, G.5 |
@@ -499,20 +501,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] « Déconnecter partout » invalide les jetons sans bloquer le compte
 - [x] L'admin ne bloque ni son propre compte, ni un autre admin, ni un compte d'un autre élevage ; un gardien ne bloque personne
 
-### E.5 — L'admin crée les comptes de son équipe · **M** · 🔒
-> Spec : CdC « Utilisateurs, rôles » · Zone : `apps/api/src/users/`
-> Dépend de : E.3 · Revue : un collaborateur n'a jamais de droit admin par défaut.
+### E.5 — L'admin crée les comptes de son équipe · **M** · 🔒 ✅
+> Spec : CdC « Identité », « Utilisateurs, rôles » · Zone : `apps/api/src/users/{team-accounts,users.controller}.ts`, `apps/api/src/auth/{sign-in,sign-in.controller}.ts`, `packages/contracts/src/auth.ts`
+> Dépend de : E.3 · Revue : un collaborateur n'a jamais de droit admin par défaut ; aucune session n'existe avec un PIN provisoire.
+> Scindée le 2026-11-07 : l'affectation aux sites et le titulaire passent en E.7. Livrée le 2026-11-07, aucune dépendance ajoutée. **Décisions du 2026-11-07, ajoutées au CdC** : premier PIN en une seule étape (provisoire + nouveau, aucune session avant) ; provisoire valable 7 jours (`PROVISIONAL_PIN_LIFETIME_SECONDS`) ; PIN oublié remplacé de même ; **au moins un admin par élevage, créés par le seul script de l'éditeur** ; l'admin crée les collaborateurs depuis le bureau, en ligne.
+> **Ce qui est livré** : `POST /api/v1/users` (admin) reçoit exactement `{ id, phone, name }` et répond 201 `{ id, role: 'collaborator', provisionalPin, provisionalPinExpiresAt }` — le PIN provisoire est tiré au hasard par le serveur (jamais trop simple) et montré cette seule fois ; un numéro déjà pris : 409. `POST /api/v1/auth/choose-pin` (publique) reçoit `{ phone, provisionalPin, newPin, deviceId }` : le provisoire est vérifié et compté comme à la connexion, le nouveau suit les règles d'E.1 et diffère du provisoire, puis la première session s'ouvre. Avec le provisoire, la connexion ordinaire répond 403 `PinMustBeChosen`, ou `ProvisionalPinExpired` après 7 jours. `POST /api/v1/users/:id/reset-pin` (admin, collaborateurs seulement) donne un nouveau provisoire et invalide les jetons émis avant.
+> **Choix à relire** : le PIN provisoire est tiré par le serveur, pas choisi par l'admin. Un numéro déjà pris est vérifié avant la création, sur tout le service ; deux créations simultanées du même numéro donnent une erreur 500 au lieu d'un 409 (la contrainte d'unicité tient, rien n'est créé deux fois). La réponse « numéro déjà pris » dit qu'un numéro a un compte ailleurs (R-11).
 
-- [ ] L'admin crée un collaborateur : numéro, PIN, avatar
-- [ ] L'admin affecte un collaborateur à un ou plusieurs sites
-- [ ] L'admin désigne le titulaire d'un site ; un site n'a qu'un titulaire
-- [ ] Deux comptes du même tenant ne partagent pas un numéro
-- [ ] Un collaborateur ne peut ni créer un compte ni changer son rôle
-- [ ] Un compte non admin est créé avec un PIN provisoire. Sa première connexion demande le PIN provisoire **et** un nouveau PIN, en une seule étape : aucune session n'existe avant que le nouveau soit choisi (décision du 2026-11-07 — sinon l'admin, qui connaît le provisoire, pourrait se connecter à sa place)
-- [ ] Avec le seul PIN provisoire, la connexion ordinaire est refusée et dit qu'il faut choisir son PIN
-- [ ] Un PIN provisoire non utilisé expire au bout de 7 jours : l'admin en donne un autre
-- [ ] Un PIN oublié se remplace de la même façon : l'admin donne un PIN provisoire, qui invalide les jetons émis avant
-- [ ] Le nouveau PIN suit les règles d'E.1 (4 chiffres, pas trop simple) et diffère du provisoire
+- [x] L'admin crée un collaborateur : numéro, nom ; le compte reçoit un PIN provisoire tiré au hasard, montré une seule fois à l'admin
+- [x] Un compte créé est toujours un collaborateur : la requête ne choisit pas le rôle
+- [x] Un numéro qui a déjà un compte est refusé
+- [x] Un collaborateur ne peut ni créer un compte ni changer son rôle
+- [x] Un compte non admin est créé avec un PIN provisoire. Sa première connexion demande le PIN provisoire **et** un nouveau PIN, en une seule étape : aucune session n'existe avant que le nouveau soit choisi
+- [x] Avec le seul PIN provisoire, la connexion ordinaire est refusée et dit qu'il faut choisir son PIN
+- [x] Un PIN provisoire non utilisé expire au bout de 7 jours : l'admin en donne un autre
+- [x] Un PIN oublié se remplace de la même façon : l'admin donne un PIN provisoire, qui invalide les jetons émis avant
+- [x] Le nouveau PIN suit les règles d'E.1 (4 chiffres, pas trop simple) et diffère du provisoire
 
 ### E.6 — Les actions sensibles laissent une trace · **S** · 🔒
 > Spec : Archi §6 « Audit » ; `CLAUDE.md` §4 règle 14 · Zone : `apps/api/src/audit/`
@@ -522,6 +526,23 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La création d'un compte et la révocation d'une session sont tracées avec leur auteur
 - [ ] Une entrée d'audit ne se modifie ni ne se supprime
 - [ ] Aucune entrée ne contient de PIN ni de jeton
+
+### E.7 — Affecter l'équipe aux sites · **S** · 🔒
+> Spec : CdC « Gouvernance des déclarations » · Zone : `apps/api/src/users/`, `apps/api/src/sites/`
+> Dépend de : E.5 · Revue : un site n'a qu'un titulaire. Scindée d'E.5 le 2026-11-07.
+
+- [ ] L'admin affecte un collaborateur à un ou plusieurs sites, et retire une affectation
+- [ ] L'admin désigne le titulaire d'un site ; un site n'a qu'un titulaire
+- [ ] Un collaborateur ne s'affecte pas lui-même, et n'atteint que les sites où il est affecté (E.3)
+- [ ] L'avatar du compte, choisi dans une liste de pictos (liste à fixer avec `/designer`)
+
+### E.8 — Ajouter un admin à un élevage, par script · **S** · 🔒
+> Spec : CdC « Identité » (au moins un admin par élevage, créés par l'éditeur seul) · Zone : `apps/api/src/` (script, à côté de `bootstrap-tenant`)
+> Dépend de : D.4, E.5 · Revue : aucune route ne crée un admin.
+
+- [ ] Le script de l'éditeur ajoute un admin à un élevage existant (numéro, nom, PIN demandé au clavier)
+- [ ] Un numéro déjà pris est refusé ; un élevage inconnu aussi
+- [ ] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
 
 ## F — Ingestion et descente
 
