@@ -5,6 +5,18 @@ import type { PictogramName } from './generated/pictogram-names';
  * voice says for it. A pictogram added to the sources gets its name here, or the typecheck fails.
  */
 export const PICTOGRAM_LABELS: Readonly<Record<PictogramName, string>> = {
+  'avatar-baobab': 'Le baobab',
+  'avatar-calabash': 'La calebasse',
+  'avatar-drum': 'Le tambour',
+  'avatar-fish': 'Le poisson',
+  'avatar-goat': 'La chèvre',
+  'avatar-mango': 'La mangue',
+  'avatar-pirogue': 'La pirogue',
+  'avatar-sheep': 'Le mouton',
+  'avatar-star': "L'étoile",
+  'avatar-teapot': 'La théière',
+  'avatar-turtle': 'La tortue',
+  'avatar-watermelon': 'La pastèque',
   'bag-bundle': 'Paquet de quatre sacs',
   barn: 'Poulailler',
   bicarbonate: 'Bicarbonate',

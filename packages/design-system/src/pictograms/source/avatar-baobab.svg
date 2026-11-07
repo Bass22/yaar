@@ -1,0 +1,6 @@
+<!-- Avatar of an account (E.9), designed on 2026-11-07 (journal-gardien-entree.html). To validate in the field. Edit here, then bake. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+   <path d="M27 58 q-1 -14 -6 -22 l6 3 l-1 -9 l5 6 l1 -8 l4 9 l3 -7 l1 9 l5 -5 l-3 9 q-5 8 -5 15z" fill="#8C6D3E" stroke="#6B4A2E" stroke-width="2.4" stroke-linejoin="round"/>
+   <ellipse cx="20" cy="20" rx="11" ry="8" fill="#3E7C4F"/><ellipse cx="34" cy="13" rx="12" ry="8" fill="#4A8A5E"/><ellipse cx="46" cy="21" rx="11" ry="8" fill="#3E7C4F"/>
+   <path d="M10 58 h44" stroke="#6B4A2E" stroke-width="3" stroke-linecap="round"/>
+</svg>

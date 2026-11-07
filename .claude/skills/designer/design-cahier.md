@@ -20,7 +20,7 @@ Relevé de `journal-gardien.html` et `bureau-admin.html` (nov. 2026). Les maquet
 | `--ligne` | `rgba(107,74,46,.14)` | Lignes de cahier |
 | violet (hors token) | `#8C86B8` / `#5F5894` sur `#EFEAF8` | Saisie pour un jour passé |
 | post-it (hors token) | `#FCEFC9` | Rappel d'oubli |
-| vert forêt (marque) | `#1E4530` | Icône, écran de lancement, fond du manifest |
+| vert de la marque | `#054612` (`--color-splash`) | Icône du fondateur, écran de lancement, thème et fond du manifest (était `#1E4530` avant l'icône du fondateur, 2026-11-07) |
 
 Les couleurs hors token sont à promouvoir en tokens au portage. Une couleur ne porte jamais seule un sens.
 
@@ -69,6 +69,11 @@ Les couleurs hors token sont à promouvoir en tokens au portage. Une couleur ne 
 | Photo | `.viseur` | Cadre pointillé, devient vert une fois la photo prise |
 | Confirmation | `.resume`, `.f-oui` / `.f-non` | Relecture vocale puis Oui (vert) / Non (gris) |
 | Tampon | `.bravo` / `.tampon` | « C'est noté » |
+| Qui tient le cahier ? | `.carte-compte` (`journal-gardien-entree.html`) | Les comptes connus du téléphone en grands avatars (112 px) |
+| Code | `.ronds`, `.pave`, `.touche` | Quatre ronds à remplir, touches de 72 px ; premier code tapé deux fois |
+| Bandes | `.carte-bande`, `.intercalaires`, `.onglet`, `.tampon-bande` | Choix à l'ouverture si plusieurs bandes ; « les petits » (poussin) et « les grands » (poule) ; la confirmation redit la bande |
+| Afficheur de pesée | `.afficheur` | Imite l'écran d'une balance digitale, chiffres entrés par la droite |
+| Avatar | `.av` | Douze dessins (`avatar-*`), chacun sur sa couleur (liste `AVATARS`) |
 | Ligne de journal | `.evt` | Picto, libellé, auteur, statut (horloge → tampon), crayon |
 
 Tailles relevées : ligne de journal 56 px de haut au minimum ; coche de tâche 50 px ; ligne de saisie admin 48 px au minimum. **Sous le seuil de 48 px, à agrandir au portage** : crayon de correction (36 px), haut-parleur (40 px).

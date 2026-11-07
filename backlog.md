@@ -566,13 +566,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Un numéro déjà pris est refusé ; un élevage inconnu aussi
 - [x] Un élevage garde toujours au moins un admin : aucune action ne retire le dernier
 
-### E.9 — L'avatar du compte · **S**
-> Spec : CdC « Identité » (avatar picto reconnaissable à la connexion) · Zone : `packages/design-system/`, `apps/api/src/users/`
-> Dépend de : E.5, et la liste des pictos fixée avec `/designer` · Scindée d'E.7 le 2026-11-07.
+### E.9 — L'avatar et la langue du compte · **S**
+> Spec : CdC « Identité » (avatar picto reconnaissable à la connexion), « Trois canaux redondants » (langue audio) · Zone : `packages/design-system/`, `apps/api/src/users/`
+> Dépend de : E.5, et la liste des pictos fixée avec `/designer` · Scindée d'E.7 le 2026-11-07 ; la langue s'y ajoute le 2026-11-07 (décision du fondateur : la langue suit la personne, pas le site).
 
-- [ ] La liste fermée des avatars, fixée avec `/designer`
+- [x] La liste fermée des avatars, fixée avec `/designer` — douze avatars validés le 2026-11-07 (`packages/design-system/src/pictograms/source/avatar-*.svg`, liste `AVATARS`, noms dans `PICTOGRAM_LABELS`), recuits avec les pictos ; à valider sur le terrain
 - [ ] L'admin choisit l'avatar d'un collaborateur à la création, et le change
 - [ ] Deux comptes d'un même site ne portent pas le même avatar (à confirmer avec `/designer`)
+- [ ] L'admin choisit la langue audio d'un collaborateur à la création, et la change : une langue dont les clips existent (wolof, français ; d'autres plus tard) — c'est la personne qui écoute, et un remplaçant ne parle pas forcément la langue du titulaire
+- [ ] Sans langue choisie, le compte suit la langue par défaut de son site
 
 ## F — Ingestion et descente
 
@@ -643,7 +645,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### G.1 — L'application s'installe et démarre sans réseau · **M** ✅
 > Spec : Archi §5 « Service worker » · Zone : `apps/web` (manifest, service worker)
 > Dépend de : A.3 · Revue : ce qui est précaché, et son poids.
-> Livrée le 2026-11-07. **Dépendances ajoutées** (accord du fondateur) : `@angular/service-worker` 21.2 (MIT), `@fontsource/andika` et `@fontsource/shantell-sans` 5.3 (OFL) ; audit d'exécution à zéro, licences vérifiées. Manifeste (`public/manifest.webmanifest`, seul endroit où s'écrit « Yaar »), icônes 192 et 512 px masquables rendues depuis `public/icons/app-icon.svg` (`app-icon-192.png`, `app-icon-512.png`) — **première version de l'icône, à reprendre avec `/designer`**. Service worker Angular en production (`ngsw-config.json`) : précache de la coquille, du code, des styles, des polices et des icônes (environ 480 Ko). Polices des maquettes servies par l'application, sous-ensemble latin seulement (français et wolof). Stockage persistant demandé au démarrage, sans jamais bloquer. Vues `caretaker` et `admin` chargées à la demande ; code de départ : 62 Ko compressés.
+> Livrée le 2026-11-07. **Dépendances ajoutées** (accord du fondateur) : `@angular/service-worker` 21.2 (MIT), `@fontsource/andika` et `@fontsource/shantell-sans` 5.3 (OFL) ; audit d'exécution à zéro, licences vérifiées. Manifeste (`public/manifest.webmanifest`, seul endroit où s'écrit « Yaar »), icônes 192 et 512 px. **Icône remplacée le 2026-11-07 par celle du fondateur** (`packages/design-system/brand/yaar-icon.png`, avec le logo `yaar-logo.png`) : `packages/design-system/tools/make-app-icons.py` (Python et Pillow, lancé à la main) en tire les icônes pleines et masquables (192, 512), l'icône iPhone (180) et le favicon, en palette de 256 couleurs ; le vert de thème et de lancement devient `#054612`, pris sur l'icône (jeton `--color-splash`). Les icônes ne sont plus précachées : le téléphone les garde à l'installation. Favicon simplifié le 2026-11-07 (`brand/favicon.svg`, le Y et trois grains sans les animaux, lisible à 32 px), en SVG et en `.ico` redessiné par le même script. Service worker Angular en production (`ngsw-config.json`) : précache de la coquille, du code, des styles, des polices et des icônes (environ 480 Ko). Polices des maquettes servies par l'application, sous-ensemble latin seulement (français et wolof). Stockage persistant demandé au démarrage, sans jamais bloquer. Vues `caretaker` et `admin` chargées à la demande ; code de départ : 62 Ko compressés.
 > **Non vérifié** : le démarrage hors-ligne sur un vrai téléphone (cahier de recette, recette manuelle) ; les tests portent sur la configuration et le build.
 
 - [x] L'application s'installe sur l'écran d'accueil avec son icône (192 et 512 px, maskable)
@@ -657,8 +659,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : G.1, E.2 · Revue : utilisable sans lire.
 > Cœur livré le 2026-11-07 (décision du fondateur : un écran simple maintenant, l'écran « cahier » et l'avatar après `/designer` et E.9). `SessionStore` garde le jeton, son échéance et le rôle sur le téléphone (pas de cookie) et un identifiant d'appareil créé une seule fois ; `AuthService` ouvre la session (`sign-in`, `choose-pin` au premier PIN) et rend le motif d'un refus, ou « pas de réseau », ou « service indisponible ». Écran simple `/sign-in` : numéro, PIN, puis nouveau PIN à la première connexion, messages en français. Le cahier s'ouvre à un gardien dont la session a expiré (il déclare hors-ligne) ; le bureau exige une session valide et le rôle admin. `@angular/forms` n'est pas ajouté : deux champs n'en valent pas un paquet.
 
-- [ ] L'utilisateur reconnaît son avatar, puis saisit son PIN — avec E.9 et `/designer`
-- [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio) — avec `/designer` ; aujourd'hui, un message en français
+- [ ] L'utilisateur reconnaît son avatar, puis saisit son PIN — écran conçu le 2026-11-07 (`journal-gardien-entree.html`) : les comptes connus du téléphone en grands avatars, puis un pavé de grosses touches, ouvert au quatrième chiffre ; au premier choix, le nouveau code se tape deux fois (contrôle sur le téléphone, l'API ne change pas) ; reste à porter, avec E.9
+- [ ] Un PIN refusé se comprend sans lire (picto, couleur, audio) — conçu le 2026-11-07 : ronds rouges qui tremblent, post-it, voix ; reste à porter
 - [x] Une session ouverte survit à la fermeture de l'application
 - [x] Un collaborateur arrive sur le cahier ; un admin arrive sur le bureau
 
@@ -776,21 +778,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un nombre se décompose en clips selon la règle de la langue
 - [ ] « Tu as écrit 3 morts » et « 1 mort » s'accordent
 - [ ] Une phrase dont un clip n'existe pas dans la langue est signalée, jamais tronquée en silence
+- [ ] **Phrase entière d'abord** (décision du 2026-11-07) : une phrase enregistrée d'un seul tenant est toujours préférée ; elle n'est composée de morceaux que si elle n'existe pas entière — toute phrase fixe est enregistrée entière, et les phrases fréquentes avec un petit nombre aussi (« 3 morts aujourd'hui », jusqu'à un seuil réglé à l'écoute avec le locuteur et les pilotes) ; au-delà (livraisons, poussins), la phrase se compose, le nombre placé en fin de phrase ou détaché, les clips enchaînés sans silence. Ajouter une phrase entière ne demande aucun code
 
 ### I.2 — Les clips se jouent hors-ligne · **M** · ⚠
 > Spec : Archi §5 (précache des clips) ; `CLAUDE.md` §4 règle 11 · Zone : `apps/web/src/app/core/audio/`
 > Dépend de : I.1, G.1 · Revue : aucune synthèse vocale dans le bundle de production.
 
-- [ ] Les clips de la langue du site sont précachés
+- [ ] Les clips de la langue de la personne connectée sont précachés (sa langue, ou à défaut celle de son site — E.9)
 - [ ] Une phrase se joue sans réseau, clips enchaînés sans trou audible
 - [ ] Une nouvelle phrase interrompt la précédente
 - [ ] La synthèse vocale du navigateur n'est jamais appelée en production
 
-### I.3 — Le script français couvre tout l'écran du gardien · **S**
+### I.3 — Le script français couvre tout l'écran du gardien · **S** (script écrit)
 > Spec : CdC « Points ouverts » (script des phrases) · Zone : `audio/fr/`
 > Dépend de : I.1 · Revue : la liste des phrases, à lire à voix haute.
 
-- [ ] Chaque texte de l'écran du gardien a sa phrase dans le script
+- [x] Chaque texte de l'écran du gardien a sa phrase dans le script — `audio/script.md`, écrit le 2026-11-07 d'après la maquette et le cahier des charges : environ 375 clips par langue, selon le principe « phrase entière d'abord » ; colonne wolof à remplir par le traducteur ; guide d'enregistrement en tête
 - [ ] Un test échoue si un écran référence une phrase absente du script
 - [ ] Les clips wolof ⏸ attendent l'enregistrement d'un locuteur
 
@@ -806,7 +809,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Le badge du titulaire est visible
 - [ ] Sans campagne en cours, l'écran le dit par picto et audio
 - [ ] Avec une seule campagne en cours, le cahier s'ouvre directement dessus : aucun choix n'est demandé (décision du 2026-11-07)
-- [ ] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande simplement (picto, couleur, audio), sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration — écran à dessiner avec `/designer`
+- [ ] Avec plusieurs campagnes en cours sur le site, le gardien choisit la bande à chaque ouverture du cahier, en un tap sur de grandes cartes, puis en change par des intercalaires ; la confirmation de chaque déclaration redit la bande (décisions du 2026-11-07, `journal-gardien-entree.html`) ; il la choisit simplement (picto, couleur, audio) — deux bandes s'appellent « les petits » et « les grands », la plus jeune et la plus vieille (décision du 2026-11-07) ; au-delà de deux, nom à trouver —, sans pouvoir se tromper, et le cahier ouvert dit toujours sur quelle bande il écrit ; le choix ne coûte pas un tap de plus à chaque déclaration — écran à dessiner avec `/designer`
 - [ ] L'écran s'affiche hors-ligne avec le dernier contexte reçu
 
 ### J.2 — Trois jours et bannière du jour passé · **M**
@@ -1023,7 +1026,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : E.5 · Revue : le mode strict est désactivé par défaut ; c'est un choix de l'admin.
 
 - [ ] L'admin crée un site
-- [ ] Il choisit la langue audio du site
+- [ ] Il choisit la langue audio par défaut du site : celle d'un compte qui n'en a pas choisi (la langue suit la personne, E.9)
 - [ ] Il attache un protocole sanitaire au site
 - [ ] Il active ou désactive le mode strict ; par défaut il est désactivé
 - [ ] La modification d'une configuration de site est tracée dans l'audit
@@ -1318,7 +1321,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : H.3, B.2 · Revue : simple pour un gardien qui ne lit pas forcément.
 > Reformulée le 2026-11-07 : la balance n'est pas modélisée (décision du fondateur) ; le cadran qui répliquait le modèle de balance du site est abandonné.
 
-- [ ] La forme de la saisie est choisie avec `/designer` : chiffres tapés, ou cadran générique sans modèle de balance ; la maquette est mise à jour
+- [x] La forme de la saisie est choisie avec `/designer` — le 2026-11-07 : l'afficheur d'une balance digitale, recopié chiffre par chiffre (entrée par la droite), relu par la voix ; aucun poids pré-rempli (`journal-gardien-entree.html`)
 - [ ] Le poids saisi est un entier de grammes positif ; aucune capacité de balance ne le borne
 - [ ] La saisie borne le poids selon le type d'animal (un poulet de chair ne pèse pas 18 kg), pour rattraper une faute de frappe : **côté écran seulement** pour le moment, le serveur ne la vérifie pas (décision du 2026-11-07) ; les bornes viennent du référentiel de l'espèce ou de la souche
 - [ ] La saisie se fait au doigt sans ralentir sur un téléphone d'entrée de gamme

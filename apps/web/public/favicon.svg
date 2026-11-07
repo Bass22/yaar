@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><!-- Simplified mark for the browser tab (2026-11-07): the Y and three corn grains of the brand icon, without the animals, unreadable at 32 px. -->
+  <rect width="32" height="32" rx="7" fill="#054612"/>
+  <g fill="#F9AF03"><ellipse cx="10" cy="7.5" rx="2.2" ry="3" transform="rotate(-30 10 7.5)"/><ellipse cx="16" cy="5.5" rx="2.2" ry="3.2"/><ellipse cx="22" cy="7.5" rx="2.2" ry="3" transform="rotate(30 22 7.5)"/></g>
+  <path d="M8.5 12 L16 20 L23.5 12 M16 20 V28" fill="none" stroke="#FCEDC4" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

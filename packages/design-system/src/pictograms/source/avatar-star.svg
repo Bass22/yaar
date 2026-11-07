@@ -1,0 +1,4 @@
+<!-- Avatar of an account (E.9), designed on 2026-11-07 (journal-gardien-entree.html). To validate in the field. Edit here, then bake. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+   <path d="M32 6 l7 16 l17 2 l-13 11 l4 17 l-15 -9 l-15 9 l4 -17 l-13 -11 l17 -2z" fill="#E8B10A" stroke="#6B4A2E" stroke-width="2.6" stroke-linejoin="round"/>
+</svg>

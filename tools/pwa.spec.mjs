@@ -17,20 +17,25 @@ function pngSize(path) {
 
 // Spec: backlog G.1 — l'application s'installe et démarre sans réseau ; Archi §5 « Service worker »
 describe('Application installable, hors-ligne', () => {
-  it("le manifeste installe l'application sur l'écran d'accueil, avec ses icônes 192 et 512 px masquables", () => {
+  it("le manifeste installe l'application sur l'écran d'accueil, avec ses icônes 192 et 512 px, pleines et masquables, au vert de la marque", () => {
     const manifest = json('apps/web/public/manifest.webmanifest');
+    const splash = /--color-splash: (#[0-9A-Fa-f]{6});/.exec(read('packages/design-system/src/tokens/_tokens.scss'))[1];
 
     assert.equal(manifest.name, 'Yaar', 'le nom de travail ne s’écrit qu’ici');
     assert.equal(manifest.display, 'standalone');
     assert.equal(manifest.start_url, '/');
-    assert.equal(manifest.background_color, '#1E4530');
+    assert.equal(manifest.background_color, splash, 'le fond du lancement est le jeton de la marque');
+    assert.match(read('apps/web/src/index.html'), new RegExp(`<meta name="theme-color" content="${splash}"`));
     for (const size of [192, 512]) {
-      const icon = manifest.icons.find((candidate) => candidate.sizes === `${size}x${size}`);
-      assert.ok(icon, `icône ${size}`);
-      assert.match(icon.purpose, /maskable/);
-      assert.deepEqual(pngSize(`apps/web/public/${icon.src}`), [size, size]);
+      for (const purpose of ['any', 'maskable']) {
+        const icon = manifest.icons.find((candidate) => candidate.sizes === `${size}x${size}` && candidate.purpose === purpose);
+        assert.ok(icon, `icône ${size} ${purpose}`);
+        assert.deepEqual(pngSize(`apps/web/public/${icon.src}`), [size, size]);
+      }
     }
+    assert.deepEqual(pngSize('apps/web/public/icons/apple-touch-icon.png'), [180, 180]);
     assert.match(read('apps/web/src/index.html'), /<link rel="manifest" href="manifest\.webmanifest"/);
+    assert.match(read('apps/web/src/index.html'), /<link rel="apple-touch-icon" href="icons\/apple-touch-icon\.png"/);
   });
 
   it("le service worker est construit avec l'application et enregistré par elle", () => {
