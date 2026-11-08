@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import type { PictogramName } from '@design-system';
 import type { FactPayload } from '@contracts';
 import { Pictogram } from '../../ui/pictogram';
@@ -51,6 +51,11 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
               <b>{{ wordsOf(line) }}</b>
               <small>{{ line.authorName }}{{ line.corrected ? ' · corrigé' : '' }}{{ line.retracted ? ' · annulé par le chef' : line.waiting ? " · en attente d'envoi" : ' · bien envoyé' }}</small>
             </span>
+            @if (line.pencil !== null) {
+              <button type="button" class="pencil" [class.locked]="line.pencil === 'locked'" [class.unavailable]="line.pencil === 'correct' && !online()" [attr.aria-label]="pencilLabel(line)" (click)="correct.emit(line)">
+                <app-pictogram [picto]="line.pencil === 'correct' && !online() ? 'sync-cloud' : 'pencil'" [decorative]="true" />
+              </button>
+            }
             @if (!line.retracted) {
               <app-pictogram class="state" [picto]="line.waiting ? 'stamp-pending' : 'stamp-done'" />
             }
@@ -72,6 +77,16 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
     .words b { display: block; font-size: 1rem; }
     .words small { display: block; font-size: 0.78rem; font-weight: 400; color: var(--color-muted); }
     .state { inline-size: 40px; block-size: 40px; flex: none; }
+    .pencil {
+      inline-size: var(--touch-target-min); block-size: var(--touch-target-min); flex: none;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      border: 2px solid var(--color-earth); border-radius: var(--radius-blob); background: var(--color-paper); box-shadow: var(--shadow-hard-sm);
+    }
+    .pencil:active { transform: translate(1px, 1px); }
+    .pencil:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+    .pencil app-pictogram { inline-size: 24px; block-size: 24px; }
+    /* It cannot act now: dashed and flat, but as dark as the others — read in the sun. */
+    .pencil.locked, .pencil.unavailable { border-style: dashed; border-width: 3px; background: var(--color-shell); box-shadow: none; }
     .retracted .words b { text-decoration: line-through; }
     .retracted .what { opacity: 0.45; }
   `,
@@ -79,6 +94,14 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
 export class DayJournal {
   readonly title = input.required<string>();
   readonly lines = input.required<readonly NamedLine[]>();
+  /** Without it, the pencil of a sent line shows the cloud: correcting it needs the network (K.5). */
+  readonly online = input(true);
+  /** The pencil of a line was touched; the correction says what it can do. */
+  readonly correct = output<NamedLine>();
+
+  protected pencilLabel(line: NamedLine): string {
+    return line.pencil === 'locked' ? 'Corriger : la ligne part en ce moment' : line.pencil === 'correct' && !this.online() ? 'Corriger : il faut du réseau' : 'Corriger';
+  }
 
   protected pictoOf(line: NamedLine): PictogramName {
     return lineOf(line.fact).picto;

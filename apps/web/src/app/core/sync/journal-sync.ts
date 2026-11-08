@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { DestroyRef, Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { JournalBatchResponse, JournalEventPayload } from '@contracts';
+import type { FactPayload, JournalBatchResponse, JournalEventPayload } from '@contracts';
 import { Outbox, OutboxUnavailable, type EventDraft, type OutboxEntry } from '../outbox/outbox';
 import { AuthService } from '../session/auth';
 import { synchronize, type SyncAnswer, type SyncStop } from './synchronize';
@@ -53,6 +53,36 @@ export class JournalSync {
     return entry;
   }
 
+  /**
+   * Changes the quantity of a declaration that never left the phone (K.5): same identifier, same
+   * dates. Returns `false` when it already left — an attempt is in doubt, or it was sent.
+   */
+  async amend(id: string, quantity: number): Promise<boolean> {
+    const outbox = await this.outbox;
+    const entry = await outbox.find(id);
+    if (entry === null || !('fact' in entry.payload) || !('quantity' in entry.payload.fact)) {
+      return false;
+    }
+    // `replace` only changes an event that never left, and keeps its identifier.
+    const replaced = await outbox.replace(id, { ...entry.payload, fact: { ...entry.payload.fact, quantity } } as EventDraft);
+    await this.refreshCounts();
+    return replaced;
+  }
+
+  /**
+   * Sends a counter-declaration now, never through the outbox: a correction after sending needs
+   * the network (decision of 2026-11-06). Without an answer nothing is kept — the caretaker tries
+   * again, and a second correction to the same value changes nothing: the last written prevails.
+   */
+  async correct(draft: { readonly siteId: string; readonly campaignId: string; readonly businessDate: string; readonly recordedAt: string; readonly corrects: string; readonly fact: FactPayload }): Promise<SyncAnswer> {
+    this.auth.refresh();
+    const session = this.auth.session();
+    if (session.status !== 'active') {
+      return { kind: 'unauthorized' };
+    }
+    return this.send([{ ...draft, id: crypto.randomUUID() }], session.token);
+  }
+
   /** Sends what waits. A call during a running synchronisation runs once more after it. */
   sync(): Promise<void> {
     if (this.running !== null) {
@@ -72,6 +102,13 @@ export class JournalSync {
 
   private async syncOnce(): Promise<void> {
     this.auth.refresh();
+    // The phone knows it has no network: no attempt, so nothing turns « in doubt » — a declaration
+    // that never left stays free to correct (K.5). « Online » is not trusted the other way round.
+    if (globalThis.navigator?.onLine === false) {
+      this.stopped.set('Offline');
+      await this.refreshCounts();
+      return;
+    }
     try {
       const report = await synchronize(await this.outbox, this.auth.session(), (events, token) => this.send(events, token), Date.now());
       this.stopped.set(report.stopped);
@@ -98,6 +135,8 @@ export class JournalSync {
   }
 
   private async send(events: readonly JournalEventPayload[], token: string): Promise<SyncAnswer> {
+    // The batch was just marked in doubt: the notebook locks its lines before the answer comes.
+    this.revision.update((revision) => revision + 1);
     try {
       const response = await firstValueFrom(
         this.http.post<JournalBatchResponse>('/api/v1/journal/events', { events }, { headers: new HttpHeaders({ Authorization: `Bearer ${token}` }) }),

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
 import type { BusinessDay } from '@domain/journal';
 import { clip, counted, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
@@ -7,6 +7,7 @@ import { SpeakerButton } from '../../ui/speaker-button';
 import { BAGS } from '../gestures/bag/bags';
 import { DEATHS } from '../gestures/death/deaths';
 import { DeclarationGesture } from '../gestures/declaration-gesture';
+import { LineCorrection } from '../journal/correction/line-correction';
 import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
@@ -22,7 +23,7 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, NothingLostReminder, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, LineCorrection, NothingLostReminder, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -69,7 +70,10 @@ import { NotebookCover } from './notebook-cover';
                 <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.bagsWritten()" />
               </div>
             }
-            <app-day-journal [title]="journalTitle()" [lines]="lines()" />
+            <app-day-journal [title]="journalTitle()" [lines]="lines()" [online]="notebook.online()" (correct)="correction()?.start($event)" />
+            @if (notebook.declarationTarget(); as target) {
+              <app-line-correction [target]="target" [when]="notebook.day()?.when ?? 'today'" [online]="notebook.online()" />
+            }
           </section>
         }
       }
@@ -101,6 +105,7 @@ export class NotebookPage {
   protected readonly notebook = inject(Notebook);
   private readonly voice = inject(Voice);
   protected readonly sync = inject(JournalSync);
+  protected readonly correction = viewChild(LineCorrection);
   protected readonly deaths = DEATHS;
   protected readonly bags = BAGS;
 

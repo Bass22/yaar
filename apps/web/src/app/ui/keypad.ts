@@ -38,7 +38,7 @@ import { Pictogram } from './pictogram';
     .key:active { transform: translate(1px, 2px); box-shadow: var(--shadow-hard-xs); }
     .key:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
     .key:disabled { opacity: 0.4; cursor: not-allowed; }
-    .erase { background: var(--color-neutral); }
+    .erase { background: var(--color-neutral); color: var(--color-on-sign); }
     .validate { background: var(--color-pasture); }
     app-pictogram { inline-size: 28px; block-size: 28px; }
   `,

@@ -133,6 +133,8 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `corrected` | C'est corrigé. Merci ! | Correction envoyée | |
 | `correct-needs-network` | Pour corriger, il faut du réseau. Réessaie quand le téléphone en a. | Crayon touché sans réseau | |
 | `correct-too-old` | Ce jour est trop ancien pour corriger. Parle au chef. | Au-delà des trois jours | |
+| `correct-wait-sending` | Cette ligne part en ce moment. Attends un peu, puis corrige. | Crayon touché pendant un envoi en doute (K.5) | |
+| `correct-refused` | Le chef n'a pas pu accepter cette correction. Parle au chef. | Une correction refusée par le serveur, pour une autre raison que le jour trop ancien (K.5) | |
 
 ## 8. Livraison
 
@@ -186,10 +188,10 @@ Les tâches viennent du protocole sanitaire de chaque site, et la météo de sa 
 
 | Id | Phrase | Quand | Wolof |
 |---|---|---|---|
-| `weather-hot` | Il fait très chaud aujourd'hui. Mets du bicarbonate dans l'eau des poulets, et vérifie l'ombre. | Forte chaleur | |
+| `weather-hot` | Il fait très chaud aujourd'hui. Mets de la glace dans l'eau, et vérifie l'ombre. | Forte chaleur | |
 | `tasks-today` | Voici les tâches du jour. Appuie sur chacune quand elle est faite. | Section des tâches | |
 | `task-vaccine` | Mets le vaccin dans l'eau, le matin. | Tâche vaccin | |
-| `task-bicarbonate` | Ajoute le bicarbonate contre la chaleur. | Tâche bicarbonate | |
+| `task-bicarbonate` | Ajoute le bicarbonate dans l'eau. | Tâche bicarbonate | |
 | `task-water` | Change l'eau des abreuvoirs, deux fois. | Tâche eau | |
 
 ---
@@ -208,4 +210,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 410 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 412 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

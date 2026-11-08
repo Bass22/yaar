@@ -28,7 +28,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     .cover.on { opacity: 1; background: var(--color-shell); }
     .stamp { color: var(--color-pasture); text-align: center; transform: rotate(-10deg); animation: slam 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
     svg { inline-size: 190px; block-size: 190px; display: block; }
-    .word { margin: -34px 0 0; font: 700 1.4rem var(--font-hand); }
+    /* Across the bottom of the ring, as in the mockup, on a band of paper so that the ring does not cross the letters. */
+    .word { position: relative; display: inline-block; margin: -34px 0 0; padding: 0 8px; background: var(--color-shell); font: 700 1.4rem var(--font-hand); }
     @keyframes slam {
       from { transform: scale(2.1) rotate(6deg); opacity: 0; }
       60% { transform: scale(0.92) rotate(-11deg); opacity: 1; }

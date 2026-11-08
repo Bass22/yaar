@@ -108,12 +108,23 @@ export type NotebookLine = {
   readonly retracted: boolean;
   /** Still on the phone, or a correction of it is: the waiting stamp instead of « bien envoyé ». */
   readonly waiting: boolean;
+  /**
+   * What its pencil does (K.5): `edit` while it never left the phone; `locked` while a sending is
+   * in doubt; `correct` once sent — a counter-declaration, online; `null`: nothing to correct
+   * (taken back, or no measured value).
+   */
+  readonly pencil: LinePencil;
 };
+
+export type LinePencil = 'edit' | 'locked' | 'correct' | null;
 
 /** The journal of one day, the latest written on top — the server's lines with the phone's. */
 export function linesOf(campaign: CaretakerCampaign, journal: readonly JournalEvent[], entries: readonly OutboxEntry[], day: BusinessDay): NotebookLine[] {
   const waiting = new Set(entries.filter((entry) => entry.state === 'pending' || entry.state === 'in-doubt').map((entry) => entry.id));
   const correctedByServer = new Set(campaign.journal.filter((line) => line.corrected).map((line) => line.id));
+  const stateOf = new Map(entries.map((entry) => [entry.id, entry.state]));
+  const pencilOf = (id: string, type: string, correctionWaits: boolean): LinePencil =>
+    type !== 'Death' && type !== 'BagOpened' ? null : stateOf.get(id) === 'in-doubt' || correctionWaits ? 'locked' : stateOf.get(id) === 'pending' ? 'edit' : 'correct';
   const standing: NotebookLine[] = effectiveJournal(journal)
     .filter((line) => line.declaration.businessDate === day && line.declaration.type !== 'Loss')
     .map((line) => ({
@@ -124,13 +135,14 @@ export function linesOf(campaign: CaretakerCampaign, journal: readonly JournalEv
       corrected: line.correction !== null || correctedByServer.has(line.declaration.id),
       retracted: line.retraction !== null,
       waiting: waiting.has(line.declaration.id) || (line.correction !== null && waiting.has(line.correction.id)),
+      pencil: line.retraction !== null ? null : pencilOf(line.declaration.id, line.declaration.type, line.correction !== null && waiting.has(line.correction.id)),
     }));
   const takenBack: NotebookLine[] = campaign.journal.filter((line) => line.retracted && line.businessDate === day).map(retractedLine);
   return [...standing, ...takenBack].sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : 0));
 }
 
 function retractedLine(line: CaretakerJournalLine): NotebookLine {
-  return { id: line.id, recordedAt: line.recordedAt, authorId: line.author.id, fact: line.fact, corrected: line.corrected, retracted: true, waiting: false };
+  return { id: line.id, recordedAt: line.recordedAt, authorId: line.author.id, fact: line.fact, corrected: line.corrected, retracted: true, waiting: false, pencil: null };
 }
 
 // The phone's own outbox and the server's answer were checked by the field rules where they

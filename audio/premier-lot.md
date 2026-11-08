@@ -1,6 +1,6 @@
 # Premier lot d'enregistrements — liste à cocher
 
-Les 36 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 410 phrases en tout).
+Les 42 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 412 phrases en tout).
 
 ## Comment nommer les fichiers
 
@@ -23,7 +23,7 @@ Les 36 phrases que l'application dit **déjà** : une fois enregistrées et conv
 
 ```bash
 brew install ffmpeg            # une seule fois
-node tools/build-audio.mjs     # convertit, puis affiche « fr : 36 clips sur 410 »
+node tools/build-audio.mjs     # convertit, puis affiche « fr : 42 clips sur 412 »
 ```
 
 ---
@@ -82,6 +82,15 @@ Le geste « Sac ouvert » : même parcours que les morts. « C'est bien ça ? »
 
 - [ ] **nothing-lost-reminder** — « Pour hier, les morts ne sont pas écrits. S'il n'y a eu aucun mort, appuie sur le bouton vert. Sinon, écris les morts d'hier. »
 - [ ] **nothing-lost-done** — « C'est noté : hier, rien de perdu. Merci ! »
+
+## 6. Corriger une ligne (6)
+
+- [ ] **correct-how-many** — « Corrige le nombre, puis appuie sur le bouton vert. »
+- [ ] **corrected** — « C'est corrigé. Merci ! »
+- [ ] **correct-needs-network** — « Pour corriger, il faut du réseau. Réessaie quand le téléphone en a. »
+- [ ] **correct-wait-sending** — « Cette ligne part en ce moment. Attends un peu, puis corrige. »
+- [ ] **correct-too-old** — « Ce jour est trop ancien pour corriger. Parle au chef. »
+- [ ] **correct-refused** — « Le chef n'a pas pu accepter cette correction. Parle au chef. »
 
 ---
 

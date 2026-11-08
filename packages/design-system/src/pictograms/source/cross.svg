@@ -1,4 +1,4 @@
-<!-- From journal-gardien.html, symbol "croix". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<!-- From journal-gardien.html, symbol "croix", drawn in white there on dark buttons. In the colour of the text around it (currentColor): white on a dark button, ink on a post-it. Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M18 18 L46 46 M46 18 L18 46" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M18 18 L46 46 M46 18 L18 46" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
 </svg>

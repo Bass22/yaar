@@ -105,6 +105,12 @@ export class Outbox {
     return (await this.all()).filter((entry) => entry.payload.campaignId === campaignId && entry.state !== 'refused');
   }
 
+  /** The event kept under this identifier, `null` when the phone does not have it. */
+  async find(id: string): Promise<OutboxEntry | null> {
+    const entry = (await this.read((store) => store.index('id').get(id))) as OutboxEntry | undefined;
+    return entry ?? null;
+  }
+
   /** How many events of this account wait to leave: the count of the sync badge. */
   async waiting(authorId: string): Promise<number> {
     return (await this.toSend(authorId)).length;

@@ -67,10 +67,11 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Écran « Équipe » du bureau (créer un collaborateur, montrer son PIN provisoire, bloquer, PIN oublié) : à maquetter avec `/designer` | CdC (non précisé) | Aucune tranche d'écran ne le porte encore |
 | ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
+| ~~Comment une nouvelle version arrive-t-elle sur le téléphone ?~~ ✅ tranché le 2026-11-08 : relance silencieuse quand l'application n'est pas utilisée — à l'ouverture, ou au retour au premier plan — jamais en plein geste, pas d'heure fixe ; aucun message au gardien | CdC « Mise à jour de l'application », Archi §5 | Z.5 |
 | ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Le sort d'une outbox non synchronisée à la fin d'une session est tranché le 2026-11-07 : elle reste sur le téléphone, et repart quand le même compte se reconnecte ; un autre compte connecté sur ce téléphone ne l'envoie jamais sous son nom | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
 | Une tâche sanitaire non faite est-elle reportée au lendemain ? | CdC (non précisé) | L.1 |
-| Source de la météo, et seuil de chaleur qui déclenche la tâche bicarbonate | CdC (non précisé) | L.3 |
+| Source de la météo, et seuil de chaleur qui déclenche la tâche de chaleur | CdC « Points ouverts » (Tâches par élevage). **Tranché le 2026-11-08** : la tâche de chaleur est **la glace dans l'eau**, au-delà de **32 °C**, jugée sur la **prévision du jour J** et sur le **ressenti** si la source le donne ; le **bicarbonate n'est pas lié à la chaleur**, c'est une tâche optionnelle de l'élevage. Elle vaut pour **tous les animaux, à tout âge**. Reste : quand tombe le bicarbonate ? source météo | L.1, L.3 |
 | ~~Une seule campagne en cours par site ?~~ ✅ tranché le 2026-11-07 : non — un site peut avoir plusieurs campagnes en cours à la fois, et le gardien déclare sur chacune | CdC « Hiérarchie » | ~~O.2~~ |
 | Seuil par défaut de l'alerte de mortalité sur 7 jours | CdC « Points ouverts » | O.4 |
 | Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ? | CdC (non précisé) | P.1 |
@@ -889,21 +890,23 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] « Écrire pour hier » ouvre la saisie sur le jour d'hier
 - [x] Le rappel disparaît dès qu'hier est déclaré
 
-### K.5 — Corriger une déclaration · **M** · 🎨 · 🧪
+### K.5 — Corriger une déclaration · **M** · 🎨 · 🧪 ✅
 > Spec : CdC « Corrections » · Zone : `apps/web/src/app/caretaker/journal/correction/`
 > Dépend de : J.3, C.4, G.4 · Revue : l'interface n'offre jamais d'effacer, et ne met jamais une correction en file d'attente.
 > 🎨 La maquette `journal-gardien.html` donne le crayon sur une ligne « bien envoyé » et remet la correction en attente : à reprendre d'après la décision du 2026-11-06 (correction en ligne), avec l'état « crayon indisponible sans réseau ».
+> Livrée le 2026-11-08, aucune dépendance ajoutée. Le crayon de chaque ligne de mort ou de sac (`LinePencil` dans `linesOf`) : **libre** tant que la déclaration n'a jamais quitté le téléphone — `JournalSync.amend` change sa quantité dans l'outbox, même identifiant, mêmes dates ; **verrouillé** pendant un envoi en doute — il le dit (`correct-wait-sending`) ; **en ligne** une fois envoyée — `JournalSync.correct` envoie la contre-déclaration tout de suite, hors de l'outbox, puis le cahier relit le contexte. Sans réseau, le crayon d'une ligne envoyée montre le nuage et le dit (`correct-needs-network`) ; un serveur muet aussi ; un refus « trois jours passés » dit `correct-too-old`, tout autre refus `correct-refused` (2 phrases ajoutées, script à 412). Les feuilles compteur → relecture → Oui sortent de `DeclarationGesture` en `CountSheets`, partagées par le geste et la correction. **Trouvé en route** : la synchro tentait d'envoyer même sans réseau, donc toute déclaration écrite hors-ligne passait « en doute » à l'instant et ne se corrigeait plus ; le téléphone ne tente plus rien quand il se sait hors-ligne (`navigator.onLine`, architecture §1 « Corrections en ligne »).
+> **Non fait ici** : la ligne corrigée montre sa valeur effective et « corrigé », pas l'ancienne valeur — le contexte du gardien ne l'envoie pas. Le dernier point de la liste est **sans objet** : le gardien n'écrit plus de correction hors-ligne, il n'y a donc jamais de correction sur le téléphone à départager d'une correction du serveur. Une session expirée pendant la correction est dite comme un refus, sans proposer de se reconnecter. Après un refus, le cahier est relu comme après une acceptation (ajouté le 2026-11-08) : une ligne annulée entre-temps par le chef apparaît barrée, sans crayon. Un serveur qui a reçu la correction sans que la réponse arrive : le gardien recommence, la seconde correction porte la même valeur, la dernière écrite fait foi — rien ne change. Pas regardé dans un navigateur à 360 px.
 
-- [ ] Tant que la déclaration n'a jamais quitté le téléphone, le crayon la modifie librement, sans réseau
-- [ ] Si un envoi est en doute, la ligne est verrouillée jusqu'à la réponse du serveur
-- [ ] Après l'envoi, le crayon crée une contre-déclaration, envoyée tout de suite : elle ne passe pas par l'outbox
-- [ ] Sans réseau, le crayon d'une ligne déjà envoyée est indisponible, et il le dit par picto et audio
-- [ ] Le crayon n'apparaît que sur les trois jours du cahier ; un refus du serveur (trois jours passés, campagne clôturée) est dit au gardien par picto et audio
-- [ ] Seules les valeurs mesurées se corrigent (quantité, poids, papier du livreur), jamais en dessous de 1 ; aucun geste n'annule une déclaration
-- [ ] La ligne d'origine reste visible, avec sa correction
-- [ ] Les vivants suivent la valeur corrigée
-- [ ] Le contexte du gardien donne la date de saisie de la dernière correction d'une ligne (J.3 ne reçoit que la valeur effective) : sans elle, une correction écrite hors-ligne plus tôt passerait, sur le téléphone, devant une correction plus récente reçue du serveur
-- [ ] Aucun geste ne supprime une ligne du journal
+- [x] Tant que la déclaration n'a jamais quitté le téléphone, le crayon la modifie librement, sans réseau
+- [x] Si un envoi est en doute, la ligne est verrouillée jusqu'à la réponse du serveur
+- [x] Après l'envoi, le crayon crée une contre-déclaration, envoyée tout de suite : elle ne passe pas par l'outbox
+- [x] Sans réseau, le crayon d'une ligne déjà envoyée est indisponible, et il le dit par picto et audio
+- [x] Le crayon n'apparaît que sur les trois jours du cahier ; un refus du serveur (trois jours passés, campagne clôturée) est dit au gardien par picto et audio
+- [x] Seules les valeurs mesurées se corrigent (quantité, poids, papier du livreur), jamais en dessous de 1 ; aucun geste n'annule une déclaration
+- [x] La ligne d'origine reste visible, avec sa correction (sa valeur effective et « corrigé » ; l'ancienne valeur n'est pas montrée)
+- [x] Les vivants suivent la valeur corrigée
+- [x] ~~Le contexte du gardien donne la date de saisie de la dernière correction~~ sans objet depuis la correction en ligne : voir la note d'une ligne (J.3 ne reçoit que la valeur effective) : sans elle, une correction écrite hors-ligne plus tôt passerait, sur le téléphone, devant une correction plus récente reçue du serveur
+- [x] Aucun geste ne supprime une ligne du journal
 
 ## L — Tâches et météo
 
@@ -926,11 +929,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une tâche cochée par un autre gardien apparaît faite après synchro
 
 ### L.3 — Météo et tâche de chaleur · **M** · ⚠
-> Spec : CdC « En-tête et contexte » (météo, bicarbonate) · Zone : `apps/api/src/sites/weather/`, `apps/web/src/app/caretaker/weather/`
+> Spec : CdC « En-tête et contexte » (météo, glace dans l'eau), « Points ouverts » (Tâches par élevage) · Zone : `apps/api/src/sites/weather/`, `apps/web/src/app/caretaker/weather/`
 > Dépend de : L.2 · Revue : la source météo est derrière un port.
 
 - [ ] La météo du jour s'affiche avec un conseil vocal
-- [ ] Au-delà d'un seuil de chaleur, la tâche bicarbonate s'ajoute aux tâches du jour
+- [ ] Au-delà de 32 °C prévus pour le jour (ressenti compris quand la source le donne), la tâche « glace dans l'eau » s'ajoute aux tâches du jour (décision du 2026-11-08 ; la maquette, qui lie le bicarbonate à la chaleur, est dépassée sur ce point)
 - [ ] Sans réseau, la dernière météo connue s'affiche, datée
 - [ ] Une source météo indisponible n'empêche aucune déclaration
 
@@ -1602,6 +1605,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La sonde `/api/v1/health/ready` n'est pas offerte à Internet sans limite de débit (réserve R-9)
 - [ ] Le tableau des réserves ouvertes de `docs/cahier-de-recette.md` est vide : chaque réserve est levée, ou acceptée par le fondateur
 - [ ] La recette manuelle sur appareil du même cahier a été rejouée en entier
+- [ ] Une nouvelle version s'installe sans rien demander au gardien : relance à l'ouverture ou au retour au premier plan, jamais pendant un geste (décision du 2026-11-08, réserve 6 de la vérification du lot K)
 
 ### Z.6 — ⏸ Importer l'historique Excel · ⚠
 > Spec : CdC « Points ouverts » (import Excel) · à spécifier avant découpage : correspondance des onglets, agrégats incrustés dans les commentaires, dates en série Excel, quantités négatives de report.

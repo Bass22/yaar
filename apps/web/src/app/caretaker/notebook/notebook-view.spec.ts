@@ -138,8 +138,27 @@ describe('Le journal du jour', () => {
     const bande = uneBande({ journal: [uneLigne(1, morts(4), { retracted: true })] });
 
     expect(linesOf(bande, journalOf(bande, [], where), [], HIER)).toEqual([
-      { id: uuid(1), recordedAt: '2026-11-05T11:00:00.000Z', authorId: AWA, fact: morts(4), corrected: false, retracted: true, waiting: false },
+      { id: uuid(1), recordedAt: '2026-11-05T11:00:00.000Z', authorId: AWA, fact: morts(4), corrected: false, retracted: true, waiting: false, pencil: null },
     ]);
+  });
+
+  it('le crayon de chaque ligne (K.5) : libre tant qu’elle n’est jamais partie, verrouillé pendant un envoi en doute, en ligne une fois envoyée, absent sur « rien perdu » et sur une ligne annulée', () => {
+    const bande = uneBande({ journal: [uneLigne(1, morts(3)), uneLigne(2, { type: 'NoLoss' }), uneLigne(3, morts(1), { retracted: true })] });
+    const entries = [surLeTelephone(5, morts(2)), surLeTelephone(6, { type: 'BagOpened', quantity: 2 }, 'in-doubt'), surLeTelephone(7, morts(1), 'sent')];
+
+    const lignes = linesOf(bande, journalOf(bande, entries, where), entries, HIER);
+
+    expect(Object.fromEntries(lignes.map(({ id, pencil }) => [id, pencil]))).toEqual({
+      [uuid(1)]: 'correct', [uuid(2)]: null, [uuid(3)]: null, [uuid(5)]: 'edit', [uuid(6)]: 'locked', [uuid(7)]: 'correct',
+    });
+  });
+
+  it('une ligne annulée que le téléphone garde encore n’a pas de crayon : une annulation est définitive', () => {
+    const bande = uneBande();
+    const annulation: OutboxEntry = { seq: ++seq, id: uuid(9), authorId: OUSMANE, state: 'sent', payload: { id: uuid(9), siteId: SITE, campaignId: BANDE, businessDate: HIER, recordedAt: '2026-11-05T23:00:00.000Z', retracts: uuid(5) } };
+    const entries = [surLeTelephone(5, morts(2), 'sent'), annulation];
+
+    expect(linesOf(bande, journalOf(bande, entries, where), entries, HIER).map(({ id, retracted, pencil }) => [id, retracted, pencil])).toEqual([[uuid(5), true, null]]);
   });
 
   it("une autre bande ne passe pas dans ce journal", () => {

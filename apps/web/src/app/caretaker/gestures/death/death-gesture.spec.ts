@@ -115,6 +115,7 @@ describe('Déclarer des morts', () => {
 
     await soon(() => expect(heard).toEqual([['wo/deaths-how-many'], ['wo/deaths-today-2', 'wo/confirm']]));
     expect(ouverte(element)?.querySelector('.phrase')?.textContent).toContain("2 poulets morts aujourd'hui ?");
+    expect(ouverte(element)?.querySelector('.title')?.textContent).toBe("C'est bien ça ?");
   });
 
   it("le jour choisi est celui de la déclaration : pour hier, la voix dit « hier » et l'événement porte la date d'hier", async () => {
@@ -138,6 +139,8 @@ describe('Déclarer des morts', () => {
 
     await soon(() => expect(heard.at(-1)).toEqual(['wo/deaths-today-1', 'wo/already-written-5', 'wo/deaths-in-addition-1']));
     expect(ouverte(element)?.querySelector('.already')?.textContent).toContain('Il y a déjà 5 morts écrits pour ce jour. Ton mort, c’est en plus ?');
+    // The title asks what the voice asks: « c'est en plus ? », not « c'est bien ça ? ».
+    expect(ouverte(element)?.querySelector('.title')?.textContent).toBe('C’est en plus ?');
   });
 
   it("Non ferme la feuille sans rien écrire, et la voix le dit : « D'accord, on n'écrit rien »", async () => {
@@ -184,6 +187,19 @@ describe('Déclarer des morts', () => {
     oui?.click();
     oui?.click();
     await soon(() => expect(element.querySelector('app-declaration-gesture.death app-stamp .stamp')).not.toBeNull());
+
+    expect(await ecrits()).toHaveLength(1);
+  });
+
+  it("un second tap sur Oui pendant que la feuille se ferme, une fois le premier écrit, n'écrit rien de plus", async () => {
+    const { element, tape, soon } = await ouvre();
+    await tape('app-declaration-gesture.death app-gesture-button button');
+    await tape('app-sheet section.on .yes');
+    const oui = element.querySelector<HTMLElement>('app-sheet section.on .yes');
+    oui?.click();
+    await soon(() => expect(element.querySelector('app-declaration-gesture.death app-stamp .stamp')).not.toBeNull());
+    oui?.click();
+    await soon(async () => expect(await ecrits()).toHaveLength(1));
 
     expect(await ecrits()).toHaveLength(1);
   });

@@ -36,6 +36,8 @@ export class Notebook {
   /** The last request for the context got no answer: the notebook shows the one kept. */
   readonly unreachable = signal(false);
   readonly now = signal(this.clock.now());
+  /** What the phone knows of its network: `false` is sure, `true` only says a network is there (K.5). */
+  readonly online = signal(globalThis.navigator?.onLine !== false);
   private readonly entries = signal<readonly OutboxEntry[]>([]);
   private readonly chosenCampaignId = signal<string | null>(null);
   private readonly chosenDay = signal<BusinessDay | null>(null);
@@ -128,11 +130,17 @@ export class Notebook {
 
   constructor() {
     const tick = setInterval(() => this.now.set(this.clock.now()), MINUTE);
-    const onOnline = () => void this.refresh();
+    const onOnline = () => {
+      this.online.set(true);
+      void this.refresh();
+    };
+    const onOffline = () => this.online.set(false);
     globalThis.addEventListener?.('online', onOnline);
+    globalThis.addEventListener?.('offline', onOffline);
     inject(DestroyRef).onDestroy(() => {
       clearInterval(tick);
       globalThis.removeEventListener?.('online', onOnline);
+      globalThis.removeEventListener?.('offline', onOffline);
     });
     // The outbox is read again whenever it may have changed, or the campaign changes.
     effect(() => {
