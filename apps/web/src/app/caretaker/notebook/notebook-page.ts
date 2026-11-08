@@ -4,7 +4,9 @@ import { clip, counted, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
 import { JournalSync } from '../../core/sync/journal-sync';
 import { SpeakerButton } from '../../ui/speaker-button';
-import { DeathGesture } from '../gestures/death/death-gesture';
+import { BAGS } from '../gestures/bag/bags';
+import { DEATHS } from '../gestures/death/deaths';
+import { DeclarationGesture } from '../gestures/declaration-gesture';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { DayJournal, type NamedLine } from './day-journal';
@@ -19,7 +21,7 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeathGesture, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -61,7 +63,8 @@ import { NotebookCover } from './notebook-cover';
             }
             @if (notebook.declarationTarget(); as target) {
               <div class="gestures" role="group" aria-label="Écrire dans le cahier">
-                <app-death-gesture [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
+                <app-declaration-gesture [gesture]="deaths" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
+                <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" />
               </div>
             }
             <app-day-journal [title]="journalTitle()" [lines]="lines()" />
@@ -96,6 +99,8 @@ export class NotebookPage {
   protected readonly notebook = inject(Notebook);
   private readonly voice = inject(Voice);
   protected readonly sync = inject(JournalSync);
+  protected readonly deaths = DEATHS;
+  protected readonly bags = BAGS;
 
   /** « HIER », « AVANT-HIER » under the violet banner; nothing for today. */
   protected readonly pastDay = computed(() => {

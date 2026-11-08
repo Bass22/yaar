@@ -1,6 +1,6 @@
 # Premier lot d'enregistrements — liste à cocher
 
-Les 28 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 367 phrases en tout).
+Les 32 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 368 phrases en tout).
 
 ## Comment nommer les fichiers
 
@@ -23,7 +23,7 @@ Les 28 phrases que l'application dit **déjà** : une fois enregistrées et conv
 
 ```bash
 brew install ffmpeg            # une seule fois
-node tools/build-audio.mjs     # convertit, puis affiche « fr : 28 clips sur 367 »
+node tools/build-audio.mjs     # convertit, puis affiche « fr : 32 clips sur 368 »
 ```
 
 ---
@@ -66,6 +66,15 @@ Le geste « Mort » : le compteur, la relecture, puis le tampon. Au-delà de 3 m
 - [ ] **written-thanks** — « C'est noté. Merci ! »
 - [ ] **already-written-1** — « Il y a déjà 1 mort écrit pour ce jour. »
 - [ ] **deaths-in-addition-1** — « Ton mort, c'est en plus ? »
+
+## 4. Déclarer un sac ouvert (4)
+
+Le geste « Sac ouvert » : même parcours que les morts. « C'est bien ça ? », « D'accord, on n'écrit rien » et « C'est noté. Merci ! » sont déjà dans la liste au-dessus.
+
+- [ ] **bags-how-many** — « Combien de sacs ouverts ? »
+- [ ] **bags-today-1** — « 1 sac ouvert aujourd'hui. »
+- [ ] **bags-today-2** — « 2 sacs ouverts aujourd'hui. »
+- [ ] **bags-today-3** — « 3 sacs ouverts aujourd'hui. »
 
 ---
 

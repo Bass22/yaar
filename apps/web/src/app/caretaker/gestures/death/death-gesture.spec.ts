@@ -72,7 +72,7 @@ describe('Déclarer des morts', () => {
     });
     return { element, tape, refresh, soon };
   };
-  const ouverte = (element: HTMLElement) => element.querySelector('app-death-gesture app-sheet section.on');
+  const ouverte = (element: HTMLElement) => element.querySelector('app-declaration-gesture.death app-sheet section.on');
   const ecrits = async () => (await outbox.entriesOf(BANDE)).map((entry) => entry.payload);
 
   beforeEach(async () => {
@@ -85,7 +85,7 @@ describe('Déclarer des morts', () => {
   it("trois taps — Mort, C'est tout, Oui — écrivent un mort pour le jour, la bande et le site, à l'heure du téléphone, dans l'outbox", async () => {
     const { tape, soon } = await ouvre();
 
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .yes');
 
@@ -98,7 +98,7 @@ describe('Déclarer des morts', () => {
 
   it('chaque « + » ajoute un poulet couché à la pile, et « − » en retire un', async () => {
     const { element, tape } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .minus');
@@ -109,7 +109,7 @@ describe('Déclarer des morts', () => {
 
   it("la voix demande combien, puis relit la déclaration avant le Oui : « 2 poulets morts aujourd'hui. C'est bien ça ? »", async () => {
     const { element, tape, soon } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .yes');
 
@@ -120,7 +120,7 @@ describe('Déclarer des morts', () => {
   it("le jour choisi est celui de la déclaration : pour hier, la voix dit « hier » et l'événement porte la date d'hier", async () => {
     const { tape, soon } = await ouvre();
     await tape('.days .day', 'Hier');
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .yes');
 
@@ -133,7 +133,7 @@ describe('Déclarer des morts', () => {
     await outbox.record(OUSMANE, { siteId: NORD, campaignId: BANDE, businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', fact: { type: 'Death', quantity: 2 } });
     const { element, tape, soon } = await ouvre(contexte(uneBande({ journal: [mortsDAwa(3), mortsDAwa(9, '2026-11-05')] })));
     await soon(() => expect(element.querySelector('.days .day:nth-child(3) .deaths')?.textContent).toContain('5'));
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
 
     await soon(() => expect(heard.at(-1)).toEqual(['wo/deaths-today-1', 'wo/already-written-5', 'wo/deaths-in-addition-1']));
@@ -142,7 +142,7 @@ describe('Déclarer des morts', () => {
 
   it("Non ferme la feuille sans rien écrire, et la voix le dit : « D'accord, on n'écrit rien »", async () => {
     const { element, tape, soon } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .no');
 
@@ -153,7 +153,7 @@ describe('Déclarer des morts', () => {
 
   it('la croix du compteur ferme aussi sans rien écrire', async () => {
     const { element, tape } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .no');
 
     expect(ouverte(element)).toBeNull();
@@ -162,13 +162,13 @@ describe('Déclarer des morts', () => {
 
   it('après le Oui : le tampon « C’est noté », la ligne au journal du jour en attente d’envoi, et les vivants diminués', async () => {
     const { element, tape, soon } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .yes');
 
-    await soon(() => expect(element.querySelector('app-death-gesture app-stamp .stamp')?.textContent).toContain('C’est noté'));
+    await soon(() => expect(element.querySelector('app-declaration-gesture.death app-stamp .stamp')?.textContent).toContain('C’est noté'));
     await soon(() => expect(element.querySelector('.strip .alive')?.textContent).toContain('935'));
     await soon(() => expect(heard.at(-1)).toEqual(['wo/written-thanks']));
     const ligne = element.querySelector('.lines .line');
@@ -178,19 +178,19 @@ describe('Déclarer des morts', () => {
 
   it("un double tap sur Oui n'écrit qu'une fois", async () => {
     const { element, tape, soon } = await ouvre();
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
     const oui = element.querySelector<HTMLElement>('app-sheet section.on .yes');
     oui?.click();
     oui?.click();
-    await soon(() => expect(element.querySelector('app-death-gesture app-stamp .stamp')).not.toBeNull());
+    await soon(() => expect(element.querySelector('app-declaration-gesture.death app-stamp .stamp')).not.toBeNull());
 
     expect(await ecrits()).toHaveLength(1);
   });
 
   it("plus de morts que de vivants : la déclaration est écrite comme une autre, le gardien n'est pas bloqué", async () => {
     const { element, tape, soon } = await ouvre(contexte(uneBande({ liveCount: 1 })));
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .yes');
@@ -201,13 +201,13 @@ describe('Déclarer des morts', () => {
 
   it("le téléphone ne peut pas garder la déclaration : pas de tampon, un post-it et la voix le disent — rien n'est montré comme écrit", async () => {
     const { element, tape, soon } = await ouvre(contexte(), { useFactory: () => Promise.reject(new OutboxUnavailable(new Error('quota'))) });
-    await tape('app-death-gesture app-gesture-button button');
+    await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
     await tape('app-sheet section.on .yes');
 
-    await soon(() => expect(element.querySelector('app-death-gesture .failed')).not.toBeNull());
-    expect(element.querySelector('app-death-gesture app-stamp .stamp')).toBeNull();
-    expect(element.querySelector('app-death-gesture .failed')?.textContent).toContain('Le téléphone n’arrive plus à garder');
+    await soon(() => expect(element.querySelector('app-declaration-gesture.death .failed')).not.toBeNull());
+    expect(element.querySelector('app-declaration-gesture.death app-stamp .stamp')).toBeNull();
+    expect(element.querySelector('app-declaration-gesture.death .failed')?.textContent).toContain('Le téléphone n’arrive plus à garder');
     await soon(() => expect(heard.at(-1)).toEqual(['wo/storage-full']));
   });
 });

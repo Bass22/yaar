@@ -103,6 +103,7 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `bags-today-1` … `-20` | 1 sac ouvert aujourd'hui. … | Confirmation — **de 1 à 20** | |
 | `bags-yesterday-1` … `-20` | 1 sac ouvert hier. … | Confirmation pour hier — **de 1 à 20** | |
 | `bags-before-yesterday-1` … `-20` | 1 sac ouvert avant-hier. … | Confirmation pour avant-hier — **de 1 à 20** | |
+| `bags-many` | Sacs ouverts : *nombre*. | Au-delà de 20 — **composé**, suivi de `confirm` | |
 
 ## 5. « Rien perdu »
 
@@ -203,4 +204,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 367 fichiers par langue, dont 245 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 368 fichiers par langue, dont 245 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

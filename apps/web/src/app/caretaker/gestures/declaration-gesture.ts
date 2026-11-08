@@ -1,44 +1,46 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import { clip } from '../../../core/audio/phrase';
-import { Voice } from '../../../core/audio/voice';
-import { CLOCK } from '../../../core/clock';
-import { JournalSync } from '../../../core/sync/journal-sync';
-import { Counter } from '../../../ui/counter';
-import { GestureButton } from '../../../ui/gesture-button';
-import { Pictogram } from '../../../ui/pictogram';
-import { Pile } from '../../../ui/pile';
-import { PostIt } from '../../../ui/post-it';
-import { Sheet } from '../../../ui/sheet';
-import { Stamp } from '../../../ui/stamp';
-import type { DeclarationTarget } from '../../notebook/notebook';
-import type { NotebookDay } from '../../notebook/notebook-view';
-import { confirmationOf } from './deaths';
+import { clip } from '../../core/audio/phrase';
+import { Voice } from '../../core/audio/voice';
+import { CLOCK } from '../../core/clock';
+import { JournalSync } from '../../core/sync/journal-sync';
+import { Counter } from '../../ui/counter';
+import { GestureButton } from '../../ui/gesture-button';
+import { Pictogram } from '../../ui/pictogram';
+import { Pile } from '../../ui/pile';
+import { PostIt } from '../../ui/post-it';
+import { Sheet } from '../../ui/sheet';
+import { Stamp } from '../../ui/stamp';
+import { lineOf } from '../notebook/day-journal';
+import type { DeclarationTarget } from '../notebook/notebook';
+import type { NotebookDay } from '../notebook/notebook-view';
+import type { Gesture } from './gesture';
 
 const STAMP_MS = 1500;
 
-// Deaths in three taps (K.1, mockup journal-gardien.html): Mort → the counter, one lying chicken
-// per unit → « C'est tout » → the read-back, said aloud → Oui. The stamp only comes down once the
-// outbox has kept the event (G.3). Non writes nothing. More deaths than live chickens is written
-// like any other count: the caretaker is never blocked, the admin is told (C.5).
+// A gesture in three taps (K.1, K.2, mockup journal-gardien.html): the gesture → the counter, one
+// drawn object per unit → « C'est tout » → the read-back, said aloud → Oui. The stamp only comes
+// down once the outbox has kept the event (G.3). Non writes nothing. Deaths and opened bags take
+// the same path; only what is drawn, said and written differs (`Gesture`).
 @Component({
-  selector: 'app-death-gesture',
+  selector: 'app-declaration-gesture',
   imports: [Counter, GestureButton, Pictogram, Pile, PostIt, Sheet, Stamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class]': 'gesture().name' },
   template: `
-    <app-gesture-button picto="dead-chicken" label="Mort" tone="death" (click)="open()" />
+    <app-gesture-button [picto]="gesture().picto" [label]="gesture().label" [tone]="gesture().name" (click)="open()" />
     @if (failed()) {
       <app-post-it class="failed">
         <p role="alert"><app-pictogram picto="cross" [decorative]="true" /> Le téléphone n’arrive plus à garder tes déclarations. Appelle le chef.</p>
       </app-post-it>
     }
     <div class="layer">
-      <app-sheet [open]="step() === 'count'" title="Combien de morts ?" (closed)="close()">
-        <p class="title">Combien de morts ?</p>
+      <app-sheet [open]="step() === 'count'" [title]="gesture().title" (closed)="close()">
+        <p class="title">{{ gesture().title }}</p>
         @if (when() !== 'today') {
           <p class="for">{{ forDay() }}</p>
         }
-        <app-counter [(value)]="count" unit="mort">
-          <app-pile kind="death" [count]="count()" [label]="count() + ' morts'" />
+        <app-counter [(value)]="count" [unit]="gesture().unit">
+          <app-pile [kind]="gesture().name" [count]="count()" [label]="counted()" />
         </app-counter>
         <div class="actions">
           <button type="button" class="no" (click)="close()" aria-label="Fermer sans rien écrire"><app-pictogram picto="cross" [decorative]="true" /></button>
@@ -47,7 +49,7 @@ const STAMP_MS = 1500;
       </app-sheet>
       <app-sheet [open]="step() === 'confirm'" title="C'est bien ça ?" (closed)="cancel()">
         <p class="title">C'est bien ça ?</p>
-        <app-pile kind="death" [count]="count()" [label]="count() + ' morts'" />
+        <app-pile [kind]="gesture().name" [count]="count()" [label]="counted()" />
         <p class="phrase">{{ confirmation().words }}</p>
         @if (confirmation().already; as already) {
           <p class="already">{{ already }}</p>
@@ -84,15 +86,17 @@ const STAMP_MS = 1500;
     .failed app-pictogram { inline-size: 28px; block-size: 28px; flex: none; }
   `,
 })
-export class DeathGesture {
+export class DeclarationGesture {
   private readonly sync = inject(JournalSync);
   private readonly voice = inject(Voice);
   private readonly clock = inject(CLOCK);
 
-  /** Where the deaths are written: the site, the campaign and the day chosen in the notebook. */
+  /** What is counted, drawn, said and written: `DEATHS`, `BAGS`. */
+  readonly gesture = input.required<Gesture>();
+  /** Where the declaration is written: the site, the campaign and the day chosen in the notebook. */
   readonly target = input.required<DeclarationTarget>();
   readonly when = input.required<NotebookDay['when']>();
-  /** The deaths already written that day, by anyone; `null` when none. */
+  /** What is already written of this type that day, by anyone; `null` when nothing. */
   readonly alreadyWritten = input<number | null>(null);
 
   protected readonly step = signal<'closed' | 'count' | 'confirm'>('closed');
@@ -100,7 +104,9 @@ export class DeathGesture {
   protected readonly saving = signal(false);
   protected readonly stamped = signal(false);
   protected readonly failed = signal(false);
-  protected readonly confirmation = computed(() => confirmationOf(this.count(), this.when(), this.alreadyWritten()));
+  protected readonly confirmation = computed(() => this.gesture().confirmationOf(this.count(), this.when(), this.alreadyWritten()));
+  /** « 2 sacs ouverts », as the notebook line will say it. */
+  protected readonly counted = computed(() => lineOf({ type: this.gesture().fact, quantity: this.count() }).words);
   protected readonly forDay = computed(() => (this.when() === 'yesterday' ? 'Pour hier' : 'Pour avant-hier'));
   // The target as it stood when the counter opened: what the caretaker saw is what is written.
   private openedOn: DeclarationTarget | null = null;
@@ -110,7 +116,7 @@ export class DeathGesture {
     this.count.set(1);
     this.failed.set(false);
     this.step.set('count');
-    void this.voice.say([clip('deaths-how-many')]);
+    void this.voice.say([clip(this.gesture().howMany)]);
   }
 
   protected readBack(): void {
@@ -138,7 +144,7 @@ export class DeathGesture {
     }
     this.saving.set(true);
     try {
-      await this.sync.record({ ...target, recordedAt: this.clock.now().toISOString(), fact: { type: 'Death', quantity: this.count() } });
+      await this.sync.record({ ...target, recordedAt: this.clock.now().toISOString(), fact: { type: this.gesture().fact, quantity: this.count() } });
       this.step.set('closed');
       this.stamped.set(true);
       void this.voice.say([clip('written-thanks')]);

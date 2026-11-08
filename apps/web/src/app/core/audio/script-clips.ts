@@ -4,6 +4,7 @@
 export type ScriptClip =
   | 'already-written-many'
   | 'bags-how-many'
+  | 'bags-many'
   | 'campaign-old'
   | 'campaign-young'
   | 'cancelled'
