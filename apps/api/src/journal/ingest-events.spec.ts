@@ -12,9 +12,10 @@ import {
   type CampaignId as CampaignIdType,
   type JournalEvent,
   type JournalEventId,
+  type Refusal,
 } from '@domain/journal';
 import type { Session } from '../auth/session';
-import { ingestEvents, type IngestionPorts, type SiteContext } from './ingest-events';
+import { ingestEvents, type IngestionPorts, type IngestionRefusal, type SiteContext } from './ingest-events';
 
 // Spec: Architecture §5 (le serveur reçoit le journal par lots, idempotent par UUID) ;
 // CLAUDE.md §4 règles 1 et 2 ; cahier des charges « Gouvernance des déclarations »,
@@ -46,6 +47,7 @@ const campaign = (id: string, siteId: string): Campaign => ({ id: unwrap(Campaig
 // The journal of one farm, in memory, as the Prisma repository of F.2 will hold it.
 class FarmInMemory implements IngestionPorts {
   readonly journal: { event: JournalEvent; deviceId: string }[] = [];
+  readonly refusals: { event: JournalEvent; refusal: Refusal | IngestionRefusal; deviceId: string }[] = [];
   private readonly campaignsById = new Map<string, Campaign>([
     [BANDE_NORD, campaign(BANDE_NORD, NORD)],
     [BANDE_SUD, campaign(BANDE_SUD, SUD)],
@@ -73,6 +75,12 @@ class FarmInMemory implements IngestionPorts {
   }
   async append(event: JournalEvent, deviceId: string): Promise<void> {
     this.journal.push({ event, deviceId });
+  }
+  // Kept once per event, as the database does by its key.
+  async recordRefusal(event: JournalEvent, refusal: Refusal | IngestionRefusal, deviceId: string): Promise<void> {
+    if (!this.refusals.some((kept) => kept.event.id === event.id)) {
+      this.refusals.push({ event, refusal, deviceId });
+    }
   }
 }
 
@@ -288,6 +296,48 @@ describe("Ingérer un lot d'événements", () => {
           expect(second).toEqual(first.map((outcome) => (outcome.status === 'Accepted' ? { ...outcome, status: 'Duplicate' } : outcome)));
         }),
       );
+    });
+  });
+
+  // Spec: backlog G.5 ; cahier des charges « Une déclaration refusée n'est jamais perdue » (décision du 2026-11-08).
+  describe('une déclaration refusée par une règle du métier est gardée pour le chef', () => {
+    it('des morts arrivés hors des trois jours du cahier sont refusés, et gardés entiers avec leur motif, leur auteur et leur appareil', async () => {
+      const farm = new FarmInMemory();
+      // Written on the 9th for the 5th: four days late.
+      const tropTard = envoi(1, { recordedAt: '2026-11-09T08:00:00.000Z' });
+
+      expect(await ingere(farm, [tropTard])).toEqual([{ index: 0, id: uuid(1), status: 'Refused', refusal: { kind: 'CatchUpWindowPassed' } }]);
+      expect(farm.journal).toEqual([]);
+      expect(farm.refusals).toEqual([
+        { event: expect.objectContaining({ id: uuid(1), authorId: OUSMANE, campaignId: BANDE_NORD, businessDate: '2026-11-05', quantity: 3 }), refusal: { kind: 'CatchUpWindowPassed' }, deviceId: TELEPHONE },
+      ]);
+    });
+
+    it("un refus d'autorisation est gardé aussi : la remplaçante qui écrit sur un site en mode strict", async () => {
+      const farm = new FarmInMemory();
+
+      await ingere(farm, [envoi(1, { siteId: SUD, campaignId: BANDE_SUD })], session(AWA));
+
+      expect(farm.refusals.map(({ event, refusal }) => [event.authorId, refusal.kind])).toEqual([[AWA, 'StrictModePrimaryOnly']]);
+    });
+
+    it('la même déclaration refusée deux fois — sa réponse perdue, le téléphone la renvoie — n’est gardée qu’une fois', async () => {
+      const farm = new FarmInMemory();
+      const tropTard = envoi(1, { recordedAt: '2026-11-09T08:00:00.000Z' });
+
+      await ingere(farm, [tropTard]);
+      await ingere(farm, [tropTard]);
+
+      expect(farm.refusals).toHaveLength(1);
+    });
+
+    it("rien n'est gardé d'un envoi illisible, d'une bande inconnue, d'une déclaration acceptée ni d'un doublon", async () => {
+      const farm = new FarmInMemory();
+
+      await ingere(farm, [{ id: 'pas-un-uuid' }, envoi(2, { campaignId: BANDE_D_UN_AUTRE_ELEVAGE }), envoi(3)]);
+      await ingere(farm, [envoi(3)]);
+
+      expect(farm.refusals).toEqual([]);
     });
   });
 });

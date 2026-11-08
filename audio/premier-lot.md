@@ -23,7 +23,7 @@ Les 42 phrases que l'application dit **déjà** : une fois enregistrées et conv
 
 ```bash
 brew install ffmpeg            # une seule fois
-node tools/build-audio.mjs     # convertit, puis affiche « fr : 42 clips sur 412 »
+node tools/build-audio.mjs     # convertit, puis affiche « fr : 42 clips sur 414 »
 ```
 
 ---

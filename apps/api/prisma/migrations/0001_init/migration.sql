@@ -110,6 +110,23 @@ CREATE TABLE "journal_events" (
 );
 
 -- CreateTable
+CREATE TABLE "refused_events" (
+    "tenant_id" UUID NOT NULL,
+    "event_id" UUID NOT NULL,
+    "site_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "author_id" UUID NOT NULL,
+    "device_id" UUID NOT NULL,
+    "business_date" DATE NOT NULL,
+    "recorded_at" TIMESTAMPTZ(3) NOT NULL,
+    "received_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "event" JSONB NOT NULL,
+    "refusal" JSONB NOT NULL,
+
+    CONSTRAINT "refused_events_pkey" PRIMARY KEY ("tenant_id","event_id")
+);
+
+-- CreateTable
 CREATE TABLE "audit_events" (
     "tenant_id" UUID NOT NULL,
     "id" UUID NOT NULL,
@@ -183,6 +200,18 @@ ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_corrects_f
 
 -- AddForeignKey
 ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_retracts_fkey" FOREIGN KEY ("tenant_id", "retracts") REFERENCES "journal_events"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "refused_events" ADD CONSTRAINT "refused_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "refused_events" ADD CONSTRAINT "refused_events_tenant_id_site_id_fkey" FOREIGN KEY ("tenant_id", "site_id") REFERENCES "sites"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "refused_events" ADD CONSTRAINT "refused_events_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "refused_events" ADD CONSTRAINT "refused_events_tenant_id_author_id_fkey" FOREIGN KEY ("tenant_id", "author_id") REFERENCES "users"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -339,3 +368,26 @@ CREATE TRIGGER audit_events_no_update_no_delete
 CREATE TRIGGER audit_events_no_truncate
   BEFORE TRUNCATE ON "audit_events"
   FOR EACH STATEMENT EXECUTE FUNCTION refuse_change();
+
+-- The refused declarations (G.5, decision of 2026-11-08): kept for the chef, read and added to
+-- by the application, never changed nor erased — by anyone. Its reception date is the
+-- database's own, like the journal's.
+GRANT SELECT, INSERT ON "refused_events" TO yaar_app;
+
+ALTER TABLE "refused_events" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "refused_events" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "refused_events"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+CREATE TRIGGER refused_events_no_update_no_delete
+  BEFORE UPDATE OR DELETE ON "refused_events"
+  FOR EACH ROW EXECUTE FUNCTION refuse_change();
+
+CREATE TRIGGER refused_events_no_truncate
+  BEFORE TRUNCATE ON "refused_events"
+  FOR EACH STATEMENT EXECUTE FUNCTION refuse_change();
+
+CREATE TRIGGER refused_events_received_at
+  BEFORE INSERT ON "refused_events"
+  FOR EACH ROW EXECUTE FUNCTION journal_events_stamp_reception();

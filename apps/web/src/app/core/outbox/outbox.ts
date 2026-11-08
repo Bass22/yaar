@@ -19,6 +19,8 @@ export type OutboxEntry = {
   readonly payload: JournalEventPayload;
   readonly state: OutboxState;
   readonly refusal?: JournalRefusal;
+  /** The caretaker heard the refusal and touched « J'ai compris » (G.5): it is no longer shown. */
+  readonly refusalSeen?: boolean;
 };
 
 /** The phone's storage could not keep the event: the user is told, nothing is shown as written. */
@@ -86,6 +88,13 @@ export class Outbox {
 
   async markRefused(id: string, refusal: JournalRefusal): Promise<void> {
     await this.update(id, (entry) => ({ ...entry, state: 'refused', refusal }));
+  }
+
+  /** The refusals the caretaker has heard: kept, no longer shown (G.5); G.6 may clean them up. */
+  async acknowledgeRefusals(ids: readonly string[]): Promise<void> {
+    for (const id of ids) {
+      await this.update(id, (entry) => (entry.state === 'refused' ? { ...entry, refusalSeen: true } : null));
+    }
   }
 
   /** What is left to send for this account, in the order of creation. */

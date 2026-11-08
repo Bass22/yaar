@@ -28,6 +28,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], ...fields });
 const contexte = (bande: CaretakerCampaign = uneBande()): CaretakerContext => ({
+  chef: null,
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: AUJOURDHUI, primaryCaretakerId: OUSMANE, campaigns: [bande] }],
 });
 const ligneDAwa = (fact: CaretakerJournalLine['fact'], fields: Partial<CaretakerJournalLine> = {}): CaretakerJournalLine => ({

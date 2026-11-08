@@ -63,6 +63,17 @@ export interface JournalBatchResponse {
  */
 export interface CaretakerContext {
   readonly sites: readonly CaretakerSite[];
+  /**
+   * Whom « Parler » reaches on WhatsApp (M.5, decision of 2026-11-08): the earliest admin of the
+   * farm who is not blocked — a name and a phone number, nothing else. `null`: no admin to reach.
+   */
+  readonly chef: CaretakerChef | null;
+}
+
+export interface CaretakerChef {
+  readonly name: string;
+  /** International form, `+221…`. */
+  readonly phone: string;
 }
 
 export interface CaretakerSite {

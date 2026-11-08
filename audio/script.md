@@ -167,6 +167,7 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 |---|---|---|---|
 | `voice-speak` | Parle, j'écoute. Le chef recevra ton message. | Le micro s'ouvre | |
 | `voice-sent` | C'est envoyé. Le chef va écouter ton message. | Message envoyé | |
+| `talk-no-chef` | Le numéro du chef n'est pas encore dans le cahier. Appelle-le directement. | « Parler » touché sans admin à joindre (M.5) | |
 | `photo-take` | Prends la photo de ce que tu veux montrer au chef. | L'appareil photo s'ouvre | |
 | `photo-sent` | C'est envoyé. Le chef va regarder ta photo. | Photo envoyée | |
 
@@ -177,7 +178,8 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `sync-all-sent` | Tout est bien envoyé. | Pastille touchée, rien n'attend | |
 | `sync-waiting-1` … `-20` | 1 déclaration attend le réseau. … 20 déclarations attendent le réseau. | Pastille touchée — **de 1 à 20** | |
 | `sync-waiting-many` | Déclarations qui attendent le réseau : *nombre*. | Au-delà de 20 — **composé** | |
-| `sync-refused` | Le chef n'a pas pu accepter une déclaration. Regarde la ligne marquée, et parle au chef. | Un refus du serveur (G.5) | |
+| `sync-refused` | Le chef n'a pas pu accepter une déclaration. Il l'a reçue, il s'en occupe. | Une déclaration refusée par le serveur (G.5) | |
+| `sync-refused-too-old` | Ce jour est trop ancien. Le chef a reçu ta déclaration, il s'en occupe. | Refusée parce que hors des trois jours du cahier (G.5) | |
 | `sync-sign-in-again` | Reconnecte-toi pour envoyer tes déclarations. Rien n'est perdu. | Session expirée | |
 | `sync-stopped` | Ton compte ne peut plus envoyer. Parle au chef. Rien n'est perdu. | Session révoquée | |
 | `storage-full` | Le téléphone n'arrive plus à garder tes déclarations. Appelle le chef. | Stockage indisponible (G.3) | |
@@ -210,4 +212,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 412 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 414 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

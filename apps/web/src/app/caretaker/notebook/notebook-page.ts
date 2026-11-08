@@ -7,8 +7,10 @@ import { SpeakerButton } from '../../ui/speaker-button';
 import { BAGS } from '../gestures/bag/bags';
 import { DEATHS } from '../gestures/death/deaths';
 import { DeclarationGesture } from '../gestures/declaration-gesture';
+import { TalkToChef } from '../gestures/talk/talk-to-chef';
 import { LineCorrection } from '../journal/correction/line-correction';
 import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
+import { RefusalNotice } from '../sync/refusal-notice';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { DayJournal, type NamedLine } from './day-journal';
@@ -23,12 +25,13 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, LineCorrection, NothingLostReminder, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, LineCorrection, NothingLostReminder, RefusalNotice, TalkToChef, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="notebook">
       <app-notebook-cover [name]="notebook.account()?.name ?? ''" [avatar]="notebook.account()?.avatar ?? null" [siteName]="notebook.site()?.name ?? null" [primary]="notebook.isPrimaryCaretaker()" [waiting]="sync.waiting()" />
+      <section class="notices"><app-refusal-notice /></section>
 
       @if (notebook.site() === null) {
         <section class="page">
@@ -77,10 +80,21 @@ import { NotebookCover } from './notebook-cover';
           </section>
         }
       }
+      @if (notebook.site() !== null) {
+        <section class="warn" aria-label="Prévenir le chef">
+          <h2 class="warn-title"><app-pictogram picto="microphone" [decorative]="true" /> Prévenir le chef</h2>
+          <div class="talk"><app-talk-to-chef [chef]="notebook.context()?.chef ?? null" /></div>
+        </section>
+      }
     </main>
   `,
   styles: `
     :host { display: block; min-block-size: 100dvh; background: var(--color-shell); }
+    .notices { padding: 0 12px; }
+    .warn { padding: 0 12px 80px; }
+    .warn-title { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 700 1.08rem var(--font-hand); color: var(--color-earth); }
+    .warn-title app-pictogram { inline-size: 25px; block-size: 25px; }
+    .talk { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .page { display: block; padding: 12px 12px 80px; background-image: var(--notebook-lines); }
     .page.several.young { border-block-start: 6px solid var(--color-campaign-young); }
     .page.several.old { border-block-start: 6px solid var(--color-campaign-old); }

@@ -80,6 +80,7 @@ model Tenant {
   campaigns       Campaign[]
   journalEvents   JournalEvent[]
   auditEvents     AuditEvent[]
+  refusedEvents   RefusedEvent[]
 
   @@map("tenants")
 }
@@ -114,6 +115,7 @@ model User {
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignments   SiteAssignment[]
   journalEvents JournalEvent[]
+  refusedEvents RefusedEvent[]
 
   @@unique([tenantId, id])
   @@map("users")
@@ -136,6 +138,7 @@ model Site {
   campaigns     Campaign[]
   journalEvents JournalEvent[]
   auditEvents   AuditEvent[]
+  refusedEvents RefusedEvent[]
 
   @@unique([tenantId, id])
   @@map("sites")
@@ -172,6 +175,7 @@ model Campaign {
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   site          Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
   journalEvents JournalEvent[]
+  refusedEvents RefusedEvent[]
 
   @@unique([tenantId, id])
   @@index([tenantId, siteId])
@@ -213,6 +217,36 @@ model JournalEvent {
 
   @@id([tenantId, id])
   @@map("journal_events")
+}
+
+// A declaration the server refused by a rule of the trade, kept whole so that the chef sees it
+// and can write it again for its day (G.5, decision of 2026-11-08). Append-only, like the journal.
+// Only well-formed events of a campaign of the farm come here: an illegible one is not kept.
+model RefusedEvent {
+  tenantId     String   @map("tenant_id") @db.Uuid
+  // The identifier the device gave the event: refused twice, it is kept once.
+  eventId      String   @map("event_id") @db.Uuid
+  // The site of the campaign the event names — the event's own site may be the wrong one.
+  siteId       String   @map("site_id") @db.Uuid
+  campaignId   String   @map("campaign_id") @db.Uuid
+  authorId     String   @map("author_id") @db.Uuid
+  deviceId     String   @map("device_id") @db.Uuid
+  businessDate DateTime @map("business_date") @db.Date
+  recordedAt   DateTime @map("recorded_at") @db.Timestamptz(3)
+  // Read on the clock of the database when the row was inserted. Never taken from the client.
+  receivedAt   DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+  // The event as the device sent it, in the form of the contract.
+  event        Json
+  // Why: the kind of the refusal and what explains it.
+  refusal      Json
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site     Site     @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  campaign Campaign @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  author   User     @relation(fields: [tenantId, authorId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, eventId])
+  @@map("refused_events")
 }
 
 // What a sensitive action did, who did it, when and from which device (CLAUDE.md §4 rule 14).

@@ -22,7 +22,9 @@ export async function caretakerContext(tx: Prisma.TransactionClient, session: Se
   for (const site of sites) {
     contexts.push(await siteContext(tx, journal, site, now));
   }
-  return { sites: contexts };
+  // The chef to reach: the earliest admin still able to sign in. Only a name and a number leave.
+  const chef = await tx.user.findFirst({ where: { role: 'admin', blockedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { name: true, phone: true } });
+  return { sites: contexts, chef };
 }
 
 type SiteRow = { id: string; name: string; timeZone: string; assignments: { userId: string }[] };

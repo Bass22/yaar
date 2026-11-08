@@ -113,6 +113,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Fait porté par un événement ; son type ; son auteur | `Fact` ; `type` (`EventType`) ; `authorId` (`UserId`), `Author` |
 | Date métier ; date de saisie (un instant en temps universel) ; date de réception (posée par le serveur à l'enregistrement en base) | `businessDate` ; `recordedAt` (`Instant`) ; `receivedAt` |
 | Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
+| Justificatif d'un mort : photographié / pas de photo (K.6) ; parler au chef par WhatsApp (M.5) ; le chef à joindre | `deathEvidence` (`Photographed` / `NoPhoto`) ; `TalkToChef` (`whatsAppLinkOf`) ; `chef` (`CaretakerChef`) |
 | Mort ; perte hors mortalité (manquants, dons — admin seul) ; sac ouvert ; « rien perdu » | `Death` ; `Loss` (`lossType` : `Missing` / `Donation`) ; `BagOpened` ; `NoLoss` |
 | Vivants ; lignes de commande qui livrent les animaux mis en place | `liveCount` ; `placementOrderLines` |
 | Résumé d'un jour : non déclaré / zéro déclaré / morts déclarés | `DaySummary` : `NotDeclared` / `NoLossDeclared` / `DeathsDeclared` |
@@ -145,6 +146,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Avatar d'un compte (liste fermée) ; langue de la voix (de la personne, sinon de son site) ; changer l'un ou l'autre ; compte gardé par le téléphone (un téléphone = une personne) | `AccountAvatar` (`avatar`) ; `AudioLanguage` (`audioLanguage`, `languageOf`) ; `updateAccount` ; `KnownAccount` (`knownAccount`) |
 | Connexion ; session et son jeton ; appareil ; compte bloqué ; jetons antérieurs invalidés | `signIn` ; `Session`, `AccessToken` (`issueAccessToken`, `verifyAccessToken`, durées dans `SESSION_LIFETIME_SECONDS`) ; `deviceId` ; `blockedAt` ; `sessionsValidFrom` |
 | Refus métier (et son motif) | `Refusal` (`kind`) |
+| Registre des déclarations refusées (serveur) ; garder un refus ; refus vu par le gardien | `RefusedEvent` (`refused_events`) ; `recordRefusal` ; `refusalSeen` (`acknowledgeRefusals`) |
 | File d'attente du téléphone ; état d'un événement (en attente, envoi en doute, envoyé, refusé) ; synchro | `Outbox` ; `OutboxState` (`pending`, `in-doubt`, `sent`, `refused`) ; `synchronize`, `JournalSync` |
 | Ingestion d'un lot ; sort d'un événement (accepté, doublon, refusé) | `ingestEvents` ; `IngestionOutcome` (`Accepted`, `Duplicate`, `Refused`) |
 | Rattrapage (aujourd'hui, hier, avant-hier) ; rôle de l'auteur | catch-up (`CatchUpWindowPassed`) ; `Role`, `authorRole` |

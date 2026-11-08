@@ -153,6 +153,46 @@ describe("L'API reçoit le journal", () => {
     expect(notAssigned).toEqual([{ index: 0, id: uuid(73), status: 'Refused', refusal: { kind: 'NotAssignedToSite' } }]);
   });
 
+  // Spec: backlog G.5 ; CdC « Une déclaration refusée n'est jamais perdue » (décision du 2026-11-08).
+  it("des morts arrivés hors des trois jours sont refusés et gardés en base pour le chef : la déclaration entière, son motif, son auteur, son appareil, ses deux dates ; renvoyés, gardés une fois ; l'autre élevage ne les voit pas", async () => {
+    const tropTard = envoi(90, { businessDate: '2026-11-01', recordedAt: '2026-11-05T18:30:00.000Z' });
+
+    expect(await outcomesOf(await send({ events: [tropTard] }))).toEqual([{ index: 0, id: uuid(90), status: 'Refused', refusal: { kind: 'CatchUpWindowPassed' } }]);
+    await outcomesOf(await send({ events: [tropTard] }));
+
+    const kept = await db.superuser.refusedEvent.findMany({ where: { eventId: uuid(90) } });
+    expect(kept).toEqual([
+      expect.objectContaining({
+        tenantId: TENANT_A,
+        siteId: NORD,
+        campaignId: BANDE_NORD,
+        authorId: OUSMANE,
+        deviceId: TELEPHONE,
+        businessDate: new Date('2026-11-01'),
+        recordedAt: new Date('2026-11-05T18:30:00.000Z'),
+        receivedAt: expect.any(Date),
+        event: { id: uuid(90), siteId: NORD, campaignId: BANDE_NORD, businessDate: '2026-11-01', recordedAt: '2026-11-05T18:30:00.000Z', fact: { type: 'Death', quantity: 3 } },
+        refusal: { kind: 'CatchUpWindowPassed' },
+      }),
+    ]);
+    // Under the application role, farm B sees none of it.
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+    try {
+      expect(await api.runInTenant(unwrap(TenantId(TENANT_B)), (tx) => tx.refusedEvent.count())).toBe(0);
+      expect(await api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.refusedEvent.count({ where: { eventId: uuid(90) } }))).toBe(1);
+    } finally {
+      await api.$disconnect();
+    }
+  });
+
+  it("un envoi illisible ou la bande d'un autre élevage ne laissent rien dans le registre des refus", async () => {
+    const before = await db.superuser.refusedEvent.count();
+
+    await outcomesOf(await send({ events: [{ id: 'pas-un-uuid' }, envoi(91, { siteId: SITE_DE_B, campaignId: BANDE_DE_B })] }));
+
+    expect(await db.superuser.refusedEvent.count()).toBe(before);
+  });
+
   it("le journal lu en base fait foi : « rien perdu » après des morts est refusé, une seconde annulation aussi", async () => {
     const rienPerdu = envoi(80, { recordedAt: '2026-11-05T19:00:00.000Z', fact: { type: 'NoLoss' } });
     const annule = (rank: number) => ({ ...Object.fromEntries(Object.entries(envoi(rank, { recordedAt: '2026-11-05T20:00:00.000Z' })).filter(([key]) => key !== 'fact')), retracts: uuid(1) });

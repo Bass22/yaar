@@ -31,7 +31,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: GRANDS, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], ...fields });
 const unSite = (fields: Partial<CaretakerSite> = {}): CaretakerSite => ({ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: OUSMANE, campaigns: [uneBande()], ...fields });
-const contexte = (...sites: CaretakerSite[]): CaretakerContext => ({ sites });
+const contexte = (...sites: CaretakerSite[]): CaretakerContext => ({ sites, chef: null });
 
 describe('Le cahier du gardien', () => {
   let http: HttpTestingController;

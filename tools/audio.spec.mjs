@@ -30,9 +30,9 @@ describe('La voix du téléphone', () => {
     assert.ok(!families.number?.includes(35) && !families.number?.includes(1500));
   });
 
-  it('le script compte les 412 fichiers par langue qu’il annonce', () => {
-    assert.equal(allClipIds(scriptClips(read('audio/script.md'))).length, 412);
-    assert.match(read('audio/script.md'), /environ 412 fichiers par langue/);
+  it('le script compte les 414 fichiers par langue qu’il annonce', () => {
+    assert.equal(allClipIds(scriptClips(read('audio/script.md'))).length, 414);
+    assert.match(read('audio/script.md'), /environ 414 fichiers par langue/);
   });
 
   it("les identifiants que l'écran peut demander sont ceux du script, à jour : un écran qui demande une phrase absente du script ne compile pas", () => {

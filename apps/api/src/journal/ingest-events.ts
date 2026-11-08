@@ -44,6 +44,12 @@ export type IngestionPorts = {
   dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]>;
   /** Adds the event, with the device of the session. */
   append(event: JournalEvent, deviceId: string): Promise<void>;
+  /**
+   * Keeps a well-formed event refused by a rule of the trade, whole, with its reason and the
+   * device of the session, so that the chef sees it and can write it again (G.5). Once per event:
+   * the same event refused again is not kept twice.
+   */
+  recordRefusal(event: JournalEvent, refusal: Refusal | IngestionRefusal, deviceId: string): Promise<void>;
 };
 
 export type IngestionRefusal =
@@ -106,14 +112,19 @@ async function ingestOne(
   }
   const context = { campaign, timeZone: site.timeZone, author: { id: event.authorId, role: session.role } };
 
+  // From here the event is well formed and its campaign is the farm's: a refusal is kept (G.5).
+  const keptAndRefused = async (refusal: Refusal | IngestionRefusal): Promise<IngestionOutcome> => {
+    await ports.recordRefusal(event, refusal, session.deviceId);
+    return refused(refusal);
+  };
   const judged = await judge(event, context, ports);
   if (!judged.ok) {
-    return refused(judged.error);
+    return keptAndRefused(judged.error);
   }
   // The staff is that of the event's own site: a site that is not the campaign's was refused above.
   const allowed = authorizeDeclaration(event, { author: context.author, site: site.staff });
   if (!allowed.ok) {
-    return refused(allowed.error);
+    return keptAndRefused(allowed.error);
   }
   await ports.append(event, session.deviceId);
   return { index, id: event.id, status: 'Accepted' };

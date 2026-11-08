@@ -67,11 +67,13 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Écran « Équipe » du bureau (créer un collaborateur, montrer son PIN provisoire, bloquer, PIN oublié) : à maquetter avec `/designer` | CdC (non précisé) | Aucune tranche d'écran ne le porte encore |
 | ~~Le premier admin, amorcé par le script (D.4), doit-il changer son PIN à la première connexion ?~~ ✅ tranché le 2026-11-07 : non, la règle ne vaut que pour les comptes non admins | CdC « Identité » | ~~E.5~~ |
 | ~~JWT : durée de vie et stratégie de renouvellement~~ ✅ tranché le 2026-11-07 : 7 jours pour un gardien, 24 heures pour l'admin, pas de renouvellement ; en cas de vol, l'admin bloque le compte, ce qui déconnecte tous ses appareils (vérifié à chaque requête, sans table de sessions) | CdC « Identité » | ~~E.2~~ |
+| ~~Le vocal au chef : dans l'application ou par WhatsApp ?~~ ✅ tranché le 2026-11-08 : par WhatsApp en V1, au numéro de l'admin ; le vocal dans l'application passe en V2 | CdC « Parler au chef passe par WhatsApp » | M.4, M.5 |
+| ~~Une photo comme justificatif des morts ?~~ ✅ tranché le 2026-11-08 : facultative, jamais bloquante, mais toujours répondue (« pas de photo » est une réponse) ; base d'entraînement des futurs modèles | CdC « Photo des morts » | K.6 |
 | ~~Comment une nouvelle version arrive-t-elle sur le téléphone ?~~ ✅ tranché le 2026-11-08 : relance silencieuse quand l'application n'est pas utilisée — à l'ouverture, ou au retour au premier plan — jamais en plein geste, pas d'heure fixe ; aucun message au gardien | CdC « Mise à jour de l'application », Archi §5 | Z.5 |
 | ~~Stockage du jeton dans la PWA~~ ✅ tranché le 2026-11-07 : gardé par l'application et envoyé dans l'en-tête `Authorization`, pas de cookie ; risque d'un script injecté accepté, borné par les durées et par une politique de contenu stricte (Z.5). Le sort d'une outbox non synchronisée à la fin d'une session est tranché le 2026-11-07 : elle reste sur le téléphone, et repart quand le même compte se reconnecte ; un autre compte connecté sur ce téléphone ne l'envoie jamais sous son nom | Archi §6 | G.2, G.5 |
 | Règle de composition des nombres en clips ; format et poids des clips | CdC « Points ouverts », Archi §12 | I.1, I.2 |
 | Une tâche sanitaire non faite est-elle reportée au lendemain ? | CdC (non précisé) | L.1 |
-| Source de la météo, et seuil de chaleur qui déclenche la tâche de chaleur | CdC « Points ouverts » (Tâches par élevage). **Tranché le 2026-11-08** : la tâche de chaleur est **la glace dans l'eau**, au-delà de **32 °C**, jugée sur la **prévision du jour J** et sur le **ressenti** si la source le donne ; le **bicarbonate n'est pas lié à la chaleur**, c'est une tâche optionnelle de l'élevage. Elle vaut pour **tous les animaux, à tout âge**. Reste : quand tombe le bicarbonate ? source météo | L.1, L.3 |
+| Source de la météo, et seuil de chaleur qui déclenche la tâche de chaleur | CdC « Points ouverts » (Tâches par élevage). **Tranché le 2026-11-08** : la tâche de chaleur est **la glace dans l'eau**, au-delà de **32 °C**, jugée sur la **prévision du jour J** et sur le **ressenti** si la source le donne ; le **bicarbonate n'est pas lié à la chaleur**, c'est une tâche optionnelle de l'élevage. Elle vaut pour **tous les animaux, à tout âge**. Le bicarbonate tombe **certains jours de la bande, définis dans le référentiel des tâches de l'élevage** (2026-11-08). Reste : la source météo | L.1, L.3 |
 | ~~Une seule campagne en cours par site ?~~ ✅ tranché le 2026-11-07 : non — un site peut avoir plusieurs campagnes en cours à la fois, et le gardien déclare sur chacune | CdC « Hiérarchie » | ~~O.2~~ |
 | Seuil par défaut de l'alerte de mortalité sur 7 jours | CdC « Points ouverts » | O.4 |
 | Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ? | CdC (non précisé) | P.1 |
@@ -690,13 +692,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les événements partent dans l'ordre de leur création
 - [x] La pastille de synchro reflète le nombre d'événements en attente (la valeur ; la pastille elle-même vient avec H.5)
 
-### G.5 — Refus du serveur et session expirée · **M** · 🧪 · ⚠ (cœur livré, signal à l'écran à venir)
+### G.5 — Refus du serveur et session expirée · **M** · 🧪 ✅
 > Spec : Archi §6 « Mode strict » ; CdC « La confiance est visible » · Zone : `apps/web/src/app/core/sync/`
 > Dépend de : G.4, E.4 · Revue : aucun renvoi en boucle, aucune perte silencieuse.
 > Cœur livré le 2026-11-07. Un refus est gardé avec son motif et ne repart jamais. Une session expirée n'envoie rien et garde tout ; un 401 avant l'échéance du jeton est une session révoquée (compte bloqué, ou « déconnecter partout ») : la synchro s'arrête et `stopped` le dit ; rien n'est perdu (décision du 2026-11-07 : l'outbox reste sur le téléphone, et ne part que sous le compte de son auteur).
+> Terminée le 2026-11-08, aucune dépendance ajoutée. **Décision du 2026-11-08, ajoutée au CdC** (« Une déclaration refusée n'est jamais perdue ») : le serveur garde chaque déclaration bien formée qu'il refuse par une règle du métier dans `refused_events` (`RefusedEvent`, migration unique `0001_init`) — la déclaration entière sous la forme du contrat, son motif, son auteur, son appareil, ses deux dates, le site de la bande ; en ajout seul (droits lire et ajouter, déclencheurs comme le journal), RLS forcée, date de réception posée par la base ; une même déclaration refusée deux fois n'y est qu'une fois ; un envoi illisible ou la bande d'un autre élevage n'y entrent pas (`ingestEvents` → `recordRefusal`). Sur le téléphone, `RefusalNotice` (`caretaker/sync/`) : un post-it liste chaque refus non encore entendu (picto, quantité, jour) avec son haut-parleur — `sync-refused-too-old` pour un jour trop ancien, `nothing-lost-refused` pour un « rien perdu » contredit, `sync-refused` sinon (« Il l'a reçue, il s'en occupe ») — jusqu'à « J'ai compris » (`refusalSeen`, gardé dans l'outbox) ; une session révoquée ou expirée a son post-it, l'expirée mène à l'entrée du code. 1 phrase ajoutée, 1 reformulée (script à 413).
+> **Non fait ici** : l'écran du bureau qui lit le registre et réécrit une déclaration en un tap (O.4). Un gardien connecté peut remplir le registre de déclarations refusées à dessein (cent par envoi) : borné par sa session, tracé à son nom, accepté pour la V1. Pas regardé dans un navigateur.
 
 - [x] Un événement refusé par le serveur n'est pas renvoyé indéfiniment
-- [ ] Un refus est signalé au gardien par picto et audio — les données sont prêtes (`JournalSync.refused`), l'affichage vient avec les écrans du cahier (J, K) et I (audio)
+- [x] Un refus est signalé au gardien par picto et audio : un post-it montre chaque déclaration refusée (picto, quantité, jour) et la voix dit pourquoi, jusqu'à « J'ai compris »
+- [x] Le serveur garde chaque déclaration bien formée qu'il refuse par une règle du métier, avec son motif, son auteur et son appareil, dans un registre en ajout seul cloisonné par élevage ; une même déclaration refusée deux fois n'y est qu'une fois ; un envoi illisible n'y entre pas (décision du 2026-11-08)
+- [x] Une session expirée ou révoquée est dite au gardien par picto et audio, avec le chemin pour se reconnecter
 - [x] Une session expirée conserve l'outbox ; la synchro reprend après reconnexion
 - [x] Une session révoquée arrête la synchro et le dit à l'utilisateur (`JournalSync.stopped` ; l'écran qui le dit vient avec le cahier)
 
@@ -908,6 +914,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] ~~Le contexte du gardien donne la date de saisie de la dernière correction~~ sans objet depuis la correction en ligne : voir la note d'une ligne (J.3 ne reçoit que la valeur effective) : sans elle, une correction écrite hors-ligne plus tôt passerait, sur le téléphone, devant une correction plus récente reçue du serveur
 - [x] Aucun geste ne supprime une ligne du journal
 
+### K.6 — La photo des morts · **M** · 🎨 · 🧪
+> Spec : CdC « Photo des morts » · Zone : `apps/web/src/app/caretaker/gestures/death/`, `packages/domain/src/journal/` (champ facultatif du fait `Death`, ajouté sans rien changer au sens des autres)
+> Dépend de : M.3 · Revue : jamais bloquante ; la règle des trois taps tient sans photo.
+
+- [ ] La relecture des morts offre deux Oui : « Oui, je montre » ouvre l'appareil photo, « Oui, pas de photo » écrit tout de suite (maquette d'abord)
+- [ ] La déclaration porte sa réponse : photographiée (avec l'empreinte du média) ou pas de photo ; sans réponse (ancienne version, admin), elle n'est pas comptée comme « pas de photo »
+- [ ] La photo part avec la déclaration, ou après elle quand le réseau revient : la déclaration n'attend jamais la photo
+- [ ] Appareil photo refusé ou en panne : la déclaration s'écrit « pas de photo », et l'écran le dit
+- [ ] Le bureau voit la part des morts photographiés, par gardien
+- [ ] Une consigne de prise de vue est dite quand l'appareil s'ouvre, pour des photos utiles à l'entraînement (par exemple « les morts posés au sol, entiers, à la lumière ») — texte et phrase du script à trancher avec le fondateur avant de coder
+
 ## L — Tâches et météo
 
 ### L.1 — Les tâches dues dépendent de l'âge de la bande · **S** · ⚠
@@ -970,14 +987,26 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Si l'appareil photo est refusé, l'écran l'explique sans texte seul
 - [ ] La photo apparaît dans le journal du jour
 
-### M.4 — Envoyer un message vocal · **M**
+### M.4 — ⏸ Envoyer un message vocal · **M** · V2
 > Spec : CdC « Prévenir le chef » ; `journal-gardien.html` (`.btn-micro`) · Zone : `apps/web/src/app/caretaker/gestures/voice/`
 > Dépend de : M.2, K.1 · Revue : durée plafonnée ; pulsation en `transform`.
+> **Sortie de la V1 le 2026-11-08** : en V1, le gardien parle au chef par WhatsApp (M.5).
 
 - [ ] Un tap démarre l'enregistrement, un tap l'arrête
 - [ ] L'enregistrement s'arrête seul à 90 secondes
 - [ ] Le gardien réécoute avant d'envoyer
 - [ ] Si le micro est refusé, l'écran l'explique sans texte seul
+
+### M.5 — Parler au chef par WhatsApp · **S** ✅
+> Spec : CdC « Parler au chef passe par WhatsApp » · Zone : `apps/web/src/app/caretaker/gestures/talk/`, contexte du gardien (`apps/api/src/journal/caretaker-context.ts`)
+> Dépend de : J.1 · Revue : le numéro vient du serveur ; rien d'autre de l'admin n'arrive au téléphone.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. Le contexte du gardien porte `chef` (`CaretakerChef` : nom et numéro, rien d'autre) — l'admin le plus ancien qui n'est pas bloqué, `null` sans admin. « Parler » (`TalkToChef`, section « Prévenir le chef », visible dès qu'il y a un site, même sans bande) ouvre `https://wa.me/<chiffres du numéro>` ; sans chef, post-it et voix (`talk-no-chef`, script à 414). **Corrigé en route** : pas de texte pré-rempli — il resterait en brouillon (CdC mis à jour).
+> **Non fait ici** : choisir un autre admin que le plus ancien (réglages de l'élevage) ; le lien n'a pas été ouvert sur un vrai téléphone, avec ou sans réseau.
+
+- [x] Le contexte du gardien donne le nom et le numéro de l'admin à joindre : le plus ancien qui n'est pas bloqué, et rien d'autre de lui
+- [x] Le geste « Parler » ouvre la conversation WhatsApp avec ce numéro, sans texte pré-rempli (il resterait en brouillon)
+- [x] Sans admin à joindre, l'écran le dit par picto et voix ; sans WhatsApp, c'est la page de WhatsApp qui le dit (une application web ne peut pas savoir ce qui est installé)
+- [ ] Vérifié sur un vrai téléphone : le lien ouvre WhatsApp même sans réseau
 
 ---
 
@@ -1067,10 +1096,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Bureau de l'admin » ; `bureau-admin.html` (onglets, sélecteur de site) · Zone : `apps/web/src/app/admin/`
 > Dépend de : G.2, H.3 · Revue : les routes admin ne sont pas dans le bundle du gardien.
 
-- [ ] ~~Quatre onglets : Jour, Argent, Commandes, Suivi~~ — remplacés si le fondateur valide `bureau-admin-v2.html` (séance du 2026-11-07) : accueil « à traiter », lots (intercalaires tirés du profil de l'espèce), Achats, Tiers, Plus ; un seul bouton « Écrire ». Conçu au téléphone d'abord ; aucune espèce en dur (décisions du 2026-11-07)
-- [ ] Le sélecteur de site change le contexte de tous les onglets
+- [ ] La barre du bas de `bureau-admin-v2.html` (**validée le 2026-11-08**) : Accueil, Lots, Achats, Tiers, Plus, chacun avec son picto d'objet réel et son mot ; conçu au téléphone d'abord ; aucune espèce en dur
+- [ ] L'accueil et Lots montrent les lots en cours (site, jour de la bande, vivants), lus sur le serveur ; ce qui est à traiter vient avec O.4 et U
+- [ ] ~~Le sélecteur de site change le contexte de tous les onglets~~ remplacé par la v2 : un lot porte son site
 - [ ] Hors-ligne, le bureau montre la dernière lecture et sa date
-- [ ] Hors-ligne, un coût, un paiement, une vente ou une déclaration partent en file d'attente (P.7) ; toute autre saisie est refusée et l'écran dit pourquoi
+- [ ] ~~Hors-ligne, un coût, un paiement, une vente ou une déclaration partent en file d'attente~~ : porté par P.7, avec le bouton « Écrire »
 - [ ] Un collaborateur ne peut ouvrir aucune route du bureau
 
 ### O.4 — L'onglet Jour : où en est la bande · **M** · ⚠
@@ -1086,6 +1116,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une déclaration écrite pour un jour passé est marquée comme tardive
 - [ ] Des morts déclarés supérieurs aux vivants lèvent une alerte, avec icône, couleur et mot
 - [ ] Tant qu'aucun poussin n'est reçu, l'onglet dit que la réception manque au lieu de lever l'alerte de dépassement (QA de C.5 — à confirmer)
+- [ ] Les déclarations refusées du registre (G.5) s'affichent, et l'admin en réécrit une en un tap pour son jour d'origine, « pour le compte de » son auteur
 
 ## P — Coûts
 

@@ -12,11 +12,12 @@ import {
   type Campaign,
   type JournalEvent,
   type JournalEventId,
+  type Refusal,
   type TenantId,
 } from '@domain/journal';
 import type { JournalEvent as JournalRow, Prisma } from '@prisma/client';
 import { decodeJournalEvent } from './decode-event';
-import type { IngestionPorts, SiteContext } from './ingest-events';
+import type { IngestionPorts, IngestionRefusal, SiteContext } from './ingest-events';
 
 /**
  * The journal of one farm in PostgreSQL, read and written in the tenant transaction of the
@@ -88,6 +89,26 @@ export class PrismaJournal implements IngestionPorts {
     await this.tx.journalEvent.create({ data: { ...envelope, corrects: isCounterDeclaration(event) ? event.corrects : null, type, fact: fact as Prisma.InputJsonObject } });
   }
 
+  async recordRefusal(event: JournalEvent, refusal: Refusal | IngestionRefusal, deviceId: string): Promise<void> {
+    const campaign = await this.tx.campaign.findUniqueOrThrow({ where: { id: event.campaignId } });
+    // The same event refused again — its answer lost, the phone sent it back — is kept once.
+    await this.tx.refusedEvent.createMany({
+      data: {
+        tenantId: this.tenantId,
+        eventId: event.id,
+        siteId: campaign.siteId,
+        campaignId: event.campaignId,
+        authorId: event.authorId,
+        deviceId,
+        businessDate: new Date(event.businessDate),
+        recordedAt: new Date(event.recordedAt),
+        event: payloadOf(event) as Prisma.InputJsonObject,
+        refusal: refusal as Prisma.InputJsonObject,
+      },
+      skipDuplicates: true,
+    });
+  }
+
   private eventOf(row: JournalRow): JournalEvent {
     const envelope = { id: row.id, siteId: row.siteId, campaignId: row.campaignId, businessDate: dayOf(row.businessDate), recordedAt: row.recordedAt.toISOString() };
     const payload =
@@ -100,6 +121,16 @@ export class PrismaJournal implements IngestionPorts {
     }
     return decoded.value;
   }
+}
+
+// The event in the form of the contract, as a phone sends it: what the chef will write again.
+function payloadOf(event: JournalEvent): Record<string, unknown> {
+  const { id, siteId, campaignId, businessDate, recordedAt } = event;
+  const envelope = { id, siteId, campaignId, businessDate, recordedAt };
+  if (isRetraction(event)) {
+    return { ...envelope, retracts: event.retracts };
+  }
+  return { ...envelope, ...(isCounterDeclaration(event) ? { corrects: event.corrects } : {}), fact: factOf(event) };
 }
 
 function primaryOf(assignments: readonly { userId: string; isPrimary: boolean }[]) {

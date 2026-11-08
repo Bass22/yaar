@@ -8,8 +8,8 @@ import { Prisma } from '@prisma/client';
 const models = Prisma.dmmf.datamodel.models;
 
 describe('Schéma de la base', () => {
-  it("les modèles tenant, utilisateur, site, affectation, campagne, événement du journal et trace d'audit existent", () => {
-    expect(models.map((model) => model.name).sort()).toEqual(['AuditEvent', 'Campaign', 'JournalEvent', 'Site', 'SiteAssignment', 'Tenant', 'User']);
+  it("les modèles tenant, utilisateur, site, affectation, campagne, événement du journal, trace d'audit et déclaration refusée existent", () => {
+    expect(models.map((model) => model.name).sort()).toEqual(['AuditEvent', 'Campaign', 'JournalEvent', 'RefusedEvent', 'Site', 'SiteAssignment', 'Tenant', 'User']);
   });
 
   it('tout modèle porte `tenant_id` — sauf le tenant, dont l’identifiant est le tenant', () => {

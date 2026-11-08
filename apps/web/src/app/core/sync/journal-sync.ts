@@ -83,6 +83,12 @@ export class JournalSync {
     return this.send([{ ...draft, id: crypto.randomUUID() }], session.token);
   }
 
+  /** « J'ai compris »: these refusals were heard, they are no longer shown (G.5). */
+  async acknowledgeRefusals(ids: readonly string[]): Promise<void> {
+    await (await this.outbox).acknowledgeRefusals(ids);
+    await this.refreshCounts();
+  }
+
   /** Sends what waits. A call during a running synchronisation runs once more after it. */
   sync(): Promise<void> {
     if (this.running !== null) {

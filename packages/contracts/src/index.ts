@@ -13,4 +13,4 @@ export type {
   UpdateAccountRequest,
 } from './auth';
 export type { DesignatePrimaryCaretakerRequest, SiteStaffRefusal } from './sites';
-export type { CaretakerCampaign, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';
+export type { CaretakerCampaign, CaretakerChef, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';

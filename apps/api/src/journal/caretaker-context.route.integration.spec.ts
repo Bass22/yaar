@@ -31,6 +31,8 @@ const OUSMANE = uuid(51);
 const AWA = uuid(52);
 const LE_GERANT = uuid(54);
 const GARDIEN_DE_B = uuid(61);
+const ADMIN_BLOQUE = uuid(55);
+const SECOND_GERANT = uuid(56);
 const TELEPHONE = uuid(91);
 const PIN_HASH = '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg';
 
@@ -86,7 +88,15 @@ describe('Le gardien reçoit son contexte, sans argent', () => {
     });
     const user = (id: string, tenantId: string, role: 'admin' | 'collaborator', name: string, rank: number) => ({ id, tenantId, role, name, phone: `+22177000${String(rank).padStart(4, '0')}`, pinHash: PIN_HASH });
     await db.superuser.user.createMany({
-      data: [user(OUSMANE, TENANT_A, 'collaborator', 'Ousmane', 1), user(AWA, TENANT_A, 'collaborator', 'Awa', 2), user(LE_GERANT, TENANT_A, 'admin', 'Le gérant', 3), user(GARDIEN_DE_B, TENANT_B, 'collaborator', 'Gardien de B', 4)],
+      data: [
+        user(OUSMANE, TENANT_A, 'collaborator', 'Ousmane', 1),
+        user(AWA, TENANT_A, 'collaborator', 'Awa', 2),
+        // The first admin of the farm was blocked; the one created next keeps the farm; a third came later.
+        { ...user(ADMIN_BLOQUE, TENANT_A, 'admin', 'Ancien gérant', 5), createdAt: new Date('2026-01-01T00:00:00.000Z'), blockedAt: new Date('2026-06-01T00:00:00.000Z') },
+        { ...user(LE_GERANT, TENANT_A, 'admin', 'Le gérant', 3), createdAt: new Date('2026-02-01T00:00:00.000Z') },
+        { ...user(SECOND_GERANT, TENANT_A, 'admin', 'Second gérant', 6), createdAt: new Date('2026-03-01T00:00:00.000Z') },
+        user(GARDIEN_DE_B, TENANT_B, 'collaborator', 'Gardien de B', 4),
+      ],
     });
     await db.superuser.siteAssignment.createMany({
       data: [
@@ -204,6 +214,12 @@ describe('Le gardien reçoit son contexte, sans argent', () => {
 
     expect(siteOf(context, NORD)).toMatchObject({ timeZone: 'Africa/Dakar', primaryCaretakerId: OUSMANE });
     expect(siteOf(context, SUD)).toMatchObject({ timeZone: 'Africa/Dakar', primaryCaretakerId: null });
+  });
+
+  // Spec: backlog M.5 ; CdC « Parler au chef passe par WhatsApp » (décision du 2026-11-08).
+  it("le chef à joindre : l'admin le plus ancien de l'élevage qui n'est pas bloqué, son nom et son numéro — rien d'autre de lui ; un élevage sans admin n'en donne aucun", async () => {
+    expect((await contextOf(ousmane())).chef).toEqual({ name: 'Le gérant', phone: '+221770000003' });
+    expect((await contextOf(tokenOf(GARDIEN_DE_B, TENANT_B, 'collaborator'))).chef).toBeNull();
   });
 
   it("un collaborateur ne reçoit que ses sites ; l'admin reçoit tous ceux de son élevage ; personne ne reçoit ceux d'un autre élevage", async () => {
