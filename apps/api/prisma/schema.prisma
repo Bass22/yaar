@@ -264,6 +264,8 @@ enum AuditAction {
   SiteUnassigned
   PrimaryCaretakerDesignated
   AdminAdded
+  SiteCreated
+  SiteConfigured
 
   @@map("audit_action")
 }
@@ -278,7 +280,7 @@ model AuditEvent {
   // Who acted: the admin, or the account itself when it signs in. Empty when the operator
   // acted, by script (an admin added, E.8): the operator has no account in any farm.
   actorId    String?     @map("actor_id") @db.Uuid
-  // The account the action was about.
+  // The account the action was about — or, for a site created or configured, the site.
   subjectId  String      @map("subject_id") @db.Uuid
   // The site the action was about, when it was about one (an assignment).
   siteId     String?     @map("site_id") @db.Uuid

@@ -103,6 +103,8 @@ describe('Corriger une déclaration', () => {
     reseau(false);
     const ecrit = await outbox.record(OUSMANE, unMortDuTelephone);
     const { element, tape, soon } = await ouvre();
+    // The notebook reads the outbox after opening: on a loaded machine, that takes its time.
+    await soon(() => expect(ligne(element)?.querySelector('.pencil')).not.toBeNull());
 
     await tape('.lines .line .pencil');
     expect(feuille(element)?.querySelector('.title')?.textContent).toContain('Corrige le nombre');

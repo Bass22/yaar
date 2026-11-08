@@ -71,13 +71,20 @@ describe('Tokens du design « cahier »', () => {
 describe('Pictos pré-cuits', () => {
   const sprite = read('packages/design-system/src/pictograms/generated/pictograms.svg');
 
-  it('chaque picto de la maquette gardien et chaque avatar existent, au tremblé déjà appliqué (la marque Yaar mise à part) — et rien d’autre', () => {
+  it('chaque picto de la maquette gardien, ceux du bureau que l’application utilise et chaque avatar existent, au tremblé déjà appliqué (la marque Yaar mise à part) — et rien d’autre', () => {
     const mockupSymbols = [...mockup.matchAll(/<symbol id="([^"]+)"/g)].map(([, id]) => id).filter((id) => id !== 'y-mini');
     const avatars = [...read('journal-gardien-entree.html').matchAll(/<symbol id="(avatar-[^"]+)"/g)].map(([, id]) => id);
     const sources = readdirSync(SOURCE_DIR).filter((file) => file.endsWith('.svg'));
+    // The office's own pictos, drawn in bureau-admin-v2.html (validated on 2026-11-08), added as screens use them.
+    const office = { cloche: 'bell', camion: 'truck', 'piece-f': 'coin' };
+    const officeMockup = read('bureau-admin-v2.html');
 
     assert.equal(avatars.length, 12, 'douze avatars (E.9, décision du 2026-11-07)');
-    assert.equal(sources.length, mockupSymbols.length + avatars.length);
+    for (const [drawn, name] of Object.entries(office)) {
+      assert.match(officeMockup, new RegExp(`<symbol id="${drawn}"`), `${drawn} est dessiné dans la maquette du bureau`);
+      assert.ok(sources.includes(`${name}.svg`), name);
+    }
+    assert.equal(sources.length, mockupSymbols.length + avatars.length + Object.keys(office).length);
     for (const avatar of avatars) {
       assert.ok(sources.includes(`${avatar}.svg`), avatar);
       assert.match(read('packages/design-system/src/pictograms/avatars.ts'), new RegExp(`name: '${avatar}'`), `${avatar} dans la liste fermée`);

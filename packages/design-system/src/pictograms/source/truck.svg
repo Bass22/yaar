@@ -1,0 +1,9 @@
+<!-- From bureau-admin-v2.html, symbol "camion". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="20" width="34" height="22" rx="3" fill="#F5E7C6" stroke="#6B4A2E" stroke-width="3"/>
+  <path d="M38 26 h12 l8 9 v7 h-20z" fill="#C84B38" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="41" y="29" width="8" height="6" rx="1.5" fill="#D8EEFA" stroke="#6B4A2E" stroke-width="2"/>
+  <circle cx="17" cy="45" r="6" fill="#3A3127"/><circle cx="17" cy="45" r="2.3" fill="#9C9C9C"/>
+  <circle cx="47" cy="45" r="6" fill="#3A3127"/><circle cx="47" cy="45" r="2.3" fill="#9C9C9C"/>
+  <path d="M10 28 q6 3 12 0 M10 34 q6 3 12 0" stroke="#D9AD1F" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+</svg>

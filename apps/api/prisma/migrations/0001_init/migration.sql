@@ -22,7 +22,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured');
 
 -- CreateTable
 CREATE TABLE "tenants" (

@@ -901,7 +901,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Dépend de : J.3, C.4, G.4 · Revue : l'interface n'offre jamais d'effacer, et ne met jamais une correction en file d'attente.
 > 🎨 La maquette `journal-gardien.html` donne le crayon sur une ligne « bien envoyé » et remet la correction en attente : à reprendre d'après la décision du 2026-11-06 (correction en ligne), avec l'état « crayon indisponible sans réseau ».
 > Livrée le 2026-11-08, aucune dépendance ajoutée. Le crayon de chaque ligne de mort ou de sac (`LinePencil` dans `linesOf`) : **libre** tant que la déclaration n'a jamais quitté le téléphone — `JournalSync.amend` change sa quantité dans l'outbox, même identifiant, mêmes dates ; **verrouillé** pendant un envoi en doute — il le dit (`correct-wait-sending`) ; **en ligne** une fois envoyée — `JournalSync.correct` envoie la contre-déclaration tout de suite, hors de l'outbox, puis le cahier relit le contexte. Sans réseau, le crayon d'une ligne envoyée montre le nuage et le dit (`correct-needs-network`) ; un serveur muet aussi ; un refus « trois jours passés » dit `correct-too-old`, tout autre refus `correct-refused` (2 phrases ajoutées, script à 412). Les feuilles compteur → relecture → Oui sortent de `DeclarationGesture` en `CountSheets`, partagées par le geste et la correction. **Trouvé en route** : la synchro tentait d'envoyer même sans réseau, donc toute déclaration écrite hors-ligne passait « en doute » à l'instant et ne se corrigeait plus ; le téléphone ne tente plus rien quand il se sait hors-ligne (`navigator.onLine`, architecture §1 « Corrections en ligne »).
-> **Non fait ici** : la ligne corrigée montre sa valeur effective et « corrigé », pas l'ancienne valeur — le contexte du gardien ne l'envoie pas. Le dernier point de la liste est **sans objet** : le gardien n'écrit plus de correction hors-ligne, il n'y a donc jamais de correction sur le téléphone à départager d'une correction du serveur. Une session expirée pendant la correction est dite comme un refus, sans proposer de se reconnecter. Après un refus, le cahier est relu comme après une acceptation (ajouté le 2026-11-08) : une ligne annulée entre-temps par le chef apparaît barrée, sans crayon. Un serveur qui a reçu la correction sans que la réponse arrive : le gardien recommence, la seconde correction porte la même valeur, la dernière écrite fait foi — rien ne change. Pas regardé dans un navigateur à 360 px.
+> **Non fait ici** : la ligne corrigée montre sa valeur effective et « corrigé », pas l'ancienne valeur — le contexte du gardien ne l'envoie pas. Le dernier point de la liste est **sans objet** : le gardien n'écrit plus de correction hors-ligne, il n'y a donc jamais de correction sur le téléphone à départager d'une correction du serveur. Une session expirée pendant la correction est dite comme un refus, sans proposer de se reconnecter. Après un refus, le cahier est relu comme après une acceptation (ajouté le 2026-11-08) : une ligne annulée entre-temps par le chef apparaît barrée, sans crayon. Un serveur qui a reçu la correction sans que la réponse arrive : le gardien recommence, la seconde correction porte la même valeur, la dernière écrite fait foi — rien ne change. Pas regardé dans un navigateur à 360 px. **Test instable, trouvé le 2026-11-08** (lancement complet, machine chargée) : « une déclaration jamais partie se corrige… » touchait le crayon avant que le cahier ait relu l'outbox ; il attend maintenant le crayon. Défaut du test, pas du code ; s'il retombe, regarder d'abord le temps de relecture de l'outbox.
 
 - [x] Tant que la déclaration n'a jamais quitté le téléphone, le crayon la modifie librement, sans réseau
 - [x] Si un envoi est en doute, la ligne est verrouillée jusqu'à la réponse du serveur
@@ -1073,15 +1073,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## O — Sites, campagnes et coquille du bureau
 
-### O.1 — Configurer un site · **M**
+### O.1 — Configurer un site · **M** ✅
 > Spec : CdC « Onboarding assisté » (configuration du site) · Zone : `apps/api/src/sites/`
 > Dépend de : E.5 · Revue : le mode strict est désactivé par défaut ; c'est un choix de l'admin.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. `POST /api/v1/sites` (`createSite`) : identifiant fourni par l'appelant, nom (1 à 60 caractères), fuseau IANA vérifié par le domaine, voix par défaut facultative ; l'élevage vient de la session ; mode strict désactivé ; identifiant déjà pris : 409 sans rien toucher. `PATCH /api/v1/sites/:siteId` (`configureSite`) : nom, voix par défaut (ou `null` : chacun la sienne), mode strict ; **le fuseau ne se change jamais** (les jours métier du journal déjà écrit en dépendent) ; un réglage qui ne change rien ne laisse pas de trace. Audit : `SiteCreated`, `SiteConfigured` avec la liste des champs changés ; le sujet d'une trace de site est le site. Admin seul ; le site d'un autre élevage n'existe pas (404).
+> **Non fait ici** : le protocole sanitaire du site — son référentiel n'existe pas encore (N.4, L.1), il se rattachera avec lui ; l'écran « Sites et équipe » du bureau (sous « Plus », à faire avec les écrans de réglages).
 
-- [ ] L'admin crée un site
-- [ ] Il choisit la langue audio par défaut du site : celle d'un compte qui n'en a pas choisi (la langue suit la personne, E.9)
-- [ ] Il attache un protocole sanitaire au site
-- [ ] Il active ou désactive le mode strict ; par défaut il est désactivé
-- [ ] La modification d'une configuration de site est tracée dans l'audit
+- [x] L'admin crée un site
+- [x] Il choisit la langue audio par défaut du site : celle d'un compte qui n'en a pas choisi (la langue suit la personne, E.9)
+- [ ] Il attache un protocole sanitaire au site — reporté : le référentiel des protocoles vient avec N.4 et L.1
+- [x] Il active ou désactive le mode strict ; par défaut il est désactivé
+- [x] La modification d'une configuration de site est tracée dans l'audit
 
 ### O.2 — Ouvrir une campagne · **M** · ⚠
 > Spec : CdC « Hiérarchie », « Référentiels » (souche) · Zone : `apps/api/src/campaigns/`, `packages/domain/src/journal/campaign.ts`
@@ -1092,16 +1094,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Une campagne sans effectif ou sans date est refusée
 - [ ] La campagne ouverte rejoint le contexte du gardien du site, à côté des autres campagnes en cours sur ce site (plusieurs à la fois : décision du 2026-11-07)
 
-### O.3 — La coquille du bureau · **M**
-> Spec : CdC « Bureau de l'admin » ; `bureau-admin.html` (onglets, sélecteur de site) · Zone : `apps/web/src/app/admin/`
+### O.3 — La coquille du bureau · **M** ✅
+> Spec : CdC « Architecture du bureau » ; `bureau-admin-v2.html` (validée le 2026-11-08) · Zone : `apps/web/src/app/admin/`
 > Dépend de : G.2, H.3 · Revue : les routes admin ne sont pas dans le bundle du gardien.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. **Décision du 2026-11-08** : la v2 du bureau est validée, le CdC le dit. `OfficeShell` : en-tête kraft « Le bureau de … », la page, la barre de cinq en bas (Accueil `bell`, Lots `barn`, Achats `truck`, Tiers `coin`, Plus `paper` — trois pictos repris de la v2, recuits ; le test du design system accepte désormais les pictos du bureau que l'application utilise). `Office` lit les sites et les lots en cours (pour l'instant le contexte du cahier, que l'admin reçoit pour tout l'élevage et qui ne porte aucun montant), garde la dernière lecture avec sa date pour son seul compte ; hors-ligne, « Pas de réseau : chiffres lus le 5 nov. à 17:30 ». Accueil : les lots, puis « À traiter » (vide, il le dit). Lots : site, jour, vivants ou « pas encore connus ». Plus : « Sites et équipe » (O.1). Achats et Tiers disent qu'ils arrivent (Q, R). Le bureau a son paquet à part : 3 Ko compressés.
+> **Non fait ici** : le bouton « Écrire » (avec la première saisie, P.4) ; ouvrir un lot et ses intercalaires (O.4) ; le contenu d'« À traiter » (O.4, U). Le code de départ de l'application a pris 3 Ko compressés (75,8 Ko). Pas regardé dans un navigateur.
 
-- [ ] La barre du bas de `bureau-admin-v2.html` (**validée le 2026-11-08**) : Accueil, Lots, Achats, Tiers, Plus, chacun avec son picto d'objet réel et son mot ; conçu au téléphone d'abord ; aucune espèce en dur
-- [ ] L'accueil et Lots montrent les lots en cours (site, jour de la bande, vivants), lus sur le serveur ; ce qui est à traiter vient avec O.4 et U
+- [x] La barre du bas de `bureau-admin-v2.html` (**validée le 2026-11-08**) : Accueil, Lots, Achats, Tiers, Plus, chacun avec son picto d'objet réel et son mot ; conçu au téléphone d'abord ; aucune espèce en dur
+- [x] L'accueil et Lots montrent les lots en cours (site, jour de la bande, vivants), lus sur le serveur ; ce qui est à traiter vient avec O.4 et U
 - [ ] ~~Le sélecteur de site change le contexte de tous les onglets~~ remplacé par la v2 : un lot porte son site
-- [ ] Hors-ligne, le bureau montre la dernière lecture et sa date
+- [x] Hors-ligne, le bureau montre la dernière lecture et sa date
 - [ ] ~~Hors-ligne, un coût, un paiement, une vente ou une déclaration partent en file d'attente~~ : porté par P.7, avec le bouton « Écrire »
-- [ ] Un collaborateur ne peut ouvrir aucune route du bureau
+- [x] Un collaborateur ne peut ouvrir aucune route du bureau (garde `canEnter('admin')`, testé depuis G.2)
 
 ### O.4 — L'onglet Jour : où en est la bande · **M** · ⚠
 > Spec : CdC « Jour » ; `bureau-admin.html` (Jour) · Zone : `packages/domain/src/journal/mortality-alert.ts`, `apps/web/src/app/admin/day/`

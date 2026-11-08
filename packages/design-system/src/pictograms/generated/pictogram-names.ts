@@ -14,6 +14,7 @@ export const PICTOGRAM_NAMES = [
   'avatar-watermelon',
   'bag-bundle',
   'barn',
+  'bell',
   'bicarbonate',
   'camera-white',
   'camera',
@@ -21,6 +22,7 @@ export const PICTOGRAM_NAMES = [
   'check',
   'chick',
   'closed-bag',
+  'coin',
   'cross',
   'dead-chicken',
   'drinker',
@@ -42,6 +44,7 @@ export const PICTOGRAM_NAMES = [
   'sun',
   'sync-cloud',
   'syringe',
+  'truck',
 ] as const;
 
 export type PictogramName = (typeof PICTOGRAM_NAMES)[number];

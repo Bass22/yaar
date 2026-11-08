@@ -1,0 +1,5 @@
+<!-- From bureau-admin-v2.html, symbol "cloche". Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M32 8 q3 0 3 3 v3 q12 3 12 18 v10 l6 8 h-42 l6 -8 v-10 q0 -15 12 -18 v-3 q0 -3 3 -3z" fill="#E8B10A" stroke="#8C6D3E" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M26 52 a6 6 0 0 0 12 0z" fill="#8C6D3E"/>
+</svg>
