@@ -64,7 +64,7 @@ import { NotebookCover } from './notebook-cover';
             @if (notebook.declarationTarget(); as target) {
               <div class="gestures" role="group" aria-label="Écrire dans le cahier">
                 <app-declaration-gesture [gesture]="deaths" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
-                <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" />
+                <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.bagsWritten()" />
               </div>
             }
             <app-day-journal [title]="journalTitle()" [lines]="lines()" />

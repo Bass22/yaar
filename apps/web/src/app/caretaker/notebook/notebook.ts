@@ -97,6 +97,13 @@ export class Notebook {
     const mortality = campaign === null || day === null ? null : summaryOf(this.journal(), campaign.campaignId, day.day).mortality;
     return mortality?.kind === 'DeathsDeclared' ? mortality.deaths : null;
   });
+  /** The bags opened already written on the chosen day, by anyone, `null` when none: the same reminder (K.3). */
+  readonly bagsWritten = computed(() => {
+    const campaign = this.campaign();
+    const day = this.day();
+    const bags = campaign === null || day === null ? [] : summaryOf(this.journal(), campaign.campaignId, day.day).bagsOpened;
+    return bags.length === 0 ? null : bags.reduce((sum, entry) => sum + entry.quantity, 0);
+  });
   /** What a gesture of the notebook writes on (lot 2, K): nothing until a campaign is chosen. */
   readonly declarationTarget = computed((): DeclarationTarget | null => {
     const site = this.site();

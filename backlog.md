@@ -861,21 +861,22 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « On déclare des changements d'état physiques » · Zone : `apps/web/src/app/caretaker/gestures/bag/`
 > Dépend de : K.1 · Revue : réutilise le parcours de K.1, sans le dupliquer.
 > Livrée le 2026-11-08, aucune dépendance ajoutée. Le geste de K.1 devient `DeclarationGesture` (`caretaker/gestures/declaration-gesture.ts`), un seul parcours décrit par un `Gesture` : `DEATHS` (`death/deaths.ts`) et `BAGS` (`bag/bags.ts`) disent ce qui se dessine, se dit et s'écrit ; aucune ligne du parcours n'est copiée. Sac ouvert → compteur (pile de sacs ouverts) → « C'est tout » → « 2 sacs ouverts aujourd'hui. C'est bien ça ? » → Oui ; l'événement `BagOpened` part par l'outbox ; Non, double tap, tampon et panne de stockage se comportent comme pour les morts. Le script gagne `bags-many` (« Sacs ouverts : *nombre*. », au-delà de 20) et passe à 368 phrases.
-> **Non fait ici** : le rappel des sacs déjà écrits ce jour-là (la règle anti-doublon du CdC vaut pour « le même type ») : il demande ses phrases (`bags-already-written-*`, `bags-in-addition-*`) et vient avec K.3. Pas regardé dans un navigateur à 360 px.
+> **Non fait ici** : le rappel des sacs déjà écrits ce jour-là, livré par K.3. Pas regardé dans un navigateur à 360 px.
 
 - [x] Geste → quantité → Oui déclare des sacs ouverts
 - [x] Les sacs s'empilent à l'écran d'après le picto du vrai sac
 - [x] La déclaration ne change pas les vivants
 
-### K.3 — Un autre a déjà déclaré · **S** · 🧪
+### K.3 — Un autre a déjà déclaré · **S** · 🧪 ✅
 > Spec : CdC « Garde-fous anti-doublon » · Zone : `apps/web/src/app/caretaker/gestures/`
 > Dépend de : K.1, C.6 · Revue : la question est posée à voix haute, jamais bloquante.
 > **Depuis la décision du 2026-11-08** (la somme seule, sans nommer l'auteur), les morts sont couverts par K.1 : reste à porter le même rappel aux **sacs ouverts**, avec ses phrases au script.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. La relecture devient commune aux deux gestes : `readBackOf` (`caretaker/gestures/gesture.ts`), décrite par un `ReadBack` par type (clips et mots) ; `Notebook.bagsWritten` fait pour les sacs ce que `deathsWritten` fait pour les morts (la somme de `summarizeDay`, outbox comprise). « Il y a déjà 3 sacs ouverts écrits pour ce jour. Tes 2 sacs, c'est en plus ? » ; Oui écrit, Non n'écrit rien ; des morts écrits ne déclenchent pas le rappel des sacs, ni l'inverse. Le script gagne 42 phrases (`bags-already-written-*`, `bags-in-addition-*` et leurs formes composées) et passe à 410.
 
-- [ ] Si un autre a déclaré le même type aujourd'hui, la confirmation le nomme et dit sa quantité
-- [ ] La voix demande si la nouvelle quantité vient « en plus »
-- [ ] Oui ajoute la déclaration ; Non l'abandonne
-- [ ] Sans déclaration préalable du même type ce jour-là, ni d'un autre ni de soi, la confirmation reste simple
+- [x] ~~Si un autre a déclaré le même type aujourd'hui, la confirmation le nomme et dit sa quantité~~ remplacé par la décision du 2026-11-08 : si des sacs ouverts sont déjà écrits ce jour-là, par lui ou par un autre, la confirmation en dit **la somme seule**
+- [x] La voix demande si la nouvelle quantité vient « en plus »
+- [x] Oui ajoute la déclaration ; Non l'abandonne
+- [x] Sans déclaration préalable du même type ce jour-là, ni d'un autre ni de soi, la confirmation reste simple
 
 ### K.4 — « Rien perdu hier » · **S** · 🧪
 > Spec : CdC « Rappel d'oubli », « Le zéro est une déclaration » · Zone : `apps/web/src/app/caretaker/reminder/`

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { IDBFactory } from 'fake-indexeddb';
-import type { CaretakerCampaign, CaretakerContext } from '@contracts';
+import type { CaretakerCampaign, CaretakerContext, CaretakerJournalLine } from '@contracts';
 import { provideHeardVoice } from '../../../core/audio/testing';
 import { CLOCK } from '../../../core/clock';
 import { Outbox } from '../../../core/outbox/outbox';
@@ -11,13 +11,15 @@ import { NotebookPage } from '../../notebook/notebook-page';
 
 // Spec: backlog K.2 — déclarer un sac ouvert, par le même parcours que les morts (K.1) ;
 // cahier des charges « On déclare des changements d'état physiques » (un sac OUVERT, pas un repas),
-// « Gestes du cahier » ; maquette journal-gardien.html (geste « Sac ouvert », compteur).
+// « Gestes du cahier » ; maquette journal-gardien.html (geste « Sac ouvert », compteur) ;
+// backlog K.3 et CdC « Garde-fous anti-doublon » — le rappel des sacs déjà écrits, la somme seule.
 
 const uuid = (rank: number): string => `00000000-0000-4000-8000-${String(rank).padStart(12, '0')}`;
 const TENANT = uuid(10);
 const NORD = uuid(3);
 const BANDE = uuid(4);
 const OUSMANE = uuid(51);
+const AWA = uuid(52);
 const token = `e30.${btoa(JSON.stringify({ sub: OUSMANE, tenant: TENANT })).replace(/=+$/, '')}.c2ln`;
 // Friday November 6th, 2026, 08:00 in Dakar.
 const NOW = new Date('2026-11-06T08:00:00.000Z');
@@ -28,13 +30,17 @@ const contexte = (bande: CaretakerCampaign = uneBande()): CaretakerContext => ({
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: OUSMANE, campaigns: [bande] }],
 });
 
+const ecritParAwa = (rank: number, fact: CaretakerJournalLine['fact'], businessDate = '2026-11-06'): CaretakerJournalLine => ({
+  id: uuid(rank), businessDate, recordedAt: `${businessDate}T07:00:00.000Z`, author: { id: AWA, name: 'Awa' }, fact, corrected: false, retracted: false,
+});
+
 describe('Déclarer un sac ouvert', () => {
   let outbox: Outbox;
   let heard: string[][];
   let taps: number;
 
   const ouvre = async (context: CaretakerContext = contexte()) => {
-    const voice = provideHeardVoice(['bags-how-many', 'bags-today-1', 'bags-today-2', 'bags-yesterday-1', 'confirm', 'cancelled', 'written-thanks', 'past-day-yesterday']);
+    const voice = provideHeardVoice(['bags-how-many', 'bags-today-1', 'bags-today-2', 'bags-yesterday-1', 'confirm', 'bags-already-written-3', 'bags-in-addition-1', 'cancelled', 'written-thanks', 'past-day-yesterday']);
     heard = voice.heard;
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), { provide: OUTBOX, useValue: Promise.resolve(outbox) }, { provide: CLOCK, useValue: { now: () => NOW } }, ...voice.providers],
@@ -147,5 +153,27 @@ describe('Déclarer un sac ouvert', () => {
     await soon(() => expect(element.querySelector('.lines .line .words b')?.textContent).toBe('2 sacs ouverts'));
     await soon(() => expect(heard.at(-1)).toEqual(['wo/written-thanks']));
     expect(element.querySelector('.strip .alive')?.textContent).toContain('938');
+  });
+
+  it('des sacs déjà écrits ce jour-là, par lui et par un autre : la voix en dit la somme seule, puis demande si le sien est en plus — Oui l’écrit', async () => {
+    await outbox.record(OUSMANE, { siteId: NORD, campaignId: BANDE, businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', fact: { type: 'BagOpened', quantity: 2 } });
+    const journal = [ecritParAwa(1, { type: 'BagOpened', quantity: 1 }), ecritParAwa(2, { type: 'BagOpened', quantity: 7 }, '2026-11-05'), ecritParAwa(3, { type: 'Death', quantity: 4 })];
+    const { element, tape, soon } = await ouvre(contexte(uneBande({ journal })));
+    await soon(() => expect(element.querySelectorAll('.lines .line')).toHaveLength(3));
+    await tape('app-declaration-gesture.bag app-gesture-button button');
+    await tape('app-sheet section.on .yes');
+
+    await soon(() => expect(heard.at(-1)).toEqual(['wo/bags-today-1', 'wo/bags-already-written-3', 'wo/bags-in-addition-1']));
+    expect(ouverte(element)?.querySelector('.already')?.textContent).toContain('Il y a déjà 3 sacs ouverts écrits pour ce jour. Ton sac, c’est en plus ?');
+    await tape('app-sheet section.on .yes');
+    await soon(async () => expect(await ecrits()).toHaveLength(2));
+  });
+
+  it('des morts écrits ce jour-là ne déclenchent pas le rappel des sacs : la confirmation reste simple', async () => {
+    const { tape, soon } = await ouvre(contexte(uneBande({ journal: [ecritParAwa(3, { type: 'Death', quantity: 4 })] })));
+    await tape('app-declaration-gesture.bag app-gesture-button button');
+    await tape('app-sheet section.on .yes');
+
+    await soon(() => expect(heard.at(-1)).toEqual(['wo/bags-today-1', 'wo/confirm']));
   });
 });
