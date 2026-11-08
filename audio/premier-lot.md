@@ -1,6 +1,6 @@
 # Premier lot d'enregistrements — liste à cocher
 
-Les 34 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 410 phrases en tout).
+Les 36 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 410 phrases en tout).
 
 ## Comment nommer les fichiers
 
@@ -23,7 +23,7 @@ Les 34 phrases que l'application dit **déjà** : une fois enregistrées et conv
 
 ```bash
 brew install ffmpeg            # une seule fois
-node tools/build-audio.mjs     # convertit, puis affiche « fr : 34 clips sur 410 »
+node tools/build-audio.mjs     # convertit, puis affiche « fr : 36 clips sur 410 »
 ```
 
 ---
@@ -77,6 +77,11 @@ Le geste « Sac ouvert » : même parcours que les morts. « C'est bien ça ? »
 - [ ] **bags-today-3** — « 3 sacs ouverts aujourd'hui. »
 - [ ] **bags-already-written-1** — « Il y a déjà 1 sac ouvert écrit pour ce jour. »
 - [ ] **bags-in-addition-1** — « Ton sac, c'est en plus ? »
+
+## 5. Le rappel « Rien perdu hier » (2)
+
+- [ ] **nothing-lost-reminder** — « Pour hier, les morts ne sont pas écrits. S'il n'y a eu aucun mort, appuie sur le bouton vert. Sinon, écris les morts d'hier. »
+- [ ] **nothing-lost-done** — « C'est noté : hier, rien de perdu. Merci ! »
 
 ---
 

@@ -7,6 +7,7 @@ import { SpeakerButton } from '../../ui/speaker-button';
 import { BAGS } from '../gestures/bag/bags';
 import { DEATHS } from '../gestures/death/deaths';
 import { DeclarationGesture } from '../gestures/declaration-gesture';
+import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { DayJournal, type NamedLine } from './day-journal';
@@ -21,7 +22,7 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, NothingLostReminder, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -61,6 +62,7 @@ import { NotebookCover } from './notebook-cover';
                 <button type="button" (click)="backToToday()">Aujourd'hui</button>
               </div>
             }
+            <app-nothing-lost-reminder [yesterday]="notebook.forgottenYesterday()" (writeForYesterday)="writeForYesterday()" />
             @if (notebook.declarationTarget(); as target) {
               <div class="gestures" role="group" aria-label="Écrire dans le cahier">
                 <app-declaration-gesture [gesture]="deaths" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
@@ -114,6 +116,13 @@ export class NotebookPage {
     const today = this.notebook.days()[2];
     if (today !== undefined) {
       this.chooseDay(today.day);
+    }
+  }
+
+  protected writeForYesterday(): void {
+    const yesterday = this.notebook.days()[1];
+    if (yesterday !== undefined) {
+      this.chooseDay(yesterday.day);
     }
   }
 

@@ -113,7 +113,7 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 
 | Id | Phrase | Quand | Wolof |
 |---|---|---|---|
-| `nothing-lost-reminder` | Hier, tu n'as rien déclaré. S'il n'y a eu aucun mort, appuie sur le bouton vert. Sinon, déclare pour hier. | Post-it du rappel d'oubli | |
+| `nothing-lost-reminder` | Pour hier, les morts ne sont pas écrits. S'il n'y a eu aucun mort, appuie sur le bouton vert. Sinon, écris les morts d'hier. | Post-it du rappel d'oubli | |
 | `nothing-lost-done` | C'est noté : hier, rien de perdu. Merci ! | Après « Rien perdu hier » | |
 | `nothing-lost-refused` | Des morts sont déjà écrits pour ce jour : on ne peut plus dire rien perdu. | « Rien perdu » refusé | |
 

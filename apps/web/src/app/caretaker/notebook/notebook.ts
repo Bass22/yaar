@@ -104,6 +104,20 @@ export class Notebook {
     const bags = campaign === null || day === null ? [] : summaryOf(this.journal(), campaign.campaignId, day.day).bagsOpened;
     return bags.length === 0 ? null : bags.reduce((sum, entry) => sum + entry.quantity, 0);
   });
+  /**
+   * Yesterday, while its deaths are not written — neither deaths nor « rien perdu »; a bag does not
+   * count (K.4, decision of 2026-11-08). Only on today's page, and not for a campaign placed today.
+   */
+  readonly forgottenYesterday = computed((): DeclarationTarget | null => {
+    const site = this.site();
+    const campaign = this.campaign();
+    const yesterday = this.days()[1];
+    if (site === null || campaign === null || yesterday === undefined || this.day()?.when !== 'today' || campaign.campaignDay < 1) {
+      return null;
+    }
+    const forgotten = summaryOf(this.journal(), campaign.campaignId, yesterday.day).mortality.kind === 'NotDeclared';
+    return forgotten ? { siteId: site.siteId, campaignId: campaign.campaignId, businessDate: yesterday.day } : null;
+  });
   /** What a gesture of the notebook writes on (lot 2, K): nothing until a campaign is chosen. */
   readonly declarationTarget = computed((): DeclarationTarget | null => {
     const site = this.site();

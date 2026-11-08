@@ -878,14 +878,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Oui ajoute la déclaration ; Non l'abandonne
 - [x] Sans déclaration préalable du même type ce jour-là, ni d'un autre ni de soi, la confirmation reste simple
 
-### K.4 — « Rien perdu hier » · **S** · 🧪
+### K.4 — « Rien perdu hier » · **S** · 🧪 ✅
 > Spec : CdC « Rappel d'oubli », « Le zéro est une déclaration » · Zone : `apps/web/src/app/caretaker/reminder/`
 > Dépend de : K.1, J.2 · Revue : le zéro crée bien un événement.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. `NothingLostReminder` (`caretaker/reminder/`) : le post-it, sur la page d'aujourd'hui, tant que `Notebook.forgottenYesterday` dit que les morts d'hier ne sont pas écrits (`summarizeDay` : `NotDeclared`, outbox comprise). « Rien perdu hier » écrit en un tap un `NoLoss` daté d'hier, à l'heure du téléphone, par l'outbox ; tampon et « C'est noté : hier, rien de perdu » une fois gardé ; double tap : un seul zéro ; panne de stockage : post-it et voix, le rappel reste. « Écrire pour hier » ouvre le cahier sur hier (bannière violette, voix). **Décision du 2026-11-08, ajoutée au CdC** : le rappel suit **les morts** d'hier, pas « hier vide » comme la maquette — un sac écrit hier ne le cache pas ; `nothing-lost-reminder` est reformulée (« Pour hier, les morts ne sont pas écrits… »). Pas de rappel pour une bande mise en place aujourd'hui.
+> **Non fait ici** : pas de relecture avant le zéro — le CdC le veut d'un tap ; un zéro écrit par erreur se corrige par l'admin (annulation, C.7). Le refus « des morts sont déjà écrits » (`nothing-lost-refused`) ne peut venir que du serveur, quand un autre a écrit des morts que le téléphone n'avait pas encore reçus : il sera dit par G.5. Avant-hier n'a pas de rappel (le CdC ne parle que d'hier). Pas regardé dans un navigateur à 360 px.
 
-- [ ] Si hier est non déclaré, le rappel apparaît
-- [ ] « Rien perdu hier » crée en un tap un événement daté d'hier
-- [ ] « Écrire pour hier » ouvre la saisie sur le jour d'hier
-- [ ] Le rappel disparaît dès qu'hier est déclaré
+- [x] Si les morts d'hier ne sont pas écrits (ni mort, ni « rien perdu » ; un sac ne compte pas : décision du 2026-11-08), le rappel apparaît
+- [x] « Rien perdu hier » crée en un tap un événement daté d'hier
+- [x] « Écrire pour hier » ouvre la saisie sur le jour d'hier
+- [x] Le rappel disparaît dès qu'hier est déclaré
 
 ### K.5 — Corriger une déclaration · **M** · 🎨 · 🧪
 > Spec : CdC « Corrections » · Zone : `apps/web/src/app/caretaker/journal/correction/`
