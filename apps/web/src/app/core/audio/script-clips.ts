@@ -2,6 +2,7 @@
 
 /** A clip of the script said as it is, or a number or a unit of the annex. */
 export type ScriptClip =
+  | 'already-written-many'
   | 'bags-how-many'
   | 'campaign-old'
   | 'campaign-young'
@@ -16,6 +17,7 @@ export type ScriptClip =
   | 'day-today'
   | 'day-yesterday'
   | 'deaths-how-many'
+  | 'deaths-in-addition-many'
   | 'deaths-many'
   | 'delivery-announced'
   | 'delivery-bonus'
@@ -79,8 +81,7 @@ export type ScriptClip =
 
 /** A phrase recorded once per number (`deaths-today-3`): the whole phrase is said when it is recorded. */
 export type CountedFamily =
-  | 'already-written-by-other'
-  | 'already-written-by-you'
+  | 'already-written'
   | 'bags-before-yesterday'
   | 'bags-today'
   | 'bags-yesterday'

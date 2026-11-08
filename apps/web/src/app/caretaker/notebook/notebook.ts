@@ -8,7 +8,7 @@ import type { OutboxEntry } from '../../core/outbox/outbox';
 import { AuthService } from '../../core/session/auth';
 import { tenantOf } from '../../core/session/session-store';
 import { JournalSync, OUTBOX } from '../../core/sync/journal-sync';
-import { daysOf, campaignsOf, journalOf, linesOf, summaryOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
+import { daysOf, campaignsOf, journalOf, linesOf, liveCountOf, summaryOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
 
 const CONTEXT_KEY = 'yaar.context';
 const MINUTE = 60_000;
@@ -83,6 +83,19 @@ export class Notebook {
     const campaign = this.campaignContext();
     const day = this.day();
     return campaign === null || day === null ? [] : linesOf(campaign, this.journal(), this.entries(), day.day);
+  });
+  /** The live count of the campaign, less the deaths the server has not counted yet (K.1). */
+  readonly liveCount = computed(() => {
+    const campaign = this.campaignContext();
+    const oldest = this.days()[0];
+    return campaign === null || oldest === undefined ? null : liveCountOf(campaign, this.entries(), oldest.day);
+  });
+  /** The deaths already written on the chosen day, by anyone, `null` when none: what the voice reminds before the Oui (K.1). */
+  readonly deathsWritten = computed(() => {
+    const campaign = this.campaign();
+    const day = this.day();
+    const mortality = campaign === null || day === null ? null : summaryOf(this.journal(), campaign.campaignId, day.day).mortality;
+    return mortality?.kind === 'DeathsDeclared' ? mortality.deaths : null;
   });
   /** What a gesture of the notebook writes on (lot 2, K): nothing until a campaign is chosen. */
   readonly declarationTarget = computed((): DeclarationTarget | null => {

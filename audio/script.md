@@ -90,9 +90,10 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `deaths-before-yesterday-1` … `-20` | 1 poulet mort avant-hier. … | Confirmation pour avant-hier — **de 1 à 20** | |
 | `deaths-many` | Poulets morts : *nombre*. | Au-delà de 20 — **composé** | |
 | `confirm` | C'est bien ça ? | Après la phrase de confirmation | |
-| `already-written-by-you-1` … `-20` | Tu as déjà écrit 1 mort pour ce jour. … 20 morts. | Avant le Oui, s'il en a déjà écrit — **de 1 à 20** | |
-| `already-written-by-other-1` … `-20` | Un autre gardien a déjà écrit 1 mort pour ce jour. … | Avant le Oui, si un autre en a écrit — **de 1 à 20** | |
-| `deaths-in-addition-1` … `-20` | Tes 1 mort, c'est en plus ? … Tes 20 morts, c'est en plus ? | Juste après le rappel — **de 1 à 20** (pour 1 : « Ton mort, c'est en plus ? ») | |
+| `already-written-1` … `-20` | Il y a déjà 1 mort écrit pour ce jour. … Il y a déjà 20 morts écrits pour ce jour. | Avant le Oui, si des morts sont déjà écrits ce jour-là, par lui ou par un autre : **la somme seule** (décision du 2026-11-08) — **de 1 à 20** | |
+| `already-written-many` | Morts déjà écrits pour ce jour : *nombre*. | Au-delà de 20 — **composé** | |
+| `deaths-in-addition-1` … `-20` | Tes 1 mort, c'est en plus ? … Tes 20 morts, c'est en plus ? | Juste après le rappel, à la place de « C'est bien ça ? » — **de 1 à 20** (pour 1 : « Ton mort, c'est en plus ? ») | |
+| `deaths-in-addition-many` | Tes morts, c'est en plus ? | Au-delà de 20 : le nombre vient d'être dit | |
 
 ## 4. Déclarer un sac ouvert
 
@@ -202,4 +203,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 385 fichiers par langue, dont 265 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 367 fichiers par langue, dont 245 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

@@ -2,7 +2,7 @@ import { unwrap } from '@kit';
 import { TimeZone, type BusinessDay } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerJournalLine, FactPayload } from '@contracts';
 import type { OutboxEntry, OutboxState } from '../../core/outbox/outbox';
-import { daysOf, campaignsOf, journalOf, linesOf, summaryOf } from './notebook-view';
+import { daysOf, campaignsOf, journalOf, linesOf, liveCountOf, summaryOf } from './notebook-view';
 
 // Spec: backlog J.1 (les bandes du site), J.2 (trois jours et leur mini-résumé), J.3 (le journal
 // du jour) ; cahier des charges « En-tête et contexte », « Journal du jour », « Rattrapage » ;
@@ -147,5 +147,43 @@ describe('Le journal du jour', () => {
     const bande = uneBande();
 
     expect(linesOf(bande, journalOf(bande, [ailleurs], where), [ailleurs], HIER)).toEqual([]);
+  });
+});
+
+// Spec: backlog K.1 — après le Oui, les vivants diminuent ; CdC « La confiance est visible »
+// (compteur de vivants décrémenté en direct) ; CLAUDE.md §4 règle 9 (signé, jamais bridé).
+describe('Les vivants, en direct', () => {
+  const AVANT_HIER = '2026-11-04' as BusinessDay;
+
+  it("les morts écrits sur le téléphone, que le serveur n'a pas encore comptés, sont retirés des vivants qu'il a envoyés", () => {
+    const bande = uneBande({ liveCount: 938 });
+
+    expect(liveCountOf(bande, [surLeTelephone(1, morts(3)), surLeTelephone(2, morts(2), 'in-doubt')], AVANT_HIER)).toBe(933);
+  });
+
+  it("un mort que le serveur a déjà dans son journal n'est pas retiré deux fois", () => {
+    const bande = uneBande({ liveCount: 935, journal: [uneLigne(1, morts(3))] });
+
+    expect(liveCountOf(bande, [surLeTelephone(1, morts(3), 'sent')], AVANT_HIER)).toBe(935);
+  });
+
+  it("envoyé après la réception du contexte, il est encore retiré ; sorti des trois jours, le serveur l'a forcément compté", () => {
+    const bande = uneBande({ liveCount: 938 });
+
+    expect(liveCountOf(bande, [surLeTelephone(1, morts(3), 'sent')], AVANT_HIER)).toBe(935);
+    expect(liveCountOf(bande, [surLeTelephone(1, morts(3), 'sent', { businessDate: '2026-11-01' })], AVANT_HIER)).toBe(938);
+  });
+
+  it("seuls les morts comptent, et seulement ceux de la bande ; une annulation du chef les remet", () => {
+    const autreBande = { ...surLeTelephone(3, morts(4)), payload: { ...surLeTelephone(3, morts(4)).payload, campaignId: uuid(9) } };
+    const annule = uneBande({ liveCount: 938, journal: [uneLigne(1, morts(3), { retracted: true })] });
+
+    expect(liveCountOf(uneBande({ liveCount: 938 }), [surLeTelephone(2, { type: 'BagOpened', quantity: 2 }), autreBande], AVANT_HIER)).toBe(938);
+    expect(liveCountOf(annule, [surLeTelephone(1, morts(3), 'sent')], AVANT_HIER)).toBe(938);
+  });
+
+  it('plus de morts que de vivants : le compte passe sous zéro, jamais bridé ; sans poussins reçus connus, rien ne s’invente', () => {
+    expect(liveCountOf(uneBande({ liveCount: 2 }), [surLeTelephone(1, morts(5))], AVANT_HIER)).toBe(-3);
+    expect(liveCountOf(uneBande({ liveCount: null }), [surLeTelephone(1, morts(5))], AVANT_HIER)).toBeNull();
   });
 });

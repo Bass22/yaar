@@ -80,6 +80,23 @@ export function summaryOf(journal: readonly JournalEvent[], campaignId: string, 
   return summarizeDay(journal, { campaignId: campaignId as CampaignId, businessDate: day });
 }
 
+/**
+ * The live count shown on the strip (K.1): the server's, less the deaths the phone wrote and the
+ * server has not counted yet — not in the journal it sent. A sent one whose day has left the three
+ * days of the notebook is no longer in that journal, but the server has counted it. Signed, never
+ * clamped; unknown while the chicks received are (CLAUDE.md §4 rules 9 and 10).
+ */
+export function liveCountOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): number | null {
+  if (campaign.liveCount === null) {
+    return null;
+  }
+  const counted = new Set(campaign.journal.map((line) => line.id));
+  const notCountedYet = entries.filter(
+    (entry) => entry.payload.campaignId === campaign.campaignId && !counted.has(entry.id) && (entry.state !== 'sent' || entry.payload.businessDate >= oldestDay),
+  );
+  return notCountedYet.reduce((live, { payload }) => (!('corrects' in payload) && 'fact' in payload && payload.fact.type === 'Death' ? live - payload.fact.quantity : live), campaign.liveCount);
+}
+
 /** A line of the day's journal, as written in the notebook. */
 export type NotebookLine = {
   readonly id: string;

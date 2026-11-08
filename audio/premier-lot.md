@@ -1,6 +1,6 @@
 # Premier lot d'enregistrements — liste à cocher
 
-Les 19 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 385 phrases en tout).
+Les 28 phrases que l'application dit **déjà** : une fois enregistrées et converties, tu les entends dans l'appli, sur l'écran d'entrée et dans le cahier. Tiré de `audio/script.md`, qui reste la référence (et qui compte 367 phrases en tout).
 
 ## Comment nommer les fichiers
 
@@ -23,7 +23,7 @@ Les 19 phrases que l'application dit **déjà** : une fois enregistrées et conv
 
 ```bash
 brew install ffmpeg            # une seule fois
-node tools/build-audio.mjs     # convertit, puis affiche « fr : 19 clips sur 385 »
+node tools/build-audio.mjs     # convertit, puis affiche « fr : 28 clips sur 367 »
 ```
 
 ---
@@ -52,6 +52,20 @@ node tools/build-audio.mjs     # convertit, puis affiche « fr : 19 clips sur 38
 - [ ] **campaign-young** — « Les petits. »
 - [ ] **campaign-old** — « Les grands. »
 - [ ] **no-campaign** — « Il n'y a pas de bande en ce moment. »
+
+## 3. Déclarer des morts (9)
+
+Le geste « Mort » : le compteur, la relecture, puis le tampon. Au-delà de 3 morts, la phrase se dit en morceaux avec les nombres : enregistre d'abord ces trois-là, le reste viendra.
+
+- [ ] **deaths-how-many** — « Combien de morts ? Appuie sur plus pour en ajouter. »
+- [ ] **deaths-today-1** — « 1 poulet mort aujourd'hui. »
+- [ ] **deaths-today-2** — « 2 poulets morts aujourd'hui. »
+- [ ] **deaths-today-3** — « 3 poulets morts aujourd'hui. »
+- [ ] **confirm** — « C'est bien ça ? »
+- [ ] **cancelled** — « D'accord, on n'écrit rien. »
+- [ ] **written-thanks** — « C'est noté. Merci ! »
+- [ ] **already-written-1** — « Il y a déjà 1 mort écrit pour ce jour. »
+- [ ] **deaths-in-addition-1** — « Ton mort, c'est en plus ? »
 
 ---
 

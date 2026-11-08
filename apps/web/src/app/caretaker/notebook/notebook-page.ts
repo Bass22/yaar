@@ -4,6 +4,7 @@ import { clip, counted, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
 import { JournalSync } from '../../core/sync/journal-sync';
 import { SpeakerButton } from '../../ui/speaker-button';
+import { DeathGesture } from '../gestures/death/death-gesture';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { DayJournal, type NamedLine } from './day-journal';
@@ -15,10 +16,10 @@ import { NotebookCover } from './notebook-cover';
 
 // The caretaker's notebook (epic J): the cover, then — once the campaign is known — the strip of
 // the day, the three days, the past-day banner and the journal of the chosen day. Everything here
-// opens offline from the last context received; the gestures come with K, the voice with I.
+// opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeathGesture, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -49,13 +50,18 @@ import { NotebookCover } from './notebook-cover';
         }
         @if (notebook.campaign(); as campaign) {
           <section class="page" [class]="'page ' + campaign.tone" [class.several]="notebook.campaigns().length > 1">
-            <app-day-strip [campaign]="campaign" [liveCount]="liveCount()" />
+            <app-day-strip [campaign]="campaign" [liveCount]="notebook.liveCount()" />
             <app-day-tabs [tabs]="notebook.tabs()" [chosen]="notebook.day()?.day ?? null" (choose)="chooseDay($event)" />
             @if (pastDay(); as when) {
               <div class="past" role="alert">
                 <app-pictogram picto="moon" [decorative]="true" />
                 <span class="past-words">Tu écris pour : {{ when }}</span>
                 <button type="button" (click)="backToToday()">Aujourd'hui</button>
+              </div>
+            }
+            @if (notebook.declarationTarget(); as target) {
+              <div class="gestures" role="group" aria-label="Écrire dans le cahier">
+                <app-death-gesture [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
               </div>
             }
             <app-day-journal [title]="journalTitle()" [lines]="lines()" />
@@ -83,6 +89,7 @@ import { NotebookCover } from './notebook-cover';
       border: 2px solid var(--color-past-day); background: var(--color-paper); color: var(--color-past-day); font: 700 0.9rem var(--font-hand); box-shadow: var(--shadow-hard-sm);
     }
     .past button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+    .gestures { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
   `,
 })
 export class NotebookPage {
@@ -90,7 +97,6 @@ export class NotebookPage {
   private readonly voice = inject(Voice);
   protected readonly sync = inject(JournalSync);
 
-  protected readonly liveCount = computed(() => this.notebook.site()?.campaigns.find((campaign) => campaign.campaignId === this.notebook.campaign()?.campaignId)?.liveCount ?? null);
   /** « HIER », « AVANT-HIER » under the violet banner; nothing for today. */
   protected readonly pastDay = computed(() => {
     const day = this.notebook.day();

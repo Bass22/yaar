@@ -843,17 +843,19 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## K — Les gestes de déclaration
 
-### K.1 — Déclarer des morts en trois taps · **M** · 🧪
+### K.1 — Déclarer des morts en trois taps · **M** · 🧪 ✅
 > Spec : CdC « Gestes du cahier » ; `journal-gardien.html` (compteur, confirmation) · Zone : `apps/web/src/app/caretaker/gestures/death/`
 > Dépend de : J.3, H.4, I.2, G.3 · Revue : compter les taps ; le parcours entier marche hors-ligne.
+> Livrée le 2026-11-08, aucune dépendance ajoutée. `DeathGesture` (`caretaker/gestures/death/`) : Mort → compteur (pile de poulets couchés) → « C'est tout » → relecture dite et écrite → Oui ; l'événement part par `JournalSync.record`, le tampon ne tombe qu'une fois l'outbox écrite, un double tap n'écrit qu'une fois, un téléphone qui ne peut plus garder la déclaration le dit (post-it et voix, pas de tampon). La relecture est `confirmationOf` (`deaths.ts`). **Décision du 2026-11-08, ajoutée au CdC** : le rappel dit **la somme seule** des morts déjà écrits ce jour-là dans la bande, par lui comme par les autres (`Notebook.deathsWritten`, tiré de `summarizeDay`), puis « tes morts, c'est en plus ? » à la place de « c'est bien ça ? » ; le script passe à 367 phrases (`already-written-*` remplace `already-written-by-you-*` et `-by-other-*`). Les vivants du bandeau (`liveCountOf`) : ceux du serveur, moins les morts du téléphone qu'il n'a pas encore comptés — signés, jamais bridés.
+> **Non fait ici** : le téléphone ne revalide pas la déclaration par `validateDeclaration` avant de la garder — le jour et la bande viennent du cahier, toujours valables à l'ouverture du compteur ; un compteur ouvert avant minuit et validé après pour avant-hier serait refusé par le serveur et dit par G.5. Au-delà de 20, « Poulets morts : quarante-deux » ne dit pas le jour : la bannière violette le montre. **Pas regardé dans un navigateur** à 360 px : à faire avec le premier lot de clips.
 
-- [ ] Geste → quantité → Oui : trois taps pour déclarer
-- [ ] Les poulets couchés s'empilent à chaque unité ajoutée
-- [ ] La voix relit la déclaration avant le Oui
-- [ ] Si le gardien a déjà écrit des morts ce jour-là, la voix le lui rappelle avant le Oui : « tu as déjà écrit 3 morts aujourd'hui, tes 5 morts, c'est en plus ? » (C.6)
-- [ ] Non ferme la feuille sans rien écrire
-- [ ] Après le Oui : tampon, ligne dans le journal, vivants diminués, événement dans l'outbox
-- [ ] Une quantité supérieure aux vivants est acceptée comme une autre : le gardien n'est pas bloqué, c'est l'admin qui est alerté (C.5)
+- [x] Geste → quantité → Oui : trois taps pour déclarer
+- [x] Les poulets couchés s'empilent à chaque unité ajoutée
+- [x] La voix relit la déclaration avant le Oui
+- [x] Si des morts sont déjà écrits ce jour-là, la voix en dit la somme avant le Oui : « Il y a déjà 5 morts écrits pour ce jour. Tes 2 morts, c'est en plus ? » (C.6, décision du 2026-11-08)
+- [x] Non ferme la feuille sans rien écrire
+- [x] Après le Oui : tampon, ligne dans le journal, vivants diminués, événement dans l'outbox
+- [x] Une quantité supérieure aux vivants est acceptée comme une autre : le gardien n'est pas bloqué, c'est l'admin qui est alerté (C.5)
 
 ### K.2 — Déclarer un sac ouvert · **S**
 > Spec : CdC « On déclare des changements d'état physiques » · Zone : `apps/web/src/app/caretaker/gestures/bag/`

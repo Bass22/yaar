@@ -71,7 +71,12 @@ describe('Le cahier du gardien', () => {
     };
     await refresh();
     const notebook = fixture.debugElement.injector.get(Notebook);
-    return { element, click, refresh, notebook };
+    /** Waits for what the outbox holds to reach the screen: its reads take their time on a loaded machine. */
+    const soon = (check: () => void) => vi.waitFor(async () => {
+      await refresh();
+      check();
+    });
+    return { element, click, refresh, notebook, soon };
   };
 
   beforeEach(async () => {
@@ -223,7 +228,8 @@ describe('Le cahier du gardien', () => {
       await outbox.record(OUSMANE, { siteId: NORD, campaignId: GRANDS, businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', fact: { type: 'BagOpened', quantity: 2 } });
       const bande = uneBande({ journal: [{ id: uuid(2), businessDate: '2026-11-06', recordedAt: '2026-11-06T07:00:00.000Z', author: { id: AWA, name: 'Awa' }, fact: { type: 'Death', quantity: 3 }, corrected: false, retracted: false }] });
 
-      const { element } = await ouvre(contexte(unSite({ campaigns: [bande] })));
+      const { element, soon } = await ouvre(contexte(unSite({ campaigns: [bande] })));
+      await soon(() => expect(element.querySelectorAll('.lines .line')).toHaveLength(2));
 
       const lignes = Array.from(element.querySelectorAll('.lines .line'));
       expect(lignes.map((ligne) => [ligne.querySelector('.words b')?.textContent, ligne.querySelector('.words small')?.textContent])).toEqual([
