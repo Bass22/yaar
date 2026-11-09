@@ -1224,26 +1224,32 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## Q — Commandes et réceptions
 
-### Q.1 — Une commande et son cycle · **M**
+### Q.1 — Une commande et son cycle · **M** ✅
 > Spec : CdC « Commandes » · Zone : `packages/domain/src/finance/purchase-order.ts`
 > Dépend de : B.1, B.2, N.2, N.3 · Revue : les transitions d'état, une par une.
 
-- [ ] Une commande a un en-tête (fournisseur, bande, date, référence facultative) et au moins une ligne (type de l'élevage, quantité, prix unitaire) — décisions du 2026-11-09
-- [ ] Seuls les types commandables entrent dans une commande
-- [ ] Le cycle est : brouillon, annoncée, partiellement reçue, reçue, soldée
-- [ ] Une transition hors du cycle est refusée
-- [ ] L'admin peut clôturer une commande incomplète
+> Livrée le 2026-11-09, aucune dépendance ajoutée, dans le domaine pur (`domain/finance`, jamais sur le téléphone du gardien). `draftOrder` juge une commande entière contre l'élevage (`DraftOrderContext` : ses tiers, ses types, sa devise) : fournisseur de sorte « fournisseur », non archivé ; au moins une ligne ; type commandable non archivé ; quantité entière d'au moins 1 ; prix en `Money` du kit, entier, zéro permis ; lignes distinctes ; référence facultative, nettoyée ; le résultat est gelé. Motifs : `OrderRefusal` (liste fermée propre aux commandes). Transitions : `reviseOrder` (brouillon seulement, même identifiant), `announceOrder` (une fois), `acceptsDeliveries` (annoncée et pas close — servira à Q.2), `closeOrder` (annoncée, pas entièrement reçue, même rien reçu ; jamais rouverte). **L'état se déduit** (`orderStatus`, règle 8) de l'annonce, de la clôture, du reçu par ligne et du « payé » : brouillon, annoncée, partiellement reçue, reçue (un bonus compte), close, soldée (reçue ou close, et payée).
+> **Non fait ici** : le reçu par ligne vient des réceptions (Q.2), le « payé » du solde (Q.3) — `orderStatus` les reçoit en paramètre ; rien n'est en base avant Q.4.
 
-### Q.2 — Réceptions partielles et écarts signés · **M** · 🧪
+- [x] Une commande a un en-tête (fournisseur, bande, date, référence facultative) et au moins une ligne (type de l'élevage, quantité, prix unitaire) — décisions du 2026-11-09
+- [x] Seuls les types commandables entrent dans une commande
+- [x] Le cycle est : brouillon, annoncée, partiellement reçue, reçue, soldée
+- [x] Une transition hors du cycle est refusée
+- [x] L'admin peut clôturer une commande incomplète
+
+### Q.2 — Réceptions partielles et écarts signés · **M** · 🧪 ✅
 > Spec : CdC « Commandes », « Les écarts sont signés » · Zone : `packages/domain/src/journal/delivery.ts`
 > Dépend de : C.1 · Revue : quantités seules, aucun prix — ce code va sur le téléphone du gardien.
 
-- [ ] Plusieurs réceptions se cumulent par ligne
-- [ ] Le reste à venir vaut la quantité commandée moins le reçu cumulé, tant qu'il est positif
-- [ ] Un reçu inférieur au commandé donne un écart négatif (manque)
-- [ ] Un reçu supérieur au commandé donne un écart positif (bonus), jamais ramené à zéro
-- [ ] Une ligne est complète quand le reçu atteint la quantité commandée
-- [ ] Le reçu cumulé est la somme des réceptions, quel que soit leur ordre (property-based)
+> Livrée le 2026-11-09, aucune dépendance ajoutée, dans `domain/journal` (quantités seules, aucun prix : le téléphone du gardien l'utilisera pour sa carte livraison). `receivedByLine` lit le journal tel qu'il est (`effectiveJournal`) : une réception corrigée compte pour sa nouvelle valeur, une annulée ne compte plus ; ni l'ordre d'arrivée ni les doublons ne changent le cumul ; une ligne qui n'a rien reçu est absente, pas à zéro. `lineDelivery(commandé, reçu)` : reste à venir (jamais sous zéro), écart signé `reçu − commandé` (manque négatif, bonus positif, jamais bridé), complète quand rien ne reste. C'est ce cumul que `orderStatus` (Q.1) attend.
+> **Non fait ici** : rattacher une réception à une commande annoncée et pas close (le serveur le jugera à l'ingestion, avec `acceptsDeliveries`, quand les commandes seront en base : Q.4) ; la carte du gardien (Q.7).
+
+- [x] Plusieurs réceptions se cumulent par ligne
+- [x] Le reste à venir vaut la quantité commandée moins le reçu cumulé, tant qu'il est positif
+- [x] Un reçu inférieur au commandé donne un écart négatif (manque)
+- [x] Un reçu supérieur au commandé donne un écart positif (bonus), jamais ramené à zéro
+- [x] Une ligne est complète quand le reçu atteint la quantité commandée
+- [x] Le reçu cumulé est la somme des réceptions, quel que soit leur ordre (property-based)
 
 ### Q.3 — Facturable, paiements et solde · **M** · 🧪
 > Spec : Archi §4 (`facturable`, `dette`) ; CdC « Commandes » · Zone : `packages/domain/src/finance/{billable,order-balance}.ts`

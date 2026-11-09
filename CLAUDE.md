@@ -119,9 +119,10 @@ Rien à construire en V1, mais ne pas fermer :
 | Résumé d'un jour : non déclaré / zéro déclaré / morts déclarés | `DaySummary` : `NotDeclared` / `NoLossDeclared` / `DeathsDeclared` |
 | Tâche ; tâche faite ; protocole sanitaire | `Task` ; `TaskDone` ; `HealthProtocol` |
 | Message vocal ; photo ; empreinte d'un média | `VoiceMessage` ; `Photo` ; `MediaFingerprint` |
-| Commande ; ligne de commande | `PurchaseOrder` ; `OrderLine` |
+| Commande ; ligne de commande ; son état (brouillon, annoncée, partiellement reçue, reçue, close, soldée) ; écrire et modifier un brouillon, annoncer, clore ; accepte-t-elle une réception ; identifiants | `PurchaseOrder` ; `OrderLine` ; `OrderStatus` (`Draft`, `Announced`, `PartiallyReceived`, `Received`, `Closed`, `Settled`, `orderStatus`) ; `draftOrder`, `reviseOrder`, `announceOrder`, `closeOrder` ; `acceptsDeliveries` ; `PurchaseOrderId`, `CounterpartyId`, `CostTypeId` ; motifs `OrderRefusal` |
 | Réception ; PV de réception (photographié / pas de papier) | `Delivery` ; `DeliveryNote` (`Photographed` / `NoPaper`) |
 | Écart (manque / bonus) | `Variance` (`shortfall` / `bonus`) |
+| Le reçu cumulé de chaque ligne ; l'état de livraison d'une ligne (commandé, reçu, reste à venir, écart signé, complète) | `receivedByLine` ; `LineDelivery` (`ordered`, `received`, `remaining`, `variance`, `complete`, `lineDelivery`) |
 | Facturable ; paiement d'une commande | `billable` ; `Payment` |
 | Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
 | Tiers ; grand livre des tiers | `Counterparty` ; `Ledger` |

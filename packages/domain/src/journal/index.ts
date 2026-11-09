@@ -34,6 +34,7 @@ export {
   type DeclaredBefore,
   type DeclaredQuantity,
 } from './day-summary';
+export { lineDelivery, receivedByLine, type LineDelivery } from './delivery';
 export {
   authorizeDeclaration,
   type Author,
