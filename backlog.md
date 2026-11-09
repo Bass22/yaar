@@ -1052,11 +1052,14 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Référentiels » (souches), « Points ouverts » (table Cobb) · Zone : `apps/api/src/reference-data/strains/`, `packages/domain/src/journal/strain.ts`
 > Dépend de : N.1 · Revue : vérifier quelques valeurs de la table contre la source.
 
-- [ ] La souche Cobb 500 porte son poids cible par âge, de J0 à J49
-- [ ] Elle porte sa consommation journalière et cumulée par âge
-- [ ] Elle porte son protocole sanitaire par défaut
-- [ ] L'espèce est un attribut de la souche, pas du journal
-- [ ] Un âge hors de la table renvoie une valeur absente, jamais zéro
+> Livrée en partie le 2026-11-09, aucune dépendance ajoutée, aucune table. `STRAINS` (`packages/domain/src/journal/strain.ts`) : la Cobb 500, poulet de chair, transcrite du guide « Cobb 500 Performances et Recommandations Nutritionnelles » (colonne tout-venant, photo fournie par le fondateur) : J0 à J49, poids cible, consommation journalière et cumulée par poulet, indice de consommation du guide. `targetAt(souche, jour)` rend la ligne, ou `null` hors de la table ; les cases vides du guide restent `null`. La transcription se recoupe dans le test : cumul = veille + journalière à 1 g près, indice ≈ cumul ÷ poids au demi-centième ; une faute de frappe sur un nombre fait tomber un test. Le bureau lit la liste des souches dans `GET /api/v1/reference-data` (`strains`) ; la courbe reste au serveur jusqu'au Suivi (V). La jauge du cahier reste sur 42 jours : le guide ne donne pas de durée de bande.
+> **Non fait ici** : **le protocole sanitaire par défaut** — absent de la page fournie ; il attend le plan de vaccination du fondateur et le référentiel des tâches (L.1). La version du guide (année) n'est pas lisible sur la photo.
+
+- [x] La souche Cobb 500 porte son poids cible par âge, de J0 à J49
+- [x] Elle porte sa consommation journalière et cumulée par âge
+- [ ] Elle porte son protocole sanitaire par défaut — en attente du fondateur
+- [x] L'espèce est un attribut de la souche, pas du journal
+- [x] Un âge hors de la table renvoie une valeur absente, jamais zéro
 
 ### N.5 — Le catalogue de prix apprend seul · **S**
 > Spec : CdC « Valeurs par défaut » · Zone : `apps/api/src/settings/price-catalog/`
@@ -1090,13 +1093,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Il active ou désactive le mode strict ; par défaut il est désactivé
 - [x] La modification d'une configuration de site est tracée dans l'audit
 
-### O.2 — Ouvrir une campagne · **M** · ⚠
+### O.2 — Ouvrir une campagne · **M**
 > Spec : CdC « Hiérarchie », « Référentiels » (souche) · Zone : `apps/api/src/campaigns/`, `packages/domain/src/journal/campaign.ts`
 > Dépend de : O.1, N.4 · Revue : ce qui rend une campagne « en cours ».
 
-- [ ] L'admin ouvre une campagne sur un site : souche, effectif, date de mise en place
+- [ ] L'admin ouvre une campagne sur un site : souche, effectif, date de mise en place, durée prévue (décision du 2026-11-09)
 - [ ] Une campagne référence sa souche et en hérite la courbe cible
 - [ ] Une campagne sans effectif ou sans date est refusée
+- [ ] Une mise en place dans le futur, ou de plus de 60 jours, est refusée ; une durée prévue hors de 1 à 60 jours aussi
+- [ ] Au bureau, le formulaire préremplit la souche (Cobb 500), la date (aujourd'hui) et la durée (45 jours) — demande du fondateur, 2026-11-09
 - [ ] La campagne ouverte rejoint le contexte du gardien du site, à côté des autres campagnes en cours sur ce site (plusieurs à la fois : décision du 2026-11-07)
 
 ### O.3 — La coquille du bureau · **M** ✅

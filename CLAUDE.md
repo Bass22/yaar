@@ -105,7 +105,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Métier | Code |
 |---|---|
 | Élevage (tenant) ; site (poulailler) | `Tenant`, `tenant_id` ; `Site` |
-| Campagne, bande | `Campaign` |
+| Campagne, bande ; l'ouvrir ; effectif prévu (jamais la base des vivants) ; durée prévue (45 jours par défaut, 60 au plus) | `Campaign` ; `openCampaign` (`OpenCampaignRequest`, `CampaignOpened`) ; `plannedHeadcount` ; `plannedDuration` (`DEFAULT_PLANNED_DURATION`, `MAX_CAMPAIGN_DAYS`) |
 | Gardien ; titulaire du site ; remplaçant ; équipe du site ; affectation à un site (en base) ; affecter, retirer, désigner le titulaire | `Caretaker` ; `primaryCaretaker` ; `substitute` ; `SiteStaff` ; `SiteAssignment` (`isPrimary`) ; `assignToSite`, `removeFromSite`, `designatePrimaryCaretaker` |
 | Mode strict (seul le titulaire déclare) | `strictMode` |
 | Événement du journal ; déclaration ; contre-déclaration ; annulation (admin seul, définitive) | `JournalEvent` ; `Declaration` ; `CounterDeclaration` (`corrects`) ; `Retraction` (`retracts`) |
@@ -131,6 +131,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Socle de l'éditeur : catégories (Aliments, Poussins, Santé, Literie, Main-d'œuvre, Équipement, Nettoyage, Transport, Transformation, Énergie/Eau, Frais financiers, Autres) ; fixe / variable ; commandable ; types de pertes ; les référentiels lus par le bureau | `COST_CATEGORIES` (`Feed`, `Chicks`, `Health`, `Bedding`, `Labour`, `Equipment`, `Cleaning`, `Transport`, `Processing`, `Utilities`, `FinancialCharges`, `Other`) ; `CostBehaviour` (`Fixed` / `Variable`) ; `orderable` ; `LOSS_TYPES` (`Missing`, `Donation`, `Theft`) ; `ReferenceData` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
+| Les souches de l'éditeur ; espèce (poulet de chair) ; la cible d'un âge (poids, consommation journalière et cumulée, indice de consommation) ; la lire | `STRAINS` (`Cobb500`) ; `Species` (`Broiler`) ; `StrainTarget` (`weight`, `dailyFeed`, `cumulativeFeed`, `feedConversion`) ; `targetAt` |
 | Quantité déclarée ; poids (grammes entiers, saisi tel que lu : la balance n'est pas modélisée) | `Quantity` ; `Weight` |
 | Vente ; prêt de poulets | `Sale` ; `BirdLoan` |
 | Clôture ; restes ; bilan | `closing` ; `leftovers` ; `ClosingReport` |

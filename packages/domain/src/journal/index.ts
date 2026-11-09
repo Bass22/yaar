@@ -65,5 +65,6 @@ export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';
 export { validateRetraction, type RetractionContext } from './retraction';
 export type { Role } from './role';
+export { STRAINS, targetAt, type Species, type Strain, type StrainTarget } from './strain';
 export { validateDeclaration, type DeclarationContext } from './validate-declaration';
 export { Weight } from './weight';

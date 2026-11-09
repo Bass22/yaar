@@ -14,4 +14,4 @@ export type {
 } from './auth';
 export type { ConfigureSiteRequest, CreateSiteRequest, DesignatePrimaryCaretakerRequest, SiteConfigRefusal, SiteStaffRefusal } from './sites';
 export type { CaretakerCampaign, CaretakerChef, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';
-export type { CostCategoryCode, CostCategoryView, LossTypeCode, ReferenceData } from './reference-data';
+export type { CostCategoryCode, CostCategoryView, LossTypeCode, ReferenceData, StrainView } from './reference-data';
