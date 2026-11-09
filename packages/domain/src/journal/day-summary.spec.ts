@@ -158,12 +158,13 @@ describe("Résumé d'un jour", () => {
   });
 
   describe('le gardien ne voit que les morts', () => {
-    it("des manquants ou des dons déclarés par l'admin n'entrent pas dans le résumé", () => {
-      // Given 3 morts, puis 4 manquants et 6 dons écrits par le gérant
+    it("des manquants, des dons ou un vol déclarés par l'admin n'entrent pas dans le résumé", () => {
+      // Given 3 morts, puis 4 manquants, 6 dons et 2 volés écrits par le gérant
       const journal = [
         declare(1, LE_MATIN, morts(3)),
         declare(2, A_MIDI, manquants(4), { authorId: LE_GERANT }),
         declare(3, A_MIDI, donnes(6), { authorId: LE_GERANT }),
+        declare(4, A_MIDI, { type: 'Loss', lossType: 'Theft', quantity: quantite(2) }, { authorId: LE_GERANT }),
       ];
 
       // Then

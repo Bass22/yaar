@@ -114,7 +114,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Date métier ; date de saisie (un instant en temps universel) ; date de réception (posée par le serveur à l'enregistrement en base) | `businessDate` ; `recordedAt` (`Instant`) ; `receivedAt` |
 | Jour métier ; fuseau du site ; jour J (mise en place = J0) | `BusinessDay` ; `TimeZone` ; `campaignDay`, `placementDay` |
 | Justificatif d'un mort : photographié / pas de photo (K.6) ; parler au chef par WhatsApp (M.5) ; le chef à joindre | `deathEvidence` (`Photographed` / `NoPhoto`) ; `TalkToChef` (`whatsAppLinkOf`) ; `chef` (`CaretakerChef`) |
-| Mort ; perte hors mortalité (manquants, dons — admin seul) ; sac ouvert ; « rien perdu » | `Death` ; `Loss` (`lossType` : `Missing` / `Donation`) ; `BagOpened` ; `NoLoss` |
+| Mort ; perte hors mortalité (manquants, dons, vols — admin seul) ; sac ouvert ; « rien perdu » | `Death` ; `Loss` (`lossType` : `Missing` / `Donation` / `Theft`) ; `BagOpened` ; `NoLoss` |
 | Vivants ; lignes de commande qui livrent les animaux mis en place | `liveCount` ; `placementOrderLines` |
 | Résumé d'un jour : non déclaré / zéro déclaré / morts déclarés | `DaySummary` : `NotDeclared` / `NoLossDeclared` / `DeathsDeclared` |
 | Tâche ; tâche faite ; protocole sanitaire | `Task` ; `TaskDone` ; `HealthProtocol` |
@@ -128,6 +128,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Montant ; différence signée | `Money` ; `SignedMoney` (du kit) |
 | Contre-écriture (correction d'une écriture d'argent) | `CounterEntry` |
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
+| Socle de l'éditeur : catégories (Aliments, Poussins, Santé, Literie, Main-d'œuvre, Équipement, Nettoyage, Transport, Transformation, Énergie/Eau, Frais financiers, Autres) ; fixe / variable ; commandable ; types de pertes ; les référentiels lus par le bureau | `COST_CATEGORIES` (`Feed`, `Chicks`, `Health`, `Bedding`, `Labour`, `Equipment`, `Cleaning`, `Transport`, `Processing`, `Utilities`, `FinancialCharges`, `Other`) ; `CostBehaviour` (`Fixed` / `Variable`) ; `orderable` ; `LOSS_TYPES` (`Missing`, `Donation`, `Theft`) ; `ReferenceData` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |
 | Quantité déclarée ; poids (grammes entiers, saisi tel que lu : la balance n'est pas modélisée) | `Quantity` ; `Weight` |

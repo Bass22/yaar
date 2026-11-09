@@ -50,6 +50,7 @@ export {
   factOf,
   isCounterDeclaration,
   isRetraction,
+  LOSS_TYPES,
   Retraction,
   type DeliveryNote,
   type EventEnvelope,

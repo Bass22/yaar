@@ -9,7 +9,7 @@ type Uuid = string;
 export type FactPayload =
   | { readonly type: 'Death' | 'BagOpened'; readonly quantity: number }
   | { readonly type: 'NoLoss' }
-  | { readonly type: 'Loss'; readonly lossType: 'Missing' | 'Donation'; readonly quantity: number }
+  | { readonly type: 'Loss'; readonly lossType: 'Missing' | 'Donation' | 'Theft'; readonly quantity: number }
   | {
       readonly type: 'Delivery';
       readonly orderLineId: Uuid;

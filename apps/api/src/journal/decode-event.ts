@@ -6,6 +6,7 @@ import {
   Declaration,
   Instant,
   JournalEventId,
+  LOSS_TYPES,
   MediaFingerprint,
   OrderLineId,
   Quantity,
@@ -20,6 +21,7 @@ import {
   type EventEnvelope,
   type Fact,
   type JournalEvent,
+  type LossType,
   type Refusal,
 } from '@domain/journal';
 
@@ -134,7 +136,7 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
       return ok({ type: 'NoLoss' });
     case 'Loss': {
       const lossType = raw['lossType'];
-      if (lossType !== 'Missing' && lossType !== 'Donation') {
+      if (!isLossType(lossType)) {
         return malformed('fact.lossType');
       }
       const quantity = quantityOf(raw, 'quantity');
@@ -222,6 +224,10 @@ function unknownField(raw: Json, allowed: readonly string[], prefix: string): Re
 
 function malformed(field: string): Result<never, DecodingRefusal> {
   return err({ kind: 'MalformedEvent', field });
+}
+
+function isLossType(raw: unknown): raw is LossType {
+  return (LOSS_TYPES as readonly unknown[]).includes(raw);
 }
 
 function isObject(raw: unknown): raw is Json {

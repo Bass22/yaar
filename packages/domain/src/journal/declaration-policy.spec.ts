@@ -50,6 +50,7 @@ const troisMortsDeclaresPar = (authorId: UserId): Declaration =>
 
 const quatreManquants: Fact = { type: 'Loss', lossType: 'Missing', quantity: unwrap(Quantity(4)) };
 const sixDonnes: Fact = { type: 'Loss', lossType: 'Donation', quantity: unwrap(Quantity(6)) };
+const troisVoles: Fact = { type: 'Loss', lossType: 'Theft', quantity: unwrap(Quantity(3)) };
 
 const declare = (author: Author, site: SiteStaff) =>
   authorizeDeclaration(troisMortsDeclaresPar(author.id), { author, site });
@@ -120,8 +121,8 @@ describe('Qui a le droit de déclarer', () => {
   });
 
   describe('le gardien ne déclare que les morts', () => {
-    it("des manquants ou des dons déclarés par le gardien sont refusés, même s'il est titulaire", () => {
-      for (const loss of [quatreManquants, sixDonnes]) {
+    it("des manquants, des dons ou un vol déclarés par le gardien sont refusés, même s'il est titulaire", () => {
+      for (const loss of [quatreManquants, sixDonnes, troisVoles]) {
         const event = Declaration(signePar(OUSMANE), loss);
 
         expect(authorizeDeclaration(event, { author: gardien(OUSMANE), site: lEquipeDuSite() })).toEqual({
@@ -131,8 +132,8 @@ describe('Qui a le droit de déclarer', () => {
       }
     });
 
-    it("l'admin déclare des manquants et des dons", () => {
-      for (const loss of [quatreManquants, sixDonnes]) {
+    it("l'admin déclare des manquants, des dons et des vols", () => {
+      for (const loss of [quatreManquants, sixDonnes, troisVoles]) {
         const event = Declaration(signePar(LE_GERANT), loss);
 
         expect(authorizeDeclaration(event, { author: admin(), site: lEquipeDuSite() })).toEqual({ ok: true, value: event });

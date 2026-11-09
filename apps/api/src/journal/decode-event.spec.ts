@@ -74,6 +74,7 @@ describe("Décoder un événement reçu du téléphone", () => {
       ['« rien perdu »', { type: 'NoLoss' }, { type: 'NoLoss' }],
       ['des poussins manquants', { type: 'Loss', lossType: 'Missing', quantity: 12 }, { type: 'Loss', lossType: 'Missing', quantity: q(12) }],
       ['un don', { type: 'Loss', lossType: 'Donation', quantity: 2 }, { type: 'Loss', lossType: 'Donation', quantity: q(2) }],
+      ['un vol', { type: 'Loss', lossType: 'Theft', quantity: 3 }, { type: 'Loss', lossType: 'Theft', quantity: q(3) }],
       [
         'une réception avec son PV photographié',
         { type: 'Delivery', orderLineId: uuid(7), receivedQuantity: 40, deliveryNote: { kind: 'Photographed', media: MEDIA } },
@@ -195,7 +196,7 @@ describe("Décoder un événement reçu du téléphone", () => {
     });
 
     it("un type de perte ou un papier de livreur hors liste est refusé en le nommant", () => {
-      expect(decode(envoi({ fact: { type: 'Loss', lossType: 'Theft', quantity: 3 } }))).toEqual({ ok: false, error: { kind: 'MalformedEvent', field: 'fact.lossType' } });
+      expect(decode(envoi({ fact: { type: 'Loss', lossType: 'Sickness', quantity: 3 } }))).toEqual({ ok: false, error: { kind: 'MalformedEvent', field: 'fact.lossType' } });
       expect(decode(envoi({ fact: { type: 'Delivery', orderLineId: uuid(7), receivedQuantity: 40, deliveryNote: { kind: 'Lost' } } }))).toEqual({
         ok: false,
         error: { kind: 'MalformedEvent', field: 'fact.deliveryNote.kind' },

@@ -12,7 +12,7 @@ export type LiveCount = {
   /** Animals actually received, bonus included: the ordered quantity plays no part. */
   readonly received: number;
   readonly deaths: number;
-  /** Losses that are not deaths: missing, given away. They never count as mortality. */
+  /** Losses that are not deaths: missing, given away, stolen. They never count as mortality. */
   readonly losses: number;
   /** `received − deaths − losses`, signed and never clamped: below zero, more was declared lost than received. */
   readonly liveCount: number;

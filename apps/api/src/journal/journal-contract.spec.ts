@@ -18,6 +18,7 @@ const examples: readonly JournalEventPayload[] = [
   { ...envelope, fact: { type: 'NoLoss' } },
   { ...envelope, fact: { type: 'Loss', lossType: 'Missing', quantity: 4 } },
   { ...envelope, fact: { type: 'Loss', lossType: 'Donation', quantity: 2 } },
+  { ...envelope, fact: { type: 'Loss', lossType: 'Theft', quantity: 3 } },
   { ...envelope, fact: { type: 'Delivery', orderLineId: uuid(7), receivedQuantity: 40, deliveryNote: { kind: 'Photographed', media: MEDIA } } },
   { ...envelope, fact: { type: 'Delivery', orderLineId: uuid(7), receivedQuantity: 40, deliveryNote: { kind: 'NoPaper' } } },
   { ...envelope, fact: { type: 'Weighing', weighingRequestId: uuid(8), weights: [1820, 1905] } },

@@ -12,7 +12,7 @@ import {
   WeighingRequestId,
 } from './ids';
 import { Instant } from './instant';
-import { Declaration, type EventEnvelope, type EventType, type Fact, type JournalEvent } from './journal-event';
+import { Declaration, LOSS_TYPES, type EventEnvelope, type EventType, type Fact, type JournalEvent } from './journal-event';
 import { MediaFingerprint } from './media-fingerprint';
 import { Quantity } from './quantity';
 import { Weight } from './weight';
@@ -71,7 +71,7 @@ function tell(event: Declaration): string {
     case 'NoLoss':
       return 'rien perdu';
     case 'Loss':
-      return `${event.quantity} ${event.lossType === 'Missing' ? 'manquants' : 'donnés'}`;
+      return `${event.quantity} ${{ Missing: 'manquants', Donation: 'donnés', Theft: 'volés' }[event.lossType]}`;
     case 'Delivery':
       return `${event.receivedQuantity} reçus`;
     case 'Weighing':
@@ -235,17 +235,24 @@ describe('Événement du journal', () => {
       expect(() => Declaration(signeParLeGardien(), unknownPaper)).toThrow(TypeError);
     });
 
-    it("une perte hors mortalité dit ce qu'elle est : des manquants ou des dons, jamais autre chose", () => {
+    it("une perte hors mortalité dit ce qu'elle est : des manquants, des dons ou un vol, jamais autre chose", () => {
       // Given
       const missing = Declaration(signeParLeGardien(), { type: 'Loss', lossType: 'Missing', quantity: quantite(4) });
-      const stolen = { type: 'Loss', lossType: 'Theft', quantity: quantite(4) } as unknown as Fact;
+      const stolen = Declaration(signeParLeGardien(), { type: 'Loss', lossType: 'Theft', quantity: quantite(7) });
+      const sick = { type: 'Loss', lossType: 'Sickness', quantity: quantite(4) } as unknown as Fact;
 
       // Then
       expect(missing).toMatchObject({ type: 'Loss', lossType: 'Missing', quantity: 4 });
-      // @ts-expect-error un vol n'est pas (encore) un type de perte du journal
-      const theft: Fact = { type: 'Loss', lossType: 'Theft', quantity: quantite(4) };
-      expect(theft).toBeDefined();
-      expect(() => Declaration(signeParLeGardien(), stolen)).toThrow(TypeError);
+      expect(stolen).toMatchObject({ type: 'Loss', lossType: 'Theft', quantity: 7 });
+      // @ts-expect-error une maladie n'est pas un type de perte du journal : c'est une mort
+      const sickness: Fact = { type: 'Loss', lossType: 'Sickness', quantity: quantite(4) };
+      expect(sickness).toBeDefined();
+      expect(() => Declaration(signeParLeGardien(), sick)).toThrow(TypeError);
+    });
+
+    it('les types de pertes du journal sont ceux du socle de l’éditeur, hors morts : manquants, dons, vols', () => {
+      expect(LOSS_TYPES).toEqual(['Missing', 'Donation', 'Theft']);
+      expect(Object.isFrozen(LOSS_TYPES)).toBe(true);
     });
 
     it('« rien perdu » est un événement à part entière, pas une mort de quantité zéro', () => {

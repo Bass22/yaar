@@ -33,8 +33,12 @@ export type DeliveryNote =
   | { readonly kind: 'Photographed'; readonly media: MediaFingerprint }
   | { readonly kind: 'NoPaper' };
 
-/** A loss that is not a death: animals found missing at a recount, or given away. */
-export type LossType = 'Missing' | 'Donation';
+/**
+ * A loss that is not a death: animals found missing at a recount, given away, or stolen. With
+ * deaths, the publisher's base of loss types (N.1). Grows by addition only.
+ */
+export const LOSS_TYPES = Object.freeze(['Missing', 'Donation', 'Theft'] as const);
+export type LossType = (typeof LOSS_TYPES)[number];
 
 /**
  * What was observed in the field. Closed list, and facts only: nothing here is computed (no
@@ -148,6 +152,7 @@ function lossTypeOf(lossType: LossType): LossType {
   switch (lossType) {
     case 'Missing':
     case 'Donation':
+    case 'Theft':
       return lossType;
     default:
       return outOfSchema('loss type', lossType);

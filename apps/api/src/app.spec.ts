@@ -100,6 +100,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/caretaker/context',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
+      // Admin only: the publisher's base, read and never written nor deleted by a route (N.1).
+      'GET /api/v1/reference-data',
       // Admin only: a site's name, default voice and strict mode — never its time zone nor its farm (O.1).
       'PATCH /api/v1/sites/:siteId',
       // Admin only: the avatar and the language of an account (E.9) — neither the role nor the PIN.

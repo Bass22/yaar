@@ -1014,21 +1014,26 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## N — Référentiels
 
-### N.1 — Le socle de l'éditeur · **M**
+### N.1 — Le socle de l'éditeur · **M** ✅
 > Spec : CdC « Référentiels à deux niveaux » · Zone : `apps/api/src/reference-data/` (données d'amorçage, lecture)
 > Dépend de : D.4 · Revue : la liste du socle et ses drapeaux, face au cahier des charges.
 
-- [ ] Les dix catégories du socle existent dès la création du tenant
-- [ ] Chaque catégorie porte son drapeau fixe ou variable
-- [ ] Aliments, Poussins et Santé sont commandables ; les autres ne le sont pas
-- [ ] Une catégorie du socle ne se supprime pas
-- [ ] Les types de pertes du socle existent : morts, manquants, dons, vols (le journal n'en porte que deux en dur, `Missing` et `Donation` : voir C.5)
+> Livrée le 2026-11-09, aucune dépendance ajoutée, aucune table. **Décision du 2026-11-09, ajoutée au CdC** : le socle est écrit dans le code (`COST_CATEGORIES`, `packages/domain/src/finance/cost-category.ts`), gelé, le même pour chaque élevage dès sa création ; aucune route ne l'écrit ni ne le supprime. Douze catégories : **Literie** (copeaux) ajoutée par le fondateur, variable et commandable ; **Transformation** (après l'abattage : déplumage, congélation), variable, non commandable ; drapeaux fixe / variable tranchés le 2026-11-08 (tableau du CdC). `GET /api/v1/reference-data` (admin seul, `ReferenceData`) rend les catégories et les types de pertes : morts, puis `LOSS_TYPES`. **Le vol entre au journal** (`Theft`, par ajout, décision du 2026-11-08) : admin seul (`LossByAdminOnly`), diminue les vivants, ne compte pas parmi les morts, n'entre pas dans le résumé du gardien ; le décodeur de l'API lit la liste du domaine au lieu de la recopier.
+> **Non fait ici** : l'écran (N.6) et ses libellés français ; les types propres à l'élevage (N.2), qui se rattacheront au code d'une catégorie ; aucune saisie de vol au bureau avant O.4.
+
+- [x] Les douze catégories du socle existent dès la création du tenant (Literie ajoutée le 2026-11-08, Transformation le 2026-11-09)
+- [x] Chaque catégorie porte son drapeau fixe ou variable (tableau du CdC, décision du 2026-11-08)
+- [x] Aliments, Poussins, Santé et Literie sont commandables ; les autres ne le sont pas
+- [x] Une catégorie du socle ne se supprime pas
+- [x] Les types de pertes du socle existent : morts, manquants, dons, vols — le vol s'écrit au journal (`Theft`, par ajout ; admin seul, diminue les vivants, ne compte pas parmi les morts : décision du 2026-11-08)
+- [x] Le socle ne se lit qu'au bureau : un collaborateur est refusé
 
 ### N.2 — Les types propres à l'élevage · **M**
 > Spec : CdC « Référentiels à deux niveaux » · Zone : `apps/api/src/reference-data/`
 > Dépend de : N.1 · Revue : on archive, on ne supprime jamais.
 
 - [ ] L'admin ajoute un type rattaché à une catégorie du socle
+- [ ] Déplumage et Congélation, rattachés à Transformation, sont en place d'office dans chaque élevage (décision du 2026-11-09)
 - [ ] Un type sans catégorie du socle est refusé
 - [ ] Renommer un type ne change que son étiquette ; les écritures passées le suivent
 - [ ] Un type déjà utilisé s'archive et ne se supprime pas

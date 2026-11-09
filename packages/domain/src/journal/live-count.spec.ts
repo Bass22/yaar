@@ -30,6 +30,7 @@ const recus = (count: number, orderLineId: OrderLineId = LIGNE_POUSSINS): Fact =
 const morts = (count: number): Fact => ({ type: 'Death', quantity: quantite(count) });
 const manquants = (count: number): Fact => ({ type: 'Loss', lossType: 'Missing', quantity: quantite(count) });
 const donnes = (count: number): Fact => ({ type: 'Loss', lossType: 'Donation', quantity: quantite(count) });
+const voles = (count: number): Fact => ({ type: 'Loss', lossType: 'Theft', quantity: quantite(count) });
 
 // The n-th event of the notebook, written n minutes after 18:00 on November 5th.
 function signe(rank: number, overrides: Partial<EventEnvelope> = {}): EventEnvelope {
@@ -117,11 +118,11 @@ describe('Vivants', () => {
     });
 
     it('une perte hors mortalité diminue les vivants mais ne compte pas parmi les morts', () => {
-      // Given 510 reçus, 5 morts, 4 manquants et 6 poulets donnés
-      const journal = [declare(1, recus(510)), declare(2, morts(5)), declare(3, manquants(4)), declare(4, donnes(6))];
+      // Given 510 reçus, 5 morts, 4 manquants, 6 poulets donnés et 3 volés
+      const journal = [declare(1, recus(510)), declare(2, morts(5)), declare(3, manquants(4)), declare(4, donnes(6)), declare(5, voles(3))];
 
-      // Then morts = 5 ; pertes = 4 + 6 = 10 ; vivants = 510 − 5 − 10 = 495
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 10, liveCount: 495 });
+      // Then morts = 5 ; pertes = 4 + 6 + 3 = 13 ; vivants = 510 − 5 − 13 = 492
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 13, liveCount: 492 });
     });
 
     it("« rien perdu », une tâche faite ou un sac ouvert ne changent pas les vivants", () => {
@@ -194,6 +195,7 @@ describe('Vivants', () => {
       fc.integer({ min: 1, max: 40 }).map(morts),
       fc.integer({ min: 1, max: 40 }).map(manquants),
       fc.integer({ min: 1, max: 40 }).map(donnes),
+      fc.integer({ min: 1, max: 40 }).map(voles),
       fc.constant<Fact>({ type: 'NoLoss' }),
     );
     const someDeclarations = fc

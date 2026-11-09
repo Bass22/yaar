@@ -215,6 +215,7 @@ describe("L'API reçoit le journal", () => {
       { type: 'TaskDone', taskId: uuid(12) },
       { type: 'VoiceMessage', media: MEDIA },
       { type: 'Photo', media: MEDIA },
+      { type: 'Loss', lossType: 'Theft', quantity: 3 },
     ];
     const day = { businessDate: '2026-11-04', recordedAt: '2026-11-04T08:00:00.000Z' };
     const declarations = facts.map((fact, offset) => envoi(300 + offset, { ...day, fact }));
