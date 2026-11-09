@@ -22,7 +22,10 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived');
+
+-- CreateEnum
+CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -144,6 +147,19 @@ CREATE TABLE "audit_events" (
     CONSTRAINT "audit_events_pkey" PRIMARY KEY ("tenant_id","id")
 );
 
+-- CreateTable
+CREATE TABLE "counterparties" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "kind" "counterparty_kind" NOT NULL,
+    "name" TEXT NOT NULL,
+    "face" TEXT NOT NULL,
+    "archived_at" TIMESTAMPTZ(3),
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "counterparties_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -164,6 +180,9 @@ CREATE UNIQUE INDEX "campaigns_tenant_id_id_key" ON "campaigns"("tenant_id", "id
 
 -- CreateIndex
 CREATE INDEX "audit_events_tenant_id_subject_id_occurred_at_idx" ON "audit_events"("tenant_id", "subject_id", "occurred_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "counterparties_tenant_id_id_key" ON "counterparties"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -222,6 +241,9 @@ ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_fkey" FOREIGN 
 -- AddForeignKey
 ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_site_id_fkey" FOREIGN KEY ("tenant_id", "site_id") REFERENCES "sites"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "counterparties" ADD CONSTRAINT "counterparties_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -259,6 +281,8 @@ GRANT SELECT, INSERT, UPDATE ON "sites" TO yaar_app;
 -- Removing a collaborator from a site erases the assignment (E.7); the audit trail keeps it.
 GRANT SELECT, INSERT, UPDATE, DELETE ON "site_assignments" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "campaigns" TO yaar_app;
+-- A counterparty is archived, never deleted (N.3): no DELETE.
+GRANT SELECT, INSERT, UPDATE ON "counterparties" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -293,6 +317,12 @@ CREATE POLICY tenant_isolation ON "sites"
 ALTER TABLE "site_assignments" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "site_assignments" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "site_assignments"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "counterparties" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "counterparties" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "counterparties"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 

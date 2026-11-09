@@ -81,6 +81,7 @@ model Tenant {
   journalEvents   JournalEvent[]
   auditEvents     AuditEvent[]
   refusedEvents   RefusedEvent[]
+  counterparties  Counterparty[]
 
   @@map("tenants")
 }
@@ -273,6 +274,9 @@ enum AuditAction {
   SiteCreated
   SiteConfigured
   CampaignOpened
+  CounterpartyCreated
+  CounterpartyConfigured
+  CounterpartyArchived
 
   @@map("audit_action")
 }
@@ -302,4 +306,30 @@ model AuditEvent {
   @@id([tenantId, id])
   @@index([tenantId, subjectId, occurredAt])
   @@map("audit_events")
+}
+
+enum CounterpartyKind {
+  Supplier
+  Customer
+  Collaborator
+
+  @@map("counterparty_kind")
+}
+
+// A supplier, a customer or a collaborator of the farm (N.3): one side of the ledger, which
+// never changes. Never deleted, not even unused: archived (decision of 2026-11-09). Its face is
+// a pictogram of a closed list (the domain's COUNTERPARTY_FACES); no photograph in V1.
+model Counterparty {
+  tenantId   String           @map("tenant_id") @db.Uuid
+  id         String           @id @db.Uuid
+  kind       CounterpartyKind
+  name       String
+  face       String
+  archivedAt DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@map("counterparties")
 }

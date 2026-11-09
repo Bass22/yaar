@@ -125,6 +125,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Facturable ; paiement d'une commande | `billable` ; `Payment` |
 | Dette, créance ; règlement | `Debt`, `Receivable` ; `Settlement` |
 | Tiers ; grand livre des tiers | `Counterparty` ; `Ledger` |
+| Sorte de tiers (fournisseur, client, collaborateur) ; son visage (picto d'une liste fermée) ; archiver ; créer, régler un tiers et leurs traces | `CounterpartyKind` (`Supplier`, `Customer`, `Collaborator`) ; `face` (`COUNTERPARTY_FACES`) ; `archivedAt` ; `createCounterparty`, `configureCounterparty`, `archiveCounterparty` (`CounterpartyCreated`, `CounterpartyConfigured`, `CounterpartyArchived`) |
 | Montant ; différence signée | `Money` ; `SignedMoney` (du kit) |
 | Contre-écriture (correction d'une écriture d'argent) | `CounterEntry` |
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |

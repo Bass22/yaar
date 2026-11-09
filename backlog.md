@@ -1039,14 +1039,25 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Un type déjà utilisé s'archive et ne se supprime pas
 - [ ] Un type archivé n'est plus proposé à la saisie mais reste lisible dans l'historique
 
-### N.3 — Les tiers · **S**
+### N.3 — Les tiers · **S** ✅
 > Spec : CdC « Qui doit quoi » · Zone : `apps/api/src/counterparties/`
 > Dépend de : D.2 · Revue : un tiers est un fournisseur, un client ou un collaborateur.
 
-- [ ] L'admin crée un fournisseur, un client ou un collaborateur comme tiers
-- [ ] Un tiers porteur d'écritures s'archive et ne se supprime pas
-- [ ] Un tiers n'est visible que dans son tenant
-- [ ] À sa création, l'admin enregistre le nom du tiers au micro (deux secondes) et lui donne un visage — photo ou picto de ce qu'il fournit — : la voix et l'écran le désignent sans lire (décision du 2026-11-07)
+> Livrée le 2026-11-09, aucune dépendance ajoutée, côté serveur. Table `counterparties` (sorte `Supplier` / `Customer` / `Collaborator`, nom, visage, `archived_at`), RLS forcée, **sans droit DELETE** : un tiers ne se supprime jamais, même sans écriture (décision du 2026-11-09). Les deux listes fermées sont dans le domaine (`COUNTERPARTY_KINDS`, `COUNTERPARTY_FACES` : neuf pictos d'objets réels, le papier pour « autre »). Routes admin : `GET /api/v1/counterparties` (par nom, les archivés marqués), `POST` (créer), `PATCH /:id` (nom, visage — jamais la sorte), `POST /:id/archive` (une seule trace même demandé deux fois). Audit `CounterpartyCreated`, `CounterpartyConfigured` (champs changés), `CounterpartyArchived`. **Pas de photo en V1** (décision du fondateur : le picto suffit, et des photos de personnes posent la question des données personnelles).
+> **Non fait ici** : l'écran (il viendra avec l'éditeur de commande, Q.5, ou « Qui doit quoi », R.3) ; le nom à la voix (N.3b, après M.1) ; désarchiver un tiers ; deux tiers de même nom ne sont pas refusés.
+
+- [x] L'admin crée un fournisseur, un client ou un collaborateur comme tiers ; sa sorte ne change plus ensuite
+- [x] Un tiers s'archive et ne se supprime jamais, même sans écriture (décision du 2026-11-09)
+- [x] Un tiers n'est visible que dans son tenant, et seulement au bureau
+- [x] À sa création, l'admin lui donne un visage : un picto d'une liste fermée (décision du 2026-11-09) ; il peut ensuite changer son nom et son visage, et chaque changement est tracé
+- [ ] → N.3b : le nom au micro (deux secondes), après M.1 (décision du 2026-11-07, découpée le 2026-11-09). Pas de photo en V1 (décision du 2026-11-09 : le picto suffit, et des photos de personnes posent la question des données personnelles)
+
+### N.3b — Le nom d'un tiers, à la voix · **S**
+> Spec : CdC « Qui doit quoi » (le tiers, décision du 2026-11-07) · Zone : `apps/api/src/counterparties/`, `apps/web/src/app/admin/`
+> Dépend de : N.3, M.1 · Revue : la voix et l'écran désignent le tiers sans lire.
+
+- [ ] À la création, l'admin enregistre le nom du tiers au micro (deux secondes)
+- [ ] Partout où le tiers se choisit, son nom se fait entendre
 
 ### N.4 — Les souches et la table Cobb 500 · **M**
 > Spec : CdC « Référentiels » (souches), « Points ouverts » (table Cobb) · Zone : `apps/api/src/reference-data/strains/`, `packages/domain/src/journal/strain.ts`
