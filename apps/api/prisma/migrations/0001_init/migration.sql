@@ -22,10 +22,16 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
+
+-- CreateEnum
+CREATE TYPE "cost_category" AS ENUM ('Feed', 'Chicks', 'Health', 'Bedding', 'Labour', 'Equipment', 'Cleaning', 'Transport', 'Processing', 'Utilities', 'FinancialCharges', 'Other');
+
+-- CreateEnum
+CREATE TYPE "cost_behaviour" AS ENUM ('Fixed', 'Variable');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -160,6 +166,19 @@ CREATE TABLE "counterparties" (
     CONSTRAINT "counterparties_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "cost_types" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "category" "cost_category" NOT NULL,
+    "name" TEXT NOT NULL,
+    "behaviour" "cost_behaviour" NOT NULL,
+    "archived_at" TIMESTAMPTZ(3),
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "cost_types_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -183,6 +202,9 @@ CREATE INDEX "audit_events_tenant_id_subject_id_occurred_at_idx" ON "audit_event
 
 -- CreateIndex
 CREATE UNIQUE INDEX "counterparties_tenant_id_id_key" ON "counterparties"("tenant_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cost_types_tenant_id_id_key" ON "cost_types"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -244,6 +266,9 @@ ALTER TABLE "audit_events" ADD CONSTRAINT "audit_events_tenant_id_site_id_fkey" 
 -- AddForeignKey
 ALTER TABLE "counterparties" ADD CONSTRAINT "counterparties_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -283,6 +308,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "site_assignments" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "campaigns" TO yaar_app;
 -- A counterparty is archived, never deleted (N.3): no DELETE.
 GRANT SELECT, INSERT, UPDATE ON "counterparties" TO yaar_app;
+-- A cost type is archived, never deleted (N.2): no DELETE.
+GRANT SELECT, INSERT, UPDATE ON "cost_types" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -317,6 +344,12 @@ CREATE POLICY tenant_isolation ON "sites"
 ALTER TABLE "site_assignments" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "site_assignments" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "site_assignments"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "cost_types" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "cost_types" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "cost_types"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 

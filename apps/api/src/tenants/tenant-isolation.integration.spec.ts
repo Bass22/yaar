@@ -13,7 +13,7 @@ const TENANT_A = unwrap(TenantId('00000000-0000-4000-8000-00000000000a'));
 const TENANT_B = unwrap(TenantId('00000000-0000-4000-8000-00000000000b'));
 const SITE_A = '00000000-0000-4000-8000-0000000000a1';
 const SITE_B = '00000000-0000-4000-8000-0000000000b1';
-const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties'];
+const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties', 'cost_types'];
 
 describe('Cloisonnement entre élevages', () => {
   let db: TestDatabase;
@@ -48,6 +48,7 @@ describe('Cloisonnement entre élevages', () => {
         },
       });
       await db.superuser.counterparty.create({ data: { id: `00000000-0000-4000-8000-0000000000${suffix}9`, tenantId, kind: 'Supplier', name: 'Sedima', face: 'closed-bag' } });
+      await db.superuser.costType.create({ data: { id: `00000000-0000-4000-8000-0000000000${suffix}8`, tenantId, category: 'Feed', name: 'Aliment', behaviour: 'Variable' } });
       await db.superuser.refusedEvent.create({
         data: {
           eventId: '00000000-0000-4000-8000-0000000000e2',
@@ -82,7 +83,7 @@ describe('Cloisonnement entre élevages', () => {
 
   describe('sans tenant fixé', () => {
     it("aucune ligne n'est visible, dans aucune table", async () => {
-      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0 });
+      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0 });
     });
 
     it("rien ne s'écrit", async () => {
@@ -95,7 +96,7 @@ describe('Cloisonnement entre élevages', () => {
   // Spec: backlog D.6 — le propriétaire des tables, sous lequel tournent migrations et scripts de l'éditeur, est lié par la RLS forcée
   describe('le propriétaire des tables', () => {
     it("sans élevage fixé, ne voit aucune ligne, dans aucune table — ni le journal, ni la trace — alors qu'un superutilisateur voit tout", async () => {
-      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0 });
+      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0 });
       expect((await countAll(db.superuser)).journal_events).toBe(2);
     });
 
@@ -105,7 +106,7 @@ describe('Cloisonnement entre élevages', () => {
         return countAll(tx);
       });
 
-      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 1 });
+      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 1, cost_types: 1 });
     });
   });
 
@@ -117,7 +118,7 @@ describe('Cloisonnement entre élevages', () => {
       const sitesOfB = await api.runInTenant(TENANT_B, (tx) => tx.site.findMany());
 
       // Then une ligne par table, la sienne
-      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 1 });
+      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 1, cost_types: 1 });
       expect(sitesOfA.map((site) => site.name)).toEqual(['Poulailler A']);
       expect(sitesOfB.map((site) => site.name)).toEqual(['Poulailler B']);
     });
@@ -311,6 +312,8 @@ describe('Cloisonnement entre élevages', () => {
       expect(grants).toEqual([
         { table_name: 'audit_events', privileges: 'INSERT,SELECT' },
         { table_name: 'campaigns', privileges: 'INSERT,SELECT,UPDATE' },
+        // Archived, never deleted (N.2).
+        { table_name: 'cost_types', privileges: 'INSERT,SELECT,UPDATE' },
         // Archived, never deleted (N.3).
         { table_name: 'counterparties', privileges: 'INSERT,SELECT,UPDATE' },
         { table_name: 'journal_events', privileges: 'INSERT,SELECT' },

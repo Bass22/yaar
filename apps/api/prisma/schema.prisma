@@ -82,6 +82,7 @@ model Tenant {
   auditEvents     AuditEvent[]
   refusedEvents   RefusedEvent[]
   counterparties  Counterparty[]
+  costTypes       CostType[]
 
   @@map("tenants")
 }
@@ -277,6 +278,9 @@ enum AuditAction {
   CounterpartyCreated
   CounterpartyConfigured
   CounterpartyArchived
+  CostTypeCreated
+  CostTypeConfigured
+  CostTypeArchived
 
   @@map("audit_action")
 }
@@ -332,4 +336,47 @@ model Counterparty {
 
   @@unique([tenantId, id])
   @@map("counterparties")
+}
+
+// The publisher's base of cost categories (the domain's COST_CATEGORIES): a farm type hangs under one.
+enum CostCategory {
+  Feed
+  Chicks
+  Health
+  Bedding
+  Labour
+  Equipment
+  Cleaning
+  Transport
+  Processing
+  Utilities
+  FinancialCharges
+  Other
+
+  @@map("cost_category")
+}
+
+enum CostBehaviour {
+  Fixed
+  Variable
+
+  @@map("cost_behaviour")
+}
+
+// A cost type of the farm (N.2), under a category of the base that never changes. Never
+// deleted, not even unused: archived (decision of 2026-11-09). Renaming changes only its label:
+// entries carry its id. Orderable when its category is (read from the domain, not stored).
+model CostType {
+  tenantId   String        @map("tenant_id") @db.Uuid
+  id         String        @id @db.Uuid
+  category   CostCategory
+  name       String
+  behaviour  CostBehaviour
+  archivedAt DateTime?     @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@map("cost_types")
 }

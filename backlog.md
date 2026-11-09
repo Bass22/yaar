@@ -1028,16 +1028,20 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les types de pertes du socle existent : morts, manquants, dons, vols — le vol s'écrit au journal (`Theft`, par ajout ; admin seul, diminue les vivants, ne compte pas parmi les morts : décision du 2026-11-08)
 - [x] Le socle ne se lit qu'au bureau : un collaborateur est refusé
 
-### N.2 — Les types propres à l'élevage · **M**
+### N.2 — Les types propres à l'élevage · **M** ✅
 > Spec : CdC « Référentiels à deux niveaux » · Zone : `apps/api/src/reference-data/`
 > Dépend de : N.1 · Revue : on archive, on ne supprime jamais.
 
-- [ ] L'admin ajoute un type rattaché à une catégorie du socle
-- [ ] Déplumage et Congélation, rattachés à Transformation, sont en place d'office dans chaque élevage (décision du 2026-11-09)
-- [ ] Un type sans catégorie du socle est refusé
-- [ ] Renommer un type ne change que son étiquette ; les écritures passées le suivent
-- [ ] Un type déjà utilisé s'archive et ne se supprime pas
-- [ ] Un type archivé n'est plus proposé à la saisie mais reste lisible dans l'historique
+> Livrée le 2026-11-09, aucune dépendance ajoutée, côté serveur. Table `cost_types` (catégorie du socle, nom, fixe/variable, `archived_at`), RLS forcée, **sans droit DELETE**. Routes admin : `GET /api/v1/cost-types` (dans l'ordre du socle, puis par nom ; commandable lu dans le socle, jamais stocké ; archivés marqués), `POST` (catégorie obligatoire, fixe/variable repris de la catégorie s'il n'est pas choisi), `PATCH /:id` (nom, fixe/variable — jamais la catégorie ni « commandable »), `POST /:id/archive`. Audit `CostTypeCreated`, `CostTypeConfigured`, `CostTypeArchived`. **Déplumage et Congélation** (`DEFAULT_COST_TYPES`, sous Transformation) sont écrits par l'amorçage de l'élevage, dans la même transaction. Décisions du 2026-11-09, prises sur le patron des tiers et annoncées au fondateur : jamais de suppression, catégorie fixe, drapeaux repris de la catégorie.
+> **Non fait ici** : l'écran (N.6) ; désarchiver ; deux types de même nom ne sont pas refusés ; un élevage amorcé avant N.2 n'a pas ses types d'office (aucun n'est déployé).
+
+- [x] L'admin ajoute un type rattaché à une catégorie du socle
+- [x] Déplumage et Congélation, rattachés à Transformation, sont en place d'office dans chaque élevage (décision du 2026-11-09)
+- [x] Un type sans catégorie du socle est refusé
+- [x] Renommer un type ne change que son étiquette ; les écritures passées le suivent
+- [x] Un type s'archive et ne se supprime jamais, même inutilisé (décision du 2026-11-09, comme pour les tiers)
+- [x] Un type archivé n'est plus proposé à la saisie mais reste lisible dans l'historique
+- [x] Sa catégorie ne change pas ; il reprend le drapeau fixe/variable de sa catégorie, modifiable ; il est commandable si sa catégorie l'est (décisions du 2026-11-09)
 
 ### N.3 — Les tiers · **S** ✅
 > Spec : CdC « Qui doit quoi » · Zone : `apps/api/src/counterparties/`
@@ -1222,9 +1226,9 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ### Q.1 — Une commande et son cycle · **M**
 > Spec : CdC « Commandes » · Zone : `packages/domain/src/finance/purchase-order.ts`
-> Dépend de : B.1, B.2 · Revue : les transitions d'état, une par une.
+> Dépend de : B.1, B.2, N.2, N.3 · Revue : les transitions d'état, une par une.
 
-- [ ] Une commande a un en-tête (fournisseur, date, référence) et au moins une ligne (article, quantité, prix unitaire)
+- [ ] Une commande a un en-tête (fournisseur, bande, date, référence facultative) et au moins une ligne (type de l'élevage, quantité, prix unitaire) — décisions du 2026-11-09
 - [ ] Seuls les types commandables entrent dans une commande
 - [ ] Le cycle est : brouillon, annoncée, partiellement reçue, reçue, soldée
 - [ ] Une transition hors du cycle est refusée

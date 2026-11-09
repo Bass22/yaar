@@ -14,6 +14,6 @@ export type {
 } from './auth';
 export type { ConfigureSiteRequest, CreateSiteRequest, DesignatePrimaryCaretakerRequest, SiteConfigRefusal, SiteStaffRefusal } from './sites';
 export type { CaretakerCampaign, CaretakerChef, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload, JournalBatchRequest, JournalBatchResponse, JournalEventOutcome, JournalEventPayload, JournalRefusal } from './journal';
-export type { CostCategoryCode, CostCategoryView, LossTypeCode, ReferenceData, StrainView } from './reference-data';
+export type { ConfigureCostTypeRequest, CostCategoryCode, CostCategoryView, CostTypeRefusal, CostTypeView, CreateCostTypeRequest, LossTypeCode, ReferenceData, StrainView } from './reference-data';
 export type { CampaignOpeningRefusal, OpenCampaignRequest } from './campaigns';
 export type { ConfigureCounterpartyRequest, CounterpartyFaceCode, CounterpartyKindCode, CounterpartyRefusal, CounterpartyView, CreateCounterpartyRequest } from './counterparties';

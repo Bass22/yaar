@@ -45,3 +45,9 @@ export const COST_CATEGORIES: readonly CostCategoryEntry[] = Object.freeze([
   entry('FinancialCharges', 'Fixed', false),
   entry('Other', 'Variable', false),
 ]);
+
+/** Types every farm starts with, under a category of the base (decision of 2026-11-09). User-facing names. */
+export const DEFAULT_COST_TYPES: readonly { readonly name: string; readonly category: CostCategory }[] = Object.freeze([
+  Object.freeze({ name: 'Déplumage', category: 'Processing' as const }),
+  Object.freeze({ name: 'Congélation', category: 'Processing' as const }),
+]);

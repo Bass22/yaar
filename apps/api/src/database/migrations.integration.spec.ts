@@ -47,11 +47,11 @@ describe('Migrations', () => {
     await db?.drop();
   });
 
-  it("les migrations s'appliquent sur une base vide et créent les neuf tables", async () => {
+  it("les migrations s'appliquent sur une base vide et créent les dix tables", async () => {
     const tables = await db.superuser.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations' ORDER BY tablename`;
 
-    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
+    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
   });
 
   it('rejouer les migrations sur une base à jour ne change rien et ne casse rien', async () => {
@@ -73,7 +73,7 @@ describe('Migrations', () => {
        ORDER BY t.relname`;
 
     expect(tables).toEqual(
-      ['audit_events', 'campaigns', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
+      ['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
     );
   });
 
@@ -95,6 +95,7 @@ describe('Migrations', () => {
         'audit_events.id',
         'audit_events.tenant_id',
         'campaigns.id',
+        'cost_types.id',
         'counterparties.id',
         'journal_events.id',
         'journal_events.tenant_id',
@@ -119,6 +120,7 @@ describe('Migrations', () => {
 
     expect(defaults).toEqual([
       { column_name: 'campaigns.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'cost_types.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'counterparties.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'journal_events.received_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'refused_events.received_at', column_default: 'CURRENT_TIMESTAMP' },

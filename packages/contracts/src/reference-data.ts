@@ -38,3 +38,36 @@ export interface ReferenceData {
   readonly lossTypes: readonly LossTypeCode[];
   readonly strains: readonly StrainView[];
 }
+
+/** A cost type of the farm (N.2), as the office reads it. */
+export interface CostTypeView {
+  readonly id: string;
+  readonly category: CostCategoryCode;
+  readonly name: string;
+  readonly behaviour: 'Fixed' | 'Variable';
+  /** Its category's: only orderable types go through order → delivery. */
+  readonly orderable: boolean;
+  /** No longer offered; still readable wherever it appears. */
+  readonly archived: boolean;
+}
+
+export interface CreateCostTypeRequest {
+  /** Created by the office (UUID). */
+  readonly id: string;
+  readonly category: CostCategoryCode;
+  readonly name: string;
+  /** Its category's when left out. */
+  readonly behaviour?: 'Fixed' | 'Variable';
+}
+
+/** At least one of the two; the category never changes. */
+export interface ConfigureCostTypeRequest {
+  readonly name?: string;
+  readonly behaviour?: 'Fixed' | 'Variable';
+}
+
+export type CostTypeRefusal =
+  | { readonly kind: 'InvalidRequest' }
+  | { readonly kind: 'InvalidName' }
+  | { readonly kind: 'CostTypeAlreadyExists' }
+  | { readonly kind: 'CostTypeNotFound' };

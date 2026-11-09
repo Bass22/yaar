@@ -129,6 +129,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Montant ; différence signée | `Money` ; `SignedMoney` (du kit) |
 | Contre-écriture (correction d'une écriture d'argent) | `CounterEntry` |
 | Coût ; engagé ; type et catégorie de coût | `Cost` ; `committedCost` ; `CostType`, `CostCategory` |
+| Type de l'élevage : le créer, le régler (nom, fixe/variable), l'archiver ; ses traces ; les types d'office (Déplumage, Congélation) | `createCostType`, `configureCostType`, `archiveCostType` (`CostTypeCreated`, `CostTypeConfigured`, `CostTypeArchived`) ; `DEFAULT_COST_TYPES` |
 | Socle de l'éditeur : catégories (Aliments, Poussins, Santé, Literie, Main-d'œuvre, Équipement, Nettoyage, Transport, Transformation, Énergie/Eau, Frais financiers, Autres) ; fixe / variable ; commandable ; types de pertes ; les référentiels lus par le bureau | `COST_CATEGORIES` (`Feed`, `Chicks`, `Health`, `Bedding`, `Labour`, `Equipment`, `Cleaning`, `Transport`, `Processing`, `Utilities`, `FinancialCharges`, `Other`) ; `CostBehaviour` (`Fixed` / `Variable`) ; `orderable` ; `LOSS_TYPES` (`Missing`, `Donation`, `Theft`) ; `ReferenceData` |
 | Budget ; échéance récurrente | `Budget` ; `RecurringCharge` |
 | Pesée ; demande de pesée ; souche | `Weighing` ; `WeighingRequest` ; `Strain` |

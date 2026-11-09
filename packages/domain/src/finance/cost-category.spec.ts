@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COST_CATEGORIES } from './cost-category';
+import { COST_CATEGORIES, DEFAULT_COST_TYPES } from './cost-category';
 
 // Spec: backlog N.1 — le socle de l'éditeur ; cahier des charges « Référentiels à deux niveaux »
 // (douze catégories, Literie et Transformation ajoutées et drapeaux fixe / variable et commandable : décisions du 2026-11-08).
@@ -39,5 +39,17 @@ describe("Le socle des catégories de coût", () => {
   it('le socle ne se modifie pas en cours de route : ni catégorie retirée, ni drapeau changé', () => {
     expect(Object.isFrozen(COST_CATEGORIES)).toBe(true);
     expect(COST_CATEGORIES.every((entry) => Object.isFrozen(entry))).toBe(true);
+  });
+});
+
+// Spec: backlog N.2 — les types propres à l'élevage ; cahier des charges « Référentiels à deux
+// niveaux » (Déplumage et Congélation, sous Transformation, en place d'office : décision du 2026-11-09).
+describe('Les types en place d’office dans chaque élevage', () => {
+  it('Déplumage et Congélation, rattachés à Transformation', () => {
+    expect(DEFAULT_COST_TYPES).toEqual([
+      { name: 'Déplumage', category: 'Processing' },
+      { name: 'Congélation', category: 'Processing' },
+    ]);
+    expect(Object.isFrozen(DEFAULT_COST_TYPES)).toBe(true);
   });
 });

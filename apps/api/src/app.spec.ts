@@ -98,12 +98,16 @@ describe("Démarrage de l'API", () => {
       'DELETE /api/v1/sites/:siteId/staff/:userId',
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
       'GET /api/v1/caretaker/context',
+      // Admin only: the farm's cost types under the base, archived ones marked (N.2).
+      'GET /api/v1/cost-types',
       // Admin only: the farm's counterparties, archived ones marked (N.3).
       'GET /api/v1/counterparties',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
       // Admin only: the publisher's base, read and never written nor deleted by a route (N.1).
       'GET /api/v1/reference-data',
+      // Admin only: a cost type's name and fixed/variable flag — never its category (N.2).
+      'PATCH /api/v1/cost-types/:id',
       // Admin only: a counterparty's name and face — never its kind (N.3).
       'PATCH /api/v1/counterparties/:id',
       // Admin only: a site's name, default voice and strict mode — never its time zone nor its farm (O.1).
@@ -114,6 +118,10 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/auth/sign-in',
       // Admin only: a campaign on a site of the farm of the session, judged by the domain (O.2).
       'POST /api/v1/campaigns',
+      // Admin only: a cost type under a category of the base (N.2).
+      'POST /api/v1/cost-types',
+      // Admin only: archived, never deleted (N.2).
+      'POST /api/v1/cost-types/:id/archive',
       // Admin only: a supplier, a customer or a collaborator of the farm (N.3).
       'POST /api/v1/counterparties',
       // Admin only: archived, never deleted (N.3).
