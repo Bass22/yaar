@@ -93,7 +93,7 @@ type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: strin
     .steps .done .number { border-color: var(--color-pasture); background: var(--color-pasture-light); }
     .steps .current { color: var(--color-earth); }
     .steps .current .number { border-color: var(--color-corn); background: var(--color-straw); }
-    .rounds { display: flex; gap: 18px; }
+    .rounds { display: flex; gap: 18px; min-block-size: 34px; }
     .rounds i { inline-size: 34px; block-size: 34px; border-radius: var(--radius-blob); border: 3px dashed var(--color-card-edge); background: var(--color-slot); }
     .rounds i.full { border: 3px solid var(--color-pasture); background: var(--color-pasture); }
     .rounds.refused { animation: shake 0.3s; }
@@ -127,7 +127,8 @@ export class SignInPage {
     const role = this.account()?.role;
     return role === undefined ? null : role === 'admin' ? 6 : 4;
   });
-  protected readonly slots = computed(() => Array.from({ length: this.expectedLength() ?? Math.max(4, this.digits().length) }));
+  /** One round per digit typed, none ahead: empty rounds would announce a length (decision of 2026-11-09). */
+  protected readonly slots = computed(() => Array.from({ length: this.digits().length }));
 
   protected valueOf(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -142,7 +143,10 @@ export class SignInPage {
     if (this.busy() || this.digits().length >= 6) {
       return;
     }
-    this.refused.set(false);
+    if (this.refused()) {
+      this.refused.set(false);
+      this.digits.set('');
+    }
     this.digits.update((typed) => typed + digit);
     if (this.digits().length === this.expectedLength()) {
       void this.submit();
@@ -150,6 +154,11 @@ export class SignInPage {
   }
 
   protected erase(): void {
+    if (this.refused()) {
+      this.refused.set(false);
+      this.digits.set('');
+      return;
+    }
     this.digits.update((typed) => typed.slice(0, -1));
   }
 
@@ -194,8 +203,11 @@ export class SignInPage {
       await this.router.navigateByUrl(result.home);
       return result;
     }
-    this.digits.set('');
+    // A wrong code stays on screen, in red, until the next key; anything else starts over.
     this.refused.set(result.refusal.kind === 'InvalidCredentials');
+    if (!this.refused()) {
+      this.digits.set('');
+    }
     const notice = noticeOf(result.refusal);
     this.notice.set(notice);
     if (result.refusal.kind !== 'PinMustBeChosen') {

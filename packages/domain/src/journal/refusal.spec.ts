@@ -31,6 +31,10 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   CorrectionChangesType: { kind: 'CorrectionChangesType' },
   CorrectionChangesReference: { kind: 'CorrectionChangesReference' },
   CorrectsItself: { kind: 'CorrectsItself' },
+  UnknownStrain: { kind: 'UnknownStrain' },
+  PlacementInFuture: { kind: 'PlacementInFuture' },
+  PlacementTooOld: { kind: 'PlacementTooOld' },
+  InvalidPlannedDuration: { kind: 'InvalidPlannedDuration', value: 0 },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -86,6 +90,14 @@ function explain(refusal: Refusal): string {
       return "une correction ne change pas ce que la déclaration vise";
     case 'CorrectsItself':
       return "une correction ne porte pas l'identifiant de sa déclaration";
+    case 'UnknownStrain':
+      return 'souche inconnue';
+    case 'PlacementInFuture':
+      return 'mise en place dans le futur';
+    case 'PlacementTooOld':
+      return 'mise en place de plus de 60 jours';
+    case 'InvalidPlannedDuration':
+      return `durée prévue invalide : ${refusal.value} jours`;
     default:
       return assertNever(refusal);
   }

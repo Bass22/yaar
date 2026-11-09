@@ -105,7 +105,7 @@ Rien à construire en V1, mais ne pas fermer :
 | Métier | Code |
 |---|---|
 | Élevage (tenant) ; site (poulailler) | `Tenant`, `tenant_id` ; `Site` |
-| Campagne, bande ; l'ouvrir ; effectif prévu (jamais la base des vivants) ; durée prévue (45 jours par défaut, 60 au plus) | `Campaign` ; `openCampaign` (`OpenCampaignRequest`, `CampaignOpened`) ; `plannedHeadcount` ; `plannedDuration` (`DEFAULT_PLANNED_DURATION`, `MAX_CAMPAIGN_DAYS`) |
+| Campagne, bande ; l'ouvrir ; effectif prévu (jamais la base des vivants) ; durée prévue (45 jours par défaut, 60 au plus) | `Campaign` ; `openCampaign` (`OpenCampaignRequest`, `CampaignOpeningRefusal`, `CampaignOpened`), sa règle `validateCampaignOpening`, son écran `OpenCampaignPage` ; `plannedHeadcount` ; `plannedDuration` (`DEFAULT_PLANNED_DURATION`, `MAX_CAMPAIGN_DAYS`) |
 | Gardien ; titulaire du site ; remplaçant ; équipe du site ; affectation à un site (en base) ; affecter, retirer, désigner le titulaire | `Caretaker` ; `primaryCaretaker` ; `substitute` ; `SiteStaff` ; `SiteAssignment` (`isPrimary`) ; `assignToSite`, `removeFromSite`, `designatePrimaryCaretaker` |
 | Mode strict (seul le titulaire déclare) | `strictMode` |
 | Événement du journal ; déclaration ; contre-déclaration ; annulation (admin seul, définitive) | `JournalEvent` ; `Declaration` ; `CounterDeclaration` (`corrects`) ; `Retraction` (`retracts`) |

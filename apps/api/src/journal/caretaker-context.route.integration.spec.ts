@@ -107,13 +107,13 @@ describe('Le gardien reçoit son contexte, sans argent', () => {
     });
     await db.superuser.campaign.createMany({
       data: [
-        { id: ANCIENNE_BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-06-01'), closedAt: new Date('2026-07-20T10:00:00.000Z') },
-        { id: BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-10-15') },
+        { id: ANCIENNE_BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-06-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45, closedAt: new Date('2026-07-20T10:00:00.000Z') },
+        { id: BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
         // A second flock running on the same site, placed later (decision of 2026-11-07: several may run at once).
-        { id: DEUXIEME_BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-11-01') },
-        { id: BANDE_DE_B, tenantId: TENANT_B, siteId: SITE_DE_B, placementDay: new Date('2026-10-20') },
+        { id: DEUXIEME_BANDE_NORD, tenantId: TENANT_A, siteId: NORD, placementDay: new Date('2026-11-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
+        { id: BANDE_DE_B, tenantId: TENANT_B, siteId: SITE_DE_B, placementDay: new Date('2026-10-20'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
         // The Sud site only has a closed campaign: it has none running.
-        { id: uuid(6), tenantId: TENANT_A, siteId: SUD, placementDay: new Date('2026-09-01'), closedAt: new Date('2026-10-20T10:00:00.000Z') },
+        { id: uuid(6), tenantId: TENANT_A, siteId: SUD, placementDay: new Date('2026-09-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45, closedAt: new Date('2026-10-20T10:00:00.000Z') },
       ],
     });
     await db.superuser.journalEvent.createMany({

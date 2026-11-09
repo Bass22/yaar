@@ -1093,16 +1093,21 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Il active ou désactive le mode strict ; par défaut il est désactivé
 - [x] La modification d'une configuration de site est tracée dans l'audit
 
-### O.2 — Ouvrir une campagne · **M**
-> Spec : CdC « Hiérarchie », « Référentiels » (souche) · Zone : `apps/api/src/campaigns/`, `packages/domain/src/journal/campaign.ts`
+### O.2 — Ouvrir une campagne · **M** ✅
+> Spec : CdC « Hiérarchie », « Référentiels » (souche), « Ouvrir une bande » · Zone : `apps/api/src/campaigns/`, `packages/domain/src/journal/campaign.ts`, `apps/web/src/app/admin/lots/`
 > Dépend de : O.1, N.4 · Revue : ce qui rend une campagne « en cours ».
 
-- [ ] L'admin ouvre une campagne sur un site : souche, effectif, date de mise en place, durée prévue (décision du 2026-11-09)
-- [ ] Une campagne référence sa souche et en hérite la courbe cible
-- [ ] Une campagne sans effectif ou sans date est refusée
-- [ ] Une mise en place dans le futur, ou de plus de 60 jours, est refusée ; une durée prévue hors de 1 à 60 jours aussi
-- [ ] Au bureau, le formulaire préremplit la souche (Cobb 500), la date (aujourd'hui) et la durée (45 jours) — demande du fondateur, 2026-11-09
-- [ ] La campagne ouverte rejoint le contexte du gardien du site, à côté des autres campagnes en cours sur ce site (plusieurs à la fois : décision du 2026-11-07)
+> Livrée le 2026-11-09, aucune dépendance ajoutée. La règle est dans le domaine, une seule fois : `validateCampaignOpening` (souche du référentiel, effectif prévu ≥ 1, mise en place ni future ni de plus de 60 jours au jour du site, durée prévue de 1 à 60 jours entiers) ; quatre motifs ajoutés à la liste fermée (`UnknownStrain`, `PlacementInFuture`, `PlacementTooOld`, `InvalidPlannedDuration`). La table `campaigns` gagne `strain`, `planned_headcount` et `planned_duration`, obligatoires (migration unique régénérée) ; audit `CampaignOpened`, le sujet est la bande. `POST /api/v1/campaigns` (admin seul, liste blanche de six champs : ni élevage, ni clôture) juge au jour du fuseau du site ; une bande « en cours » est une bande sans clôture : elle rejoint aussitôt le cahier du gardien, à J0 et sans vivants inventés. Au bureau, Lots → « Ouvrir une bande » (`OpenCampaignPage`) : le seul site, la souche Cobb 500, la date du jour du site et 45 jours sont préremplis (demande du fondateur) ; avec deux sites, aucun n'est choisi d'avance ; le calendrier borne la date ; le formulaire juge avec la règle du domaine avant d'envoyer, dit chaque refus en mots, et sans réseau dit que la bande n'est pas ouverte ; ouverte, le bureau relit ses lots et revient à Lots. Formulaire en signaux : `@angular/forms` n'est pas installé, et cinq champs ne justifient pas une dépendance. Paquet du bureau : 4,8 Ko compressés ; le code de départ ne bouge pas.
+> **Trouvé dans le navigateur, le 2026-11-09** : le lien « Ouvrir une bande » et le retour à Lots étaient écrits depuis la racine (`/lots/ouvrir`), alors que le bureau vit sous `/admin` : le clic ramenait à l'accueil, sans rien dire. Les tests montaient le bureau à la racine et ne pouvaient pas le voir ; ils le montent désormais sous `/admin`, et les liens sont relatifs. Vérifié ensuite dans le navigateur, à 360 px : la bande s'ouvre et apparaît dans Lots.
+> **Redessiné le 2026-11-09, à la demande du fondateur** (« une app pro, le design doit être parfait ») : plus de liste déroulante. Le site et la souche se choisissent sur des **tuiles à picto** (grange, poussin ; la tuile choisie est verte et cochée), comme les tuiles de la maquette v2 ; l'effectif s'écrit **en gros chiffres sur une ligne de cahier**, collé à « poussins » ; la durée se règle par **− et +** autour de 45 jours ; « Ouvrir la bande » est un gros bouton vert à coche, **fixé au-dessus de la barre des cinq** (la coquille donne sa hauteur, `--office-tabs-block-size`). Regardé à 360 px dans le navigateur.
+> **Non fait ici** : fermer une bande (clôture, plus tard) ; la jauge du cahier suit encore 42 jours, pas la durée prévue ; la courbe de la souche n'est montrée nulle part avant le Suivi (V) ; pas de picto ni d'écoute sur les champs du formulaire (l'admin lit — à revoir si un gérant client lit mal).
+
+- [x] L'admin ouvre une campagne sur un site : souche, effectif, date de mise en place, durée prévue (décision du 2026-11-09)
+- [x] Une campagne référence sa souche et en hérite la courbe cible
+- [x] Une campagne sans effectif ou sans date est refusée
+- [x] Une mise en place dans le futur, ou de plus de 60 jours, est refusée ; une durée prévue hors de 1 à 60 jours aussi
+- [x] Au bureau, le formulaire préremplit la souche (Cobb 500), la date (aujourd'hui) et la durée (45 jours) — demande du fondateur, 2026-11-09
+- [x] La campagne ouverte rejoint le contexte du gardien du site, à côté des autres campagnes en cours sur ce site (plusieurs à la fois : décision du 2026-11-07)
 
 ### O.3 — La coquille du bureau · **M** ✅
 > Spec : CdC « Architecture du bureau » ; `bureau-admin-v2.html` (validée le 2026-11-08) · Zone : `apps/web/src/app/admin/`

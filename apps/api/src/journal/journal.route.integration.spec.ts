@@ -69,7 +69,7 @@ describe("L'API reçoit le journal", () => {
     ] as const) {
       await db.superuser.tenant.create({ data: { id: tenantId, name: 'Ferme', currency: 'XOF' } });
       await db.superuser.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
-      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
+      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 } });
     }
     const user = (id: string, tenantId: string, role: 'admin' | 'collaborator', rank: number) => ({ id, tenantId, role, phone: `+22177000${String(rank).padStart(4, '0')}`, name: 'Compte', pinHash: PIN_HASH });
     await db.superuser.user.createMany({ data: [user(OUSMANE, TENANT_A, 'collaborator', 1), user(MODOU, TENANT_A, 'collaborator', 2), user(LE_GERANT, TENANT_A, 'admin', 3), user(GARDIEN_DE_B, TENANT_B, 'collaborator', 4)] });

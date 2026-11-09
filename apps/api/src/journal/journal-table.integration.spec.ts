@@ -48,7 +48,7 @@ describe('Table du journal', () => {
       await db.superuser.tenant.create({ data: { id: tenantId, name: 'Élevage', currency: 'XOF' } });
       await db.superuser.site.create({ data: { id: siteId, tenantId, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
       await db.superuser.user.create({ data: { id: authorId, tenantId, phone: `+22177000000${tenantId === TENANT_A ? 1 : 2}`, name: 'Ousmane', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
-      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
+      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 } });
     }
     api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' });
     // And trois morts déjà au journal de chaque élevage, sous le même identifiant

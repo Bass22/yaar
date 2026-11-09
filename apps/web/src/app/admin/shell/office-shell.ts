@@ -38,7 +38,8 @@ const TABS: readonly Tab[] = [
     </nav>
   `,
   styles: `
-    :host { display: block; min-block-size: 100dvh; background: var(--color-shell); }
+    /* The bar of five is fixed: a page that keeps something at the bottom sits above it. */
+    :host { --office-tabs-block-size: 65px; display: block; min-block-size: 100dvh; background: var(--color-shell); }
     .head {
       display: flex; align-items: center; gap: 10px; padding: 14px 16px;
       background: linear-gradient(180deg, var(--color-kraft), var(--color-kraft-dark)); color: var(--color-on-sign);
@@ -49,11 +50,11 @@ const TABS: readonly Tab[] = [
     .stale app-pictogram { inline-size: 26px; block-size: 26px; flex: none; }
     .page { padding: 12px 16px 96px; background-image: var(--notebook-lines); }
     .tabs {
-      position: fixed; inset-inline: 0; inset-block-end: 0; display: grid; grid-template-columns: repeat(5, 1fr);
+      position: fixed; z-index: 2; inset-inline: 0; inset-block-end: 0; display: grid; grid-template-columns: repeat(5, 1fr);
       background: var(--color-paper); border-block-start: 3px solid var(--color-kraft);
     }
     .tabs a {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-block-size: 62px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-block-size: calc(var(--office-tabs-block-size) - 3px);
       color: var(--color-muted); font: 700 0.75rem var(--font-reading); text-decoration: none;
     }
     .tabs a app-pictogram { inline-size: 28px; block-size: 28px; opacity: 0.6; }

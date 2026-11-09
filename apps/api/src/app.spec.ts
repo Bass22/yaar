@@ -108,6 +108,8 @@ describe("Démarrage de l'API", () => {
       'PATCH /api/v1/users/:userId',
       'POST /api/v1/auth/choose-pin',
       'POST /api/v1/auth/sign-in',
+      // Admin only: a campaign on a site of the farm of the session, judged by the domain (O.2).
+      'POST /api/v1/campaigns',
       // Every session, judged by the domain: the author and the farm come from the session (F.2).
       'POST /api/v1/journal/events',
       // Admin only: a site of the farm of the session (O.1).

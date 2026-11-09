@@ -10,7 +10,14 @@ export {
   TimeZone,
   type RecentBusinessDays,
 } from './business-day';
-export type { Campaign } from './campaign';
+export {
+  DEFAULT_PLANNED_DURATION,
+  MAX_CAMPAIGN_DAYS,
+  validateCampaignOpening,
+  type Campaign,
+  type CampaignOpening,
+  type CampaignOpeningRequest,
+} from './campaign';
 export {
   effectiveJournal,
   validateCounterDeclaration,

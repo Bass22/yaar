@@ -42,6 +42,8 @@ export class Office {
       site.campaigns.map((campaign) => ({ campaignId: campaign.campaignId, siteName: site.name, campaignDay: campaign.campaignDay, liveCount: campaign.liveCount })),
     ),
   );
+  /** The farm's sites, with the day it is on each. */
+  readonly sites = computed(() => (this.kept()?.context.sites ?? []).map(({ siteId, name, today }) => ({ siteId, name, today })));
   /** When the figures shown were read, and in which time zone to say it. */
   readonly readAt = computed(() => {
     const kept = this.kept();

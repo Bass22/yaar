@@ -17,7 +17,7 @@ describe('Le registre des déclarations refusées', () => {
     db = await createTestDatabase();
     await db.superuser.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });
     await db.superuser.site.create({ data: { id: NORD, tenantId: TENANT, name: 'Poulailler', timeZone: 'Africa/Dakar' } });
-    await db.superuser.campaign.create({ data: { id: BANDE, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-15') } });
+    await db.superuser.campaign.create({ data: { id: BANDE, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 } });
     await db.superuser.user.create({ data: { id: OUSMANE, tenantId: TENANT, role: 'collaborator', phone: '+221770000001', name: 'Ousmane', pinHash: 'x' } });
     await db.superuser.refusedEvent.create({
       data: {

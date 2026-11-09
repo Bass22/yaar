@@ -146,7 +146,7 @@ describe('Migrations', () => {
   });
 
   it("une ligne ne référence que des lignes de son élevage : une campagne de A ne s'attache pas au site de B", async () => {
-    const campaign = { placementDay: new Date('2026-10-15') };
+    const campaign = { placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 };
 
     await expect(
       db.superuser.campaign.create({ data: { id: '00000000-0000-4000-8000-0000000000c1', tenantId: TENANT_A, siteId: SITE_B, ...campaign } }),

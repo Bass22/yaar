@@ -86,31 +86,31 @@ model Tenant {
 }
 
 model User {
-  id                String    @id @db.Uuid
-  tenantId          String    @map("tenant_id") @db.Uuid
+  id                      String         @id @db.Uuid
+  tenantId                String         @map("tenant_id") @db.Uuid
   // The phone number is the login, written in international form (E.164): one account per
   // number on the whole service, so that a sign-in needs no tenant to find its user.
-  phone             String    @unique
-  name              String
-  role              UserRole
+  phone                   String         @unique
+  name                    String
+  role                    UserRole
   // Recognised at sign-in, on the phone (E.9). Empty for an account made before its avatar was chosen.
-  avatar            AccountAvatar?
+  avatar                  AccountAvatar?
   // The language of the voice for this person (E.9): it follows the person, not the site. Empty: the site's.
-  audioLanguage     AudioLanguage? @map("audio_language")
+  audioLanguage           AudioLanguage? @map("audio_language")
   // argon2id digest of the PIN (E.1). Never the PIN, never shown to anyone.
-  pinHash           String    @map("pin_hash")
+  pinHash                 String         @map("pin_hash")
   // Set while the PIN is the provisional one the admin gave (E.5): until then, signing in
   // means choosing one's own PIN. Past this instant, the provisional PIN no longer works.
-  provisionalPinExpiresAt DateTime? @map("provisional_pin_expires_at") @db.Timestamptz(3)
+  provisionalPinExpiresAt DateTime?      @map("provisional_pin_expires_at") @db.Timestamptz(3)
   // Failed PIN attempts in a row (E.1): the wait before the next one grows with them.
-  pinFailures       Int       @default(0) @map("pin_failures")
-  pinLastFailureAt  DateTime? @map("pin_last_failure_at") @db.Timestamptz(3)
+  pinFailures             Int            @default(0) @map("pin_failures")
+  pinLastFailureAt        DateTime?      @map("pin_last_failure_at") @db.Timestamptz(3)
   // A blocked account is refused on every request, on every device (E.4).
-  blockedAt         DateTime? @map("blocked_at") @db.Timestamptz(3)
+  blockedAt               DateTime?      @map("blocked_at") @db.Timestamptz(3)
   // A session token issued before this instant — to the second, rounded up — is refused:
   // blocking, a new PIN or "sign out everywhere" set it. Empty until one of them happens.
-  sessionsValidFrom DateTime? @map("sessions_valid_from") @db.Timestamptz(3)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  sessionsValidFrom       DateTime?      @map("sessions_valid_from") @db.Timestamptz(3)
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignments   SiteAssignment[]
@@ -122,16 +122,16 @@ model User {
 }
 
 model Site {
-  id         String   @id @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  name       String
+  id            String         @id @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  name          String
   // IANA name ("Africa/Dakar"): it says which business day an instant falls on.
-  timeZone   String   @map("time_zone")
+  timeZone      String         @map("time_zone")
   // Only the primary caretaker declares when the admin turns this on.
-  strictMode Boolean  @default(false) @map("strict_mode")
+  strictMode    Boolean        @default(false) @map("strict_mode")
   // The voice of an account that chose none (E.9); set when the site is configured (O.1).
   audioLanguage AudioLanguage? @map("audio_language")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignments   SiteAssignment[]
@@ -164,13 +164,19 @@ model SiteAssignment {
 }
 
 model Campaign {
-  id           String    @id @db.Uuid
-  tenantId     String    @map("tenant_id") @db.Uuid
-  siteId       String    @map("site_id") @db.Uuid
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  siteId           String    @map("site_id") @db.Uuid
   // The business day the animals were placed: day 0 of the campaign.
-  placementDay DateTime  @map("placement_day") @db.Date
-  closedAt     DateTime? @map("closed_at") @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  placementDay     DateTime  @map("placement_day") @db.Date
+  // A strain of the publisher (code of the domain, `Cobb500`): the campaign inherits its curve.
+  strain           String
+  // Chicks expected: for budgets and ratios, never the base of the live count.
+  plannedHeadcount Int       @map("planned_headcount")
+  // Days the campaign is expected to last (45 by default, 60 at most).
+  plannedDuration  Int       @map("planned_duration")
+  closedAt         DateTime? @map("closed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   site          Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -266,6 +272,7 @@ enum AuditAction {
   AdminAdded
   SiteCreated
   SiteConfigured
+  CampaignOpened
 
   @@map("audit_action")
 }
@@ -280,7 +287,7 @@ model AuditEvent {
   // Who acted: the admin, or the account itself when it signs in. Empty when the operator
   // acted, by script (an admin added, E.8): the operator has no account in any farm.
   actorId    String?     @map("actor_id") @db.Uuid
-  // The account the action was about — or, for a site created or configured, the site.
+  // The account the action was about — or, for a site created or configured, the site; for a campaign opened, the campaign.
   subjectId  String      @map("subject_id") @db.Uuid
   // The site the action was about, when it was about one (an assignment).
   siteId     String?     @map("site_id") @db.Uuid

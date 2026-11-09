@@ -1,6 +1,7 @@
 import type { Route } from '@angular/router';
 import { HomePage } from './home/home-page';
 import { LotsPage } from './lots/lots-page';
+import { OpenCampaignPage } from './lots/open-campaign-page';
 import { MorePage } from './more/more-page';
 import { OfficeShell } from './shell/office-shell';
 import { ComingSoon } from './soon/coming-soon';
@@ -15,6 +16,7 @@ export const adminRoutes: Route[] = [
       { path: '', pathMatch: 'full', redirectTo: 'accueil' },
       { path: 'accueil', component: HomePage },
       { path: 'lots', component: LotsPage },
+      { path: 'lots/ouvrir', component: OpenCampaignPage },
       { path: 'achats', component: ComingSoon, data: { title: 'Achats', picto: 'truck', words: 'Les commandes et les réceptions arrivent bientôt dans le bureau.' } },
       { path: 'tiers', component: ComingSoon, data: { title: 'Tiers', picto: 'coin', words: 'Qui doit quoi, fournisseurs et clients, arrive bientôt dans le bureau.' } },
       { path: 'plus', component: MorePage },

@@ -61,11 +61,20 @@ describe('Entrée du cahier', () => {
     expect(element.querySelectorAll('header button, .page > button')).toHaveLength(0);
   });
 
-  it("le code d'un gardien a quatre ronds, et s'envoie au quatrième chiffre — sans bouton à chercher ; ouvert, le cahier s'affiche", async () => {
+  it("aucun rond avant la saisie : chaque chiffre tapé en ajoute un, qui dit seulement combien de chiffres sont tapés (décision du 2026-11-09)", async () => {
     localStorage.setItem('yaar.account', JSON.stringify(known()));
     const { element, type } = await open();
 
-    expect(element.querySelectorAll('.rounds i')).toHaveLength(4);
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(0);
+    await type('73');
+    expect(element.querySelectorAll('.rounds i.full')).toHaveLength(2);
+    expect(element.querySelectorAll('.rounds i:not(.full)')).toHaveLength(0);
+  });
+
+  it("le code d'un gardien s'envoie au quatrième chiffre — sans bouton à chercher ; ouvert, le cahier s'affiche", async () => {
+    localStorage.setItem('yaar.account', JSON.stringify(known()));
+    const { element, type } = await open();
+
     expect(element.querySelector('app-keypad .validate')).toBeNull();
     await type('7351');
 
@@ -77,14 +86,19 @@ describe('Entrée du cahier', () => {
     expect(navigate).toHaveBeenCalledWith('/caretaker');
   });
 
-  it("le code d'un admin a six ronds", async () => {
+  it("le code d'un admin ne part pas au quatrième chiffre : il s'envoie au sixième, et rien n'annonce quatre ronds", async () => {
     localStorage.setItem('yaar.account', JSON.stringify(known('admin')));
-    const { element } = await open();
+    const { element, type } = await open();
 
-    expect(element.querySelectorAll('.rounds i')).toHaveLength(6);
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(0);
+    await type('4829');
+    http.expectNone('/api/v1/auth/sign-in');
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(4);
+    await type('13');
+    expect(http.expectOne('/api/v1/auth/sign-in').request.body).toMatchObject({ pin: '482913' });
   });
 
-  it("un code faux se voit : les ronds passent au rouge, un post-it le dit, et le code s'efface pour réessayer", async () => {
+  it("un code faux se voit : les ronds tapés restent, en rouge, un post-it le dit ; la touche suivante repart de zéro", async () => {
     localStorage.setItem('yaar.account', JSON.stringify(known()));
     const { element, type, refresh } = await open();
     await type('1111');
@@ -93,9 +107,25 @@ describe('Entrée du cahier', () => {
     await refresh();
 
     expect(element.querySelector('.rounds')?.classList).toContain('refused');
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(4);
     expect(element.querySelector('[role="alert"]')?.textContent).toContain("Ce n'est pas le bon code");
-    expect(element.querySelectorAll('.rounds i.full')).toHaveLength(0);
     expect(heard.at(-1)).toEqual(['wo/sign-in-wrong-pin']);
+
+    await type('7');
+    expect(element.querySelector('.rounds')?.classList).not.toContain('refused');
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(1);
+  });
+
+  it("après un code faux, l'effacement repart aussi de zéro", async () => {
+    localStorage.setItem('yaar.account', JSON.stringify(known()));
+    const { element, type, click, refresh } = await open();
+    await type('1111');
+    http.expectOne('/api/v1/auth/sign-in').flush({ kind: 'InvalidCredentials' }, { status: 401, statusText: 'Unauthorized' });
+    await refresh();
+
+    await click('app-keypad .erase');
+
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(0);
   });
 
   it("trop d'essais : le post-it dit l'heure à laquelle réessayer", async () => {
@@ -117,6 +147,7 @@ describe('Entrée du cahier', () => {
     input.value = '+221770000052';
     input.dispatchEvent(new Event('input'));
     await click('.go');
+    expect(element.querySelectorAll('.rounds i')).toHaveLength(0);
     await type('7351');
     await click('app-keypad .validate');
 

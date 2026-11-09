@@ -32,7 +32,7 @@ describe('Cloisonnement entre élevages', () => {
       await db.superuser.user.create({ data: { id: userId, tenantId, phone: `+22177000000${suffix === 'a' ? 1 : 2}`, name: 'Gardien', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
       await db.superuser.siteAssignment.create({ data: { tenantId, siteId, userId, isPrimary: true } });
       const campaignId = `00000000-0000-4000-8000-0000000000${suffix}3`;
-      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15') } });
+      await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 } });
       await db.superuser.journalEvent.create({
         data: {
           id: '00000000-0000-4000-8000-0000000000e1',
