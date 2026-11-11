@@ -76,7 +76,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Source de la météo, et seuil de chaleur qui déclenche la tâche de chaleur | CdC « Points ouverts » (Tâches par élevage). **Tranché le 2026-11-08** : la tâche de chaleur est **la glace dans l'eau**, au-delà de **32 °C**, jugée sur la **prévision du jour J** et sur le **ressenti** si la source le donne ; le **bicarbonate n'est pas lié à la chaleur**, c'est une tâche optionnelle de l'élevage. Elle vaut pour **tous les animaux, à tout âge**. Le bicarbonate tombe **certains jours de la bande, définis dans le référentiel des tâches de l'élevage** (2026-11-08). Reste : la source météo | L.1, L.3 |
 | ~~Une seule campagne en cours par site ?~~ ✅ tranché le 2026-11-07 : non — un site peut avoir plusieurs campagnes en cours à la fois, et le gardien déclare sur chacune | CdC « Hiérarchie » | ~~O.2~~ |
 | Seuil par défaut de l'alerte de mortalité sur 7 jours | CdC « Points ouverts » | O.4 |
-| ~~Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ?~~ ✅ tranché le 2026-11-12 : engagé ÷ vivants d'aujourd'hui, arrondi au franc le plus proche ; absent tant que les vivants sont inconnus ou pas au-dessus de zéro | CdC « Les dépenses » | ~~P.1~~ |
+| ~~Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ?~~ ✅ tranché le 2026-11-12 : engagé ÷ `min(vivants, reçus × 93 %)` — 7 % de pertes prévues par défaut, le réel dès qu'il les dépasse —, arrondi au franc le plus proche ; absent tant que les vivants sont inconnus | CdC « Les dépenses » | ~~P.1~~ |
 | Champs de saisie propres à chaque type de coût | CdC « Points ouverts » | P.6 |
 | ~~Un règlement supérieur à la dette : refusé, ou il crée une créance ?~~ ✅ tranché le 2026-11-12 : accepté, il crée une créance (le tiers doit la différence) | CdC « Commandes » | ~~R.2~~ |
 | Une vente diminue-t-elle le compteur de vivants vu par le gardien ? | CdC (non précisé) | W.1 |
@@ -1166,57 +1166,68 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 > **Écritures d'argent (décision du 2026-11-06)** — vaut pour les épopées P, Q, R, S et W : une écriture (coût, paiement, règlement, vente) est ajoutée et jamais modifiée, porte un identifiant créé sur l'appareil, et son enregistrement est idempotent. Une correction est une contre-écriture (P.2). C'est ce qui permet à l'admin de saisir sans réseau (P.7).
 
-### P.1 — Un coût et l'engagé à date · **M** · 🧪
+### P.1 — Un coût et l'engagé à date · **M** · 🧪 ✅
 > Spec : CdC « Argent » · Zone : `packages/domain/src/finance/{cost,committed-cost}.ts`
 > Dépend de : B.1 · Revue : rien n'est stocké qui se recalcule ; relire la formule du coût par poulet.
 
-- [ ] Un coût porte un identifiant créé sur l'appareil, un type, une date de dépense, un montant, une note et un statut payé ou à payer
-- [ ] Le même coût enregistré deux fois (même identifiant) ne compte qu'une fois dans l'engagé (property-based)
-- [ ] La date de dépense vaut aujourd'hui par défaut et peut être passée
-- [ ] L'engagé d'une campagne est la somme de ses coûts reconnus
-- [ ] Un coût « à payer » compte dans l'engagé comme un coût payé
-- [ ] Le coût par poulet à date suit la formule décidée, sans flottant
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Décisions du fondateur écrites d'abord au CdC (« Les dépenses ») : coût par poulet = engagé ÷ `min(vivants, reçus × 93 %)` — **7 % de pertes prévues par défaut, le réel dès qu'il les dépasse** (`EXPECTED_LOSS_RATE`) —, au franc le plus proche, absent tant que les vivants sont inconnus ; la prédiction des pertes devient V.4. `domain/finance/cost.ts` : `recordCost` (identifiant, type non archivé, date jamais dans le futur, montant entier ≥ 1, note facultative de 2 000 caractères au plus — vide = absente —, payé ou à payer à un fournisseur ou un collaborateur, reçu par empreinte), `committedCost` (coûts + facturable des commandes), `costPerBird`.
 
-### P.2 — Modifier un coût laisse une trace · **M** · 🧪
+- [x] Un coût porte un identifiant créé sur l'appareil, un type, une date de dépense, un montant, une note et un statut payé ou à payer
+- [x] Le même coût enregistré deux fois (même identifiant) ne compte qu'une fois dans l'engagé (property-based)
+- [x] La date de dépense vaut aujourd'hui par défaut et peut être passée
+- [x] L'engagé d'une campagne est la somme de ses coûts reconnus
+- [x] Un coût « à payer » compte dans l'engagé comme un coût payé
+- [x] Le coût par poulet à date suit la formule décidée, sans flottant
+
+### P.2 — Modifier un coût laisse une trace · **M** · 🧪 ✅
 > Spec : CdC « Tout coût est modifiable après coup » · Zone : `packages/domain/src/finance/counter-entry.ts`
 > Dépend de : P.1 · Revue : l'historique des états est complet.
 
-- [ ] Modifier le montant, la date, la note ou le statut crée une contre-écriture
-- [ ] L'écriture d'origine reste lisible dans l'historique
-- [ ] L'engagé suit la dernière valeur
-- [ ] Le passage de « à payer » à « payé » se fait en une seule opération
-- [ ] Chaque contre-écriture porte son auteur et sa date
+> Livrée le 2026-11-12. Une contre-écriture (`reviseCost`) réécrit le coût entier sous un nouvel identifiant et nomme le coût d'origine (jamais une autre contre-écriture, jamais une autre bande) ; `effectiveCosts` garde la dernière écrite d'après sa date de saisie, quel que soit l'ordre d'arrivée, et l'historique complet. Le fichier prévu `counter-entry.ts` n'existe pas : tout tient dans `cost.ts`.
 
-### P.3 — L'API des coûts · **M** · 🔒
+- [x] Modifier le montant, la date, la note ou le statut crée une contre-écriture
+- [x] L'écriture d'origine reste lisible dans l'historique
+- [x] L'engagé suit la dernière valeur
+- [x] Le passage de « à payer » à « payé » se fait en une seule opération
+- [x] Chaque contre-écriture porte son auteur et sa date
+
+### P.3 — L'API des coûts · **M** · 🔒 ✅
 > Spec : Archi §4 (`couts`) · Zone : `apps/api/src/costs/`, `packages/contracts`
 > Dépend de : P.2, E.3, N.2 · Revue : un collaborateur n'obtient rien, pas même une liste vide.
 
-- [ ] L'admin enregistre, corrige (contre-écriture) et liste les coûts d'une campagne
-- [ ] Un coût déjà reçu (même identifiant) est ignoré et signalé comme doublon, sans erreur
-- [ ] Un collaborateur reçoit un refus sur toute route de coûts
-- [ ] Un coût d'un type archivé ou non rattaché est refusé
-- [ ] Chaque modification d'un coût est tracée dans l'audit
-- [ ] Les montants voyagent en entiers, dans la plus petite unité de la devise
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Table `costs` (lecture et ajout seulement ; une correction est une autre ligne qui nomme la première ; RLS forcée ; contraintes : « à payer » nomme un tiers, « payé » n'en nomme aucun). `POST /api/v1/costs` et `POST /api/v1/costs/:id/revisions` (liste blanche, règles du domaine, jour du site ; renvoyé à l'identique 200, autre contenu 409 ; bande close ou inconnue refusée), `GET /api/v1/campaigns/:id/money` (engagé, vivants, coût par poulet, chaque coût avec son historique). Traces `CostRecorded`, `CostRevised` (sur le coût d'origine). Un reçu cité par un coût se relit par la route des médias (M.1). Admin seul.
 
-### P.4 — Saisir et lire les dépenses · **M**
+- [x] L'admin enregistre, corrige (contre-écriture) et liste les coûts d'une campagne
+- [x] Un coût déjà reçu (même identifiant) est ignoré et signalé comme doublon, sans erreur
+- [x] Un collaborateur reçoit un refus sur toute route de coûts
+- [x] Un coût d'un type archivé ou non rattaché est refusé
+- [x] Chaque modification d'un coût est tracée dans l'audit
+- [x] Les montants voyagent en entiers, dans la plus petite unité de la devise
+
+### P.4 — Saisir et lire les dépenses · **M** ✅ (en ligne jusqu'à P.7)
 > Spec : CdC « Argent » ; `bureau-admin.html` (Argent) · Zone : `apps/web/src/app/admin/money/`
 > Dépend de : P.3, O.3 · Revue : la note n'est jamais tronquée ; aucun calcul d'argent dans l'écran.
 
-- [ ] L'admin choisit un type par pastille, saisit le montant et valide
-- [ ] La date de dépense est modifiable avant validation
-- [ ] La note s'écrit sur des lignes de cahier et s'affiche en entier
-- [ ] La liste montre les dépenses datées et le total engagé venu de l'API
-- [ ] L'engagé et le coût par poulet ont un bouton d'écoute
-- [ ] La saisie suit quoi → combien → Oui (décision du 2026-11-07, `bureau-admin-v2.html` écrans 7 à 9) : types en pictos d'objets, pavé à grosses touches avec 000, montant aussi en billets et en liasses, relecture vocale d'office avant le Oui ; date, note et reçu derrière « plus de détails »
+> Livrée le 2026-11-12, aucune dépendance ajoutée. « Les dépenses » depuis les achats (`achats/depenses`) : engagé et coût par poulet venus du serveur, chacun avec son bouton d'écoute ; chaque dépense avec sa date, son type au picto de sa catégorie, son montant et ses billets, son statut, « reçu ✓ », sa note en entier ; « C'est payé » en un geste, « Dupliquer », « Corriger ». Le geste (`achats/depense`, écrans 7 à 9 de `bureau-admin-v2.html`) : **quoi** (tuiles des types en usage) → **combien** (pavé à grosses touches avec **000**, le montant posé en **billets** et en liasses de 100 000 — `Banknotes`) ; « Payé » d'office, « À payer plus tard » demande à qui (fournisseurs et collaborateurs) → **relecture** dite d'office (la catégorie, le montant, payé ou à payer) → Non revient au montant, **Oui** ; date, note (lignes de cahier) et reçu derrière « Plus de détails ». La règle du domaine juge avant l'envoi ; un essai repris renvoie la même dépense. 21 phrases au script audio. Le pavé gagne une touche 000 ; la réduction des photos passe dans `core/media` (le bureau et le cahier s'en servent).
+> **Écarts** : saisir une dépense demande le réseau jusqu'à P.7 ; le bouton unique « Écrire » de la maquette (écran 6) n'existe pas encore — « Une dépense » est dans les dépenses ; plusieurs pictos de catégorie sont empruntés (matériel = la grange, nettoyage = l'abreuvoir, transformation = la poule) : **à valider sur le terrain** ; les couleurs des billets sont à recaler sur les vrais billets BCEAO, sans les reproduire.
 
-### P.5 — Reçu en photo et duplication · **S**
+- [x] L'admin choisit un type par pastille, saisit le montant et valide
+- [x] La date de dépense est modifiable avant validation
+- [x] La note s'écrit sur des lignes de cahier et s'affiche en entier
+- [x] La liste montre les dépenses datées et le total engagé venu de l'API
+- [x] L'engagé et le coût par poulet ont un bouton d'écoute
+- [x] La saisie suit quoi → combien → Oui (décision du 2026-11-07, `bureau-admin-v2.html` écrans 7 à 9) : types en pictos d'objets, pavé à grosses touches avec 000, montant aussi en billets et en liasses, relecture vocale d'office avant le Oui ; date, note et reçu derrière « plus de détails »
+
+### P.5 — Reçu en photo et duplication · **S** ✅
 > Spec : CdC « Argent » (justificatif, duplication) · Zone : `apps/web/src/app/admin/money/`
 > Dépend de : P.4, M.1 · Revue : dupliquer pré-remplit, n'enregistre jamais.
 
-- [ ] L'admin joint la photo d'un reçu à un coût ; la liste affiche « reçu ✓ »
-- [ ] Le reçu est rangé comme pièce justificative
-- [ ] Dupliquer un coût pré-remplit le formulaire sans rien enregistrer
-- [ ] Le coût dupliqué prend la date du jour
+> Livrée le 2026-11-12, avec P.4. La photo du reçu, réduite sur l'appareil, part d'abord au dépôt des médias comme pièce justificative, puis la dépense la cite par son empreinte ; l'admin la relit puisque la dépense la cite. « Dupliquer » remplit le geste (type, montant, statut, note) à la date du jour, sans rien écrire ; Oui écrit une nouvelle dépense. « Corriger » garde aussi la date et le reçu, et écrit une contre-écriture.
+
+- [x] L'admin joint la photo d'un reçu à un coût ; la liste affiche « reçu ✓ »
+- [x] Le reçu est rangé comme pièce justificative
+- [x] Dupliquer un coût pré-remplit le formulaire sans rien enregistrer
+- [x] Le coût dupliqué prend la date du jour
 
 ### P.6 — ⏸ Champs propres à chaque type de coût · ⚠
 > Spec : CdC « Points ouverts » · à spécifier avant découpage.
@@ -1532,6 +1543,12 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La consommation s'affiche en journalier et en cumul, face à la souche
 - [ ] Un indicateur sans donnée s'affiche à blanc
 - [ ] Marge, prix moyen et restant à vendre n'apparaissent qu'à partir de la première vente
+
+### V.4 — Prédire les pertes d'ici la fin de la bande · **M** · ⚠
+> Spec : demande du fondateur du 2026-11-12 (« prédire les pertes d'ici la fin de campagne ») · à spécifier avant découpage : quelle méthode (rythme des 7 derniers jours prolongé, courbe des bandes passées de l'élevage, table de la souche), et ce qu'elle remplace (les 7 % par défaut du coût par poulet, P.1).
+
+- [ ] La méthode de prédiction est choisie avec le fondateur
+- [ ] Le coût par poulet utilise les pertes prédites au lieu des 7 % par défaut
 
 ## W — Ventes
 

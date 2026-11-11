@@ -15,7 +15,7 @@ import { PostIt } from '../../ui/post-it';
 import { Sheet } from '../../ui/sheet';
 import { SpeakerButton } from '../../ui/speaker-button';
 import { Stamp } from '../../ui/stamp';
-import { REDUCE_PHOTO } from '../gestures/photo/reduce-photo';
+import { REDUCE_PHOTO } from '../../core/media/reduce-photo';
 import type { DeclarationTarget } from '../notebook/notebook';
 
 const STAMP_MS = 1500;

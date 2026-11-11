@@ -182,6 +182,16 @@ describe('Les médias, déposés par leur empreinte', () => {
     expect((await lit(sha256(PV))).status).toBe(200);
   });
 
+  it('le reçu cité par une dépense se lit (P.5) : une dépense cite un média comme le journal', async () => {
+    const recu = jpeg('le recu de la SDE');
+    expect((await depose(sha256(recu), recu, { retention: 'SupportingDocument', token: gerant() })).status).toBe(201);
+    expect((await lit(sha256(recu))).status).toBe(404);
+    await db.superuser.costType.create({ data: { id: uuid(44), tenantId: TENANT_A, category: 'Utilities', name: 'Eau', behaviour: 'Variable' } });
+    await db.superuser.cost.create({ data: { tenantId: TENANT_A, id: uuid(301), campaignId: BANDE, costTypeId: uuid(44), spentOn: new Date('2026-10-13'), amount: 12_500, paymentKind: 'Paid', receipt: sha256(recu), recordedAt: new Date(now), recordedBy: LE_GERANT } });
+
+    expect((await lit(sha256(recu))).status).toBe(200);
+  });
+
   it("le média d'un autre élevage ne se lit pas, même cité chez lui, même si l'on connaît son empreinte (404) ; chaque élevage a sa propre copie", async () => {
     const deB = jpeg('la photo de B');
     expect((await depose(sha256(deB), deB, { token: tokenOf(GERANT_DE_B, TENANT_B, 'admin') })).status).toBe(201);

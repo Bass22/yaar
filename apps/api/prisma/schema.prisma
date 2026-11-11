@@ -87,6 +87,7 @@ model Tenant {
   orderLines      OrderLine[]
   payments        Payment[]
   media           Media[]
+  costs           Cost[]
 
   @@map("tenants")
 }
@@ -190,6 +191,7 @@ model Campaign {
   refusedEvents  RefusedEvent[]
   purchaseOrders PurchaseOrder[]
 
+  costs Cost[]
   @@unique([tenantId, id])
   @@index([tenantId, siteId])
   @@map("campaigns")
@@ -291,6 +293,8 @@ enum AuditAction {
   OrderAnnounced
   OrderClosed
   PaymentRecorded
+  CostRecorded
+  CostRevised
 
   @@map("audit_action")
 }
@@ -345,6 +349,7 @@ model Counterparty {
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   purchaseOrders PurchaseOrder[]
 
+  costs Cost[]
   @@unique([tenantId, id])
   @@map("counterparties")
 }
@@ -389,6 +394,7 @@ model CostType {
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   orderLines OrderLine[]
 
+  costs Cost[]
   @@unique([tenantId, id])
   @@map("cost_types")
 }
@@ -494,4 +500,42 @@ model Media {
 
   @@id([tenantId, sha256])
   @@map("media")
+}
+
+enum CostPaymentKind {
+  Paid
+  ToPay
+
+  @@map("cost_payment_kind")
+}
+
+// A cost of a campaign (P.1, P.2): a money entry, added once and never updated nor deleted. A
+// correction is another row naming the cost it replaces (`corrects`); the latest written counts.
+model Cost {
+  tenantId       String          @map("tenant_id") @db.Uuid
+  id             String          @id @db.Uuid
+  corrects       String?         @db.Uuid
+  campaignId     String          @map("campaign_id") @db.Uuid
+  costTypeId     String          @map("cost_type_id") @db.Uuid
+  spentOn        DateTime        @map("spent_on") @db.Date
+  // In the smallest unit of the farm's currency: never a float (rule 7).
+  amount         Int
+  note           String?
+  paymentKind    CostPaymentKind @map("payment_kind")
+  counterpartyId String?         @map("counterparty_id") @db.Uuid
+  // The fingerprint of the receipt's photo, on the media volume (P.5).
+  receipt        String?
+  recordedAt     DateTime        @map("recorded_at") @db.Timestamptz(3)
+  recordedBy     String          @map("recorded_by") @db.Uuid
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  campaign     Campaign      @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  costType     CostType      @relation(fields: [tenantId, costTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  counterparty Counterparty? @relation(fields: [tenantId, counterpartyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  original     Cost?         @relation("CostCorrections", fields: [tenantId, corrects], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrections  Cost[]        @relation("CostCorrections")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, campaignId])
+  @@map("costs")
 }

@@ -75,9 +75,14 @@ async function campaignContext(
  * deaths and losses. Unknown — never zero — until a chick line has received something.
  */
 async function liveCountOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<number | null> {
+  return (await birdsOf(tx, campaignId, events)).liveCount;
+}
+
+/** The chicks received on the campaign's chick lines, and the birds alive — `null` until a chick is received (Q.7). */
+export async function birdsOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<{ received: number; liveCount: number | null }> {
   const chickLines = await tx.orderLine.findMany({ where: { order: { campaignId }, costType: { category: 'Chicks' } }, select: { id: true } });
   const count = computeLiveCount(events, { campaignId: unwrap(CampaignId(campaignId)), placementOrderLines: chickLines.map(({ id }) => id as OrderLineId) });
-  return count.received > 0 ? count.liveCount : null;
+  return { received: count.received, liveCount: count.received > 0 ? count.liveCount : null };
 }
 
 /**

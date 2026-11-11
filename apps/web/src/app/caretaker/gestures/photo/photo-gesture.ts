@@ -10,7 +10,7 @@ import { PostIt } from '../../../ui/post-it';
 import { Sheet } from '../../../ui/sheet';
 import { Stamp } from '../../../ui/stamp';
 import type { DeclarationTarget } from '../../notebook/notebook';
-import { REDUCE_PHOTO } from './reduce-photo';
+import { REDUCE_PHOTO } from '../../../core/media/reduce-photo';
 
 const STAMP_MS = 1500;
 

@@ -22,7 +22,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
@@ -38,6 +38,9 @@ CREATE TYPE "payment_method" AS ENUM ('Cash', 'Wave', 'OrangeMoney');
 
 -- CreateEnum
 CREATE TYPE "retention_class" AS ENUM ('OperationalProof', 'SupportingDocument');
+
+-- CreateEnum
+CREATE TYPE "cost_payment_kind" AS ENUM ('Paid', 'ToPay');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -242,6 +245,25 @@ CREATE TABLE "media" (
     CONSTRAINT "media_pkey" PRIMARY KEY ("tenant_id","sha256")
 );
 
+-- CreateTable
+CREATE TABLE "costs" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "corrects" UUID,
+    "campaign_id" UUID NOT NULL,
+    "cost_type_id" UUID NOT NULL,
+    "spent_on" DATE NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "note" TEXT,
+    "payment_kind" "cost_payment_kind" NOT NULL,
+    "counterparty_id" UUID,
+    "receipt" TEXT,
+    "recorded_at" TIMESTAMPTZ(3) NOT NULL,
+    "recorded_by" UUID NOT NULL,
+
+    CONSTRAINT "costs_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -286,6 +308,12 @@ CREATE INDEX "order_lines_tenant_id_order_id_idx" ON "order_lines"("tenant_id", 
 
 -- CreateIndex
 CREATE UNIQUE INDEX "order_lines_tenant_id_id_key" ON "order_lines"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "costs_tenant_id_campaign_id_idx" ON "costs"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "costs_tenant_id_id_key" ON "costs"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -377,6 +405,21 @@ ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_cost_type_id_fke
 -- AddForeignKey
 ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_cost_type_id_fkey" FOREIGN KEY ("tenant_id", "cost_type_id") REFERENCES "cost_types"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_counterparty_id_fkey" FOREIGN KEY ("tenant_id", "counterparty_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_corrects_fkey" FOREIGN KEY ("tenant_id", "corrects") REFERENCES "costs"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -426,6 +469,8 @@ GRANT SELECT, INSERT, DELETE ON "order_lines" TO yaar_app;
 GRANT SELECT, INSERT ON "payments" TO yaar_app;
 -- A media row is added once; the file is never removed (M.1, rule 13).
 GRANT SELECT, INSERT ON "media" TO yaar_app;
+-- A cost is a money entry: added once, corrected by another row, never updated nor deleted (P.2).
+GRANT SELECT, INSERT ON "costs" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -475,6 +520,12 @@ CREATE POLICY tenant_isolation ON "order_lines"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
+ALTER TABLE "costs" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "costs" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "costs"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
 ALTER TABLE "media" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "media" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "media"
@@ -506,6 +557,10 @@ CREATE POLICY tenant_isolation ON "campaigns"
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
 -- Everything below is written by hand: Prisma describes none of it.
+
+-- A cost owed names whom it is owed to; a paid cost names nobody. A correction names another cost.
+ALTER TABLE "costs" ADD CONSTRAINT "costs_payment_shape" CHECK (("payment_kind" = 'ToPay') = ("counterparty_id" IS NOT NULL));
+ALTER TABLE "costs" ADD CONSTRAINT "costs_corrects_another" CHECK ("corrects" IS DISTINCT FROM "id");
 
 -- The shape of a row. A retraction names a declaration and carries no fact; any other event
 -- carries its type and its fact, and may name the declaration it corrects.

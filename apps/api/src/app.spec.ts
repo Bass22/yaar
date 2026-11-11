@@ -97,6 +97,8 @@ describe("Démarrage de l'API", () => {
     expect(routes).toEqual([
       'DELETE /api/v1/sites/:siteId/staff/:userId',
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
+      // Admin only: the money of a campaign — committed, cost per bird, costs and their history (P.3).
+      'GET /api/v1/campaigns/:id/money',
       'GET /api/v1/caretaker/context',
       // Admin only: the farm's cost types under the base, archived ones marked (N.2).
       'GET /api/v1/cost-types',
@@ -126,6 +128,10 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/cost-types',
       // Admin only: archived, never deleted (N.2).
       'POST /api/v1/cost-types/:id/archive',
+      // Admin only: a cost, kept once when sent twice (P.3).
+      'POST /api/v1/costs',
+      // Admin only: a counter-entry, the cost written again whole (P.2, P.3).
+      'POST /api/v1/costs/:id/revisions',
       // Admin only: a supplier, a customer or a collaborator of the farm (N.3).
       'POST /api/v1/counterparties',
       // Admin only: archived, never deleted (N.3).

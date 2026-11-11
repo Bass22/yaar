@@ -26,7 +26,10 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="truck" [decorative]="true" /> Commandes</h1>
-    <a class="new-order" routerLink="nouvelle"><app-pictogram picto="pencil" [decorative]="true" /> Nouvelle commande</a>
+    <div class="entries">
+      <a class="new-order" routerLink="nouvelle"><app-pictogram picto="truck" [decorative]="true" /> Nouvelle commande</a>
+      <a class="expenses" routerLink="depenses"><app-pictogram picto="coin" [decorative]="true" /> Les dépenses</a>
+    </div>
     @if (purchases.unreachable()) {
       <p class="refusal" role="alert"><app-pictogram picto="sync-cloud" [decorative]="true" /> Pas de réseau : les commandes ne se lisent pas.</p>
     }
@@ -62,8 +65,15 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     :host { display: block; }
     h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: 700 1.35rem var(--font-hand); color: var(--color-earth); }
     h1 app-pictogram { inline-size: 36px; block-size: 36px; }
+    .entries { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-block-end: 14px; }
+    .expenses {
+      display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 56px; text-decoration: none;
+      border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-2); box-shadow: var(--shadow-hard); background: var(--color-paper); color: var(--color-ink); font: 700 1.05rem var(--font-hand);
+    }
+    .expenses app-pictogram { inline-size: 26px; block-size: 26px; }
+    .expenses:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
     .new-order {
-      display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 56px; margin-block-end: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 56px; text-align: center;
       border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard);
       background: var(--color-pasture); color: var(--color-on-sign); font: 700 1.1rem var(--font-hand); text-decoration: none;
     }

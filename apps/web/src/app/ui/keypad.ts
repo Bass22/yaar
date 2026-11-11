@@ -3,7 +3,7 @@ import { Pictogram } from './pictogram';
 
 // The big-key pad of the notebook (journal-gardien-entree.html): digits the caretaker knows
 // from dialling numbers, keys of 72 px, an erase key — and, when the screen needs it, a
-// validate key in the empty corner.
+// validate key in the empty corner, or a 000 key for amounts typed by the thousand (P.4).
 @Component({
   selector: 'app-keypad',
   imports: [Pictogram],
@@ -13,7 +13,9 @@ import { Pictogram } from './pictogram';
       @for (digit of digits; track digit) {
         <button type="button" class="key" [disabled]="disabled()" (click)="digit$.emit(digit)">{{ digit }}</button>
       }
-      @if (withValidate()) {
+      @if (thousands()) {
+        <button type="button" class="key thousands" [disabled]="disabled()" (click)="digit$.emit('000')" aria-label="Trois zéros">000</button>
+      } @else if (withValidate()) {
         <button type="button" class="key validate" [disabled]="disabled()" (click)="validate.emit()" aria-label="Valider"><app-pictogram picto="check" [decorative]="true" /></button>
       } @else {
         <span></span>
@@ -40,12 +42,15 @@ import { Pictogram } from './pictogram';
     .key:disabled { opacity: 0.4; cursor: not-allowed; }
     .erase { background: var(--color-neutral); color: var(--color-on-sign); }
     .validate { background: var(--color-pasture); }
+    .thousands { font-size: 1.5rem; }
     app-pictogram { inline-size: 28px; block-size: 28px; }
   `,
 })
 export class Keypad {
   protected readonly digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   readonly withValidate = input(false);
+  /** A 000 key in the empty corner: money is typed by the thousand (bureau-admin-v2.html, screen 8). */
+  readonly thousands = input(false);
   readonly disabled = input(false);
   // `digit` would clash with the template variable: the output is named digit in the template API.
   readonly digit$ = output<string>({ alias: 'digit' });

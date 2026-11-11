@@ -18,3 +18,4 @@ export type { ConfigureCostTypeRequest, CostCategoryCode, CostCategoryView, Cost
 export type { CampaignOpeningRefusal, OpenCampaignRequest } from './campaigns';
 export type { ConfigureCounterpartyRequest, CounterpartyFaceCode, CounterpartyKindCode, CounterpartyRefusal, CounterpartyView, CreateCounterpartyRequest } from './counterparties';
 export type { DraftOrderRequest, OrderPaymentView, OrderRefusal, OrderRefusalCode, OrderStatusCode, OrderView, PaymentMethodCode, RecordPaymentRequest } from './orders';
+export type { CampaignMoneyView, CostEntryView, CostPaymentView, CostRefusal, CostRefusalCode, CostView, RecordCostRequest } from './costs';

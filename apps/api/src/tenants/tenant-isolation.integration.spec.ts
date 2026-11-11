@@ -13,7 +13,7 @@ const TENANT_A = unwrap(TenantId('00000000-0000-4000-8000-00000000000a'));
 const TENANT_B = unwrap(TenantId('00000000-0000-4000-8000-00000000000b'));
 const SITE_A = '00000000-0000-4000-8000-0000000000a1';
 const SITE_B = '00000000-0000-4000-8000-0000000000b1';
-const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties', 'cost_types', 'purchase_orders', 'order_lines', 'payments', 'media'];
+const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties', 'cost_types', 'purchase_orders', 'order_lines', 'payments', 'media', 'costs'];
 
 describe('Cloisonnement entre élevages', () => {
   let db: TestDatabase;
@@ -54,6 +54,7 @@ describe('Cloisonnement entre élevages', () => {
       await db.superuser.orderLine.create({ data: { id: `00000000-0000-4000-8000-0000000001${suffix}2`, tenantId, orderId: `00000000-0000-4000-8000-0000000001${suffix}1`, position: 0, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, quantity: 20, unitPrice: 17500 } });
       await db.superuser.payment.create({ data: { id: `00000000-0000-4000-8000-0000000001${suffix}3`, tenantId, orderId: `00000000-0000-4000-8000-0000000001${suffix}1`, paidOn: new Date('2026-10-13'), amount: 1000, method: 'Wave', recordedBy: userId } });
       await db.superuser.media.create({ data: { tenantId, sha256: 'a'.repeat(64), byteSize: 10, contentType: 'image/jpeg', retentionClass: 'OperationalProof', uploadedBy: userId, deviceId: userId, uploadedAt: new Date('2026-10-13T08:00:00.000Z') } });
+      await db.superuser.cost.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}4`, campaignId, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, spentOn: new Date('2026-10-13'), amount: 12500, paymentKind: 'Paid', recordedAt: new Date('2026-10-13T08:00:00.000Z'), recordedBy: userId } });
       await db.superuser.refusedEvent.create({
         data: {
           eventId: '00000000-0000-4000-8000-0000000000e2',
@@ -88,7 +89,7 @@ describe('Cloisonnement entre élevages', () => {
 
   describe('sans tenant fixé', () => {
     it("aucune ligne n'est visible, dans aucune table", async () => {
-      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0 });
+      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0 });
     });
 
     it("rien ne s'écrit", async () => {
@@ -101,7 +102,7 @@ describe('Cloisonnement entre élevages', () => {
   // Spec: backlog D.6 — le propriétaire des tables, sous lequel tournent migrations et scripts de l'éditeur, est lié par la RLS forcée
   describe('le propriétaire des tables', () => {
     it("sans élevage fixé, ne voit aucune ligne, dans aucune table — ni le journal, ni la trace — alors qu'un superutilisateur voit tout", async () => {
-      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0 });
+      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0 });
       expect((await countAll(db.superuser)).journal_events).toBe(2);
     });
 
@@ -111,7 +112,7 @@ describe('Cloisonnement entre élevages', () => {
         return countAll(tx);
       });
 
-      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1 });
+      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1 });
     });
   });
 
@@ -123,7 +124,7 @@ describe('Cloisonnement entre élevages', () => {
       const sitesOfB = await api.runInTenant(TENANT_B, (tx) => tx.site.findMany());
 
       // Then une ligne par table, la sienne
-      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1 });
+      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1 });
       expect(sitesOfA.map((site) => site.name)).toEqual(['Poulailler A']);
       expect(sitesOfB.map((site) => site.name)).toEqual(['Poulailler B']);
     });
@@ -319,6 +320,8 @@ describe('Cloisonnement entre élevages', () => {
         { table_name: 'campaigns', privileges: 'INSERT,SELECT,UPDATE' },
         // Archived, never deleted (N.2).
         { table_name: 'cost_types', privileges: 'INSERT,SELECT,UPDATE' },
+        // A money entry: corrected by another row, never updated nor deleted (P.2).
+        { table_name: 'costs', privileges: 'INSERT,SELECT' },
         // Archived, never deleted (N.3).
         { table_name: 'counterparties', privileges: 'INSERT,SELECT,UPDATE' },
         { table_name: 'journal_events', privileges: 'INSERT,SELECT' },

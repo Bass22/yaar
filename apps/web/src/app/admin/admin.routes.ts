@@ -5,6 +5,8 @@ import { OpenCampaignPage } from './lots/open-campaign-page';
 import { OrderEditorPage } from './purchases/order-editor-page';
 import { PaymentPage } from './purchases/payment-page';
 import { PurchasesPage } from './purchases/purchases-page';
+import { ExpenseGesturePage } from './money/expense-gesture-page';
+import { ExpensesPage } from './money/expenses-page';
 import { MorePage } from './more/more-page';
 import { OfficeShell } from './shell/office-shell';
 import { ComingSoon } from './soon/coming-soon';
@@ -22,6 +24,9 @@ export const adminRoutes: Route[] = [
       { path: 'lots/ouvrir', component: OpenCampaignPage },
       { path: 'achats', component: PurchasesPage },
       { path: 'achats/nouvelle', component: OrderEditorPage },
+      // Before `achats/:id`, which would take them for an order.
+      { path: 'achats/depenses', component: ExpensesPage },
+      { path: 'achats/depense', component: ExpenseGesturePage },
       { path: 'achats/:id', component: OrderEditorPage },
       { path: 'achats/:id/payer', component: PaymentPage },
       { path: 'tiers', component: ComingSoon, data: { title: 'Tiers', picto: 'coin', words: 'Qui doit quoi, fournisseurs et clients, arrive bientôt dans le bureau.' } },

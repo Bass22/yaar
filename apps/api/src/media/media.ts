@@ -32,7 +32,7 @@ export async function storeMedia(tx: Tx, session: Session, media: StoredMedia, r
 
 /**
  * The media of the farm that an event of its journal references — a photo, or the paper of a
- * delivery; `null` otherwise: a file sent but never cited is not read (M.1). Admin only, checked
+ * delivery — or a cost (its receipt, P.5); `null` otherwise: a file sent but never cited is not read (M.1). Admin only, checked
  * by the route.
  */
 export async function readMedia(tx: Tx, tenantId: string, sha256: string): Promise<{ readonly contentType: string } | null> {
@@ -42,6 +42,9 @@ export async function readMedia(tx: Tx, tenantId: string, sha256: string): Promi
     where: { OR: [{ fact: { path: ['media'], equals: sha256 } }, { fact: { path: ['deliveryNote', 'media'], equals: sha256 } }] },
     select: { id: true },
   });
-  return cited === null ? null : media;
+  if (cited !== null) return media;
+  // A receipt cited by a cost (P.5) is read like a photo of the journal.
+  const receipt = await tx.cost.findFirst({ where: { receipt: sha256 }, select: { id: true } });
+  return receipt === null ? null : media;
 }
 

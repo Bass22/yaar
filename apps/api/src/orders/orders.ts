@@ -1,6 +1,7 @@
 import { err, Money, ok, type CurrencyCode, type Result } from '@kit';
 import {
   announceOrder,
+  billableOf,
   closeOrder,
   COST_CATEGORIES,
   draftOrder,
@@ -123,6 +124,17 @@ export async function closePurchaseOrder(tx: Tx, admin: Session, id: string, now
   await tx.purchaseOrder.update({ where: { id }, data: { closedAt: now } });
   await recordAudit(tx, admin.tenantId, { action: 'OrderClosed', actorId: admin.userId, subjectId: id, siteId: await siteOf(tx, current.campaignId), deviceId: admin.deviceId }, now);
   return ok(undefined);
+}
+
+/** The billable of each order of a campaign (Q.3): what entered its committed cost by being received. */
+export async function billablesOf(tx: Tx, tenantId: TenantId, campaignId: string): Promise<Money[]> {
+  const rows = await tx.purchaseOrder.findMany({ where: { campaignId }, include: { lines: { orderBy: { position: 'asc' } } } });
+  const received = (await receivedByCampaign(tx, tenantId, [campaignId])).get(campaignId) ?? new Map();
+  return rows.map((row) => {
+    const billable = billableOf(orderOf(row), received);
+    if (!billable.ok) throw new Error(`Order ${row.id} has no computable billable`);
+    return billable.value.total;
+  });
 }
 
 // Who and what the farm has: the order is judged against it.

@@ -8,7 +8,7 @@ import { CLOCK } from '../../core/clock';
 import { MediaQueue } from '../../core/outbox/media-queue';
 import { Outbox } from '../../core/outbox/outbox';
 import { MEDIA_QUEUE, OUTBOX } from '../../core/sync/journal-sync';
-import { REDUCE_PHOTO } from '../gestures/photo/reduce-photo';
+import { REDUCE_PHOTO } from '../../core/media/reduce-photo';
 import { NotebookPage } from '../notebook/notebook-page';
 
 // Spec: backlog Q.7 — le gardien compte la livraison ; Q.8 — le papier du livreur ; cahier des

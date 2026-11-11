@@ -204,6 +204,35 @@ Les tâches viennent du protocole sanitaire de chaque site, et la météo de sa 
 | `task-bicarbonate` | Ajoute le bicarbonate dans l'eau. | Tâche bicarbonate | |
 | `task-water` | Change l'eau des abreuvoirs, deux fois. | Tâche eau | |
 
+
+## 13. Le bureau — les dépenses
+
+Le gérant qui ne lit pas entend la relecture avant tout Oui d'argent (`bureau-admin-v2.html`, écrans 7 à 9 ; P.4). Le nom d'un type propre à l'élevage ne s'enregistre pas d'avance : la voix dit sa catégorie.
+
+| Id | Phrase | Quand | Wolof |
+|---|---|---|---|
+| `cost-what` | Tu as dépensé pour quoi ? | Le geste d'une dépense s'ouvre | |
+| `cost-how-much` | Combien ? | Le pavé s'ouvre | |
+| `cost-category-feed` | De l'aliment. | Relecture, catégorie Aliments | |
+| `cost-category-chicks` | Des poussins. | Relecture, catégorie Poussins | |
+| `cost-category-health` | Des vaccins et des soins. | Relecture, catégorie Santé | |
+| `cost-category-bedding` | De la litière. | Relecture, catégorie Literie | |
+| `cost-category-labour` | Un salaire. | Relecture, catégorie Main-d'œuvre | |
+| `cost-category-equipment` | Du matériel. | Relecture, catégorie Équipement | |
+| `cost-category-cleaning` | Le nettoyage. | Relecture, catégorie Nettoyage | |
+| `cost-category-transport` | Du transport. | Relecture, catégorie Transport | |
+| `cost-category-processing` | La transformation. | Relecture, catégorie Transformation | |
+| `cost-category-utilities` | L'eau et l'électricité. | Relecture, catégorie Énergie/Eau | |
+| `cost-category-financial-charges` | Des frais financiers. | Relecture, catégorie Frais financiers | |
+| `cost-category-other` | Autre chose. | Relecture, catégorie Autres | |
+| `money-amount` | Montant : *nombre* francs. | Relecture — **composé** : la phrase, le nombre, puis `money-francs` | |
+| `money-francs` | francs. | Après un nombre d'argent | |
+| `cost-paid` | Payé. | Relecture d'une dépense payée | |
+| `cost-to-pay` | À payer plus tard. | Relecture d'une dépense à payer | |
+| `committed` | Engagé à date : *nombre* francs. | Bouton d'écoute de l'engagé — **composé** | |
+| `cost-per-bird` | Coût par poulet : *nombre* francs. | Bouton d'écoute du coût par poulet — **composé** | |
+| `cost-per-bird-unknown` | Le coût par poulet n'est pas encore connu : les poussins ne sont pas encore comptés. | Coût par poulet absent | |
+
 ---
 
 ## Annexe — les nombres, pour composer
@@ -220,4 +249,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 422 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 443 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

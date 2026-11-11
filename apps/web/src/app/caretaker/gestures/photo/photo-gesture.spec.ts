@@ -9,7 +9,7 @@ import { MediaQueue } from '../../../core/outbox/media-queue';
 import { Outbox } from '../../../core/outbox/outbox';
 import { MEDIA_QUEUE, OUTBOX } from '../../../core/sync/journal-sync';
 import { NotebookPage } from '../../notebook/notebook-page';
-import { REDUCE_PHOTO, reducedSize } from './reduce-photo';
+import { REDUCE_PHOTO, reducedSize } from '../../../core/media/reduce-photo';
 
 // Spec: backlog M.3 — envoyer une photo au chef ; cahier des charges « La photo au chef » (décision
 // du 2026-11-11) ; maquette journal-gardien.html (« Prévenir le chef », Photo, .viseur) ; M.2 — la
@@ -142,8 +142,8 @@ describe('La photo au chef', () => {
     const sent = { id: uuid(301), businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', author: { id: OUSMANE, name: 'Ousmane' }, fact: { type: 'Photo' as const, media: fingerprint }, corrected: false, retracted: false };
     const { element, soon } = await ouvre(contexte([{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [sent], deliveries: [] }]));
 
-    await soon(() => expect(element.querySelector('app-day-journal .line')?.textContent).toContain('Photo'));
-    expect(element.querySelector('app-day-journal .line')?.textContent).toContain('photo pas encore partie');
+    // The phone reads its waiting photos just after the notebook: the line says it as soon as it knows.
+    await soon(() => expect(element.querySelector('app-day-journal .line')?.textContent).toContain('photo pas encore partie'));
     expect(element.querySelector('app-day-journal .line .state use')?.getAttribute('href')).toContain('stamp-pending');
   });
 

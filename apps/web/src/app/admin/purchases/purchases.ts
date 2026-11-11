@@ -32,6 +32,10 @@ export class Purchases {
   /** Every counterparty and type by its id, archived ones included: an old order still reads its names. */
   readonly counterpartyById = computed(() => new Map(this.counterparties().map((counterparty) => [counterparty.id, counterparty])));
   readonly costTypeById = computed(() => new Map(this.costTypes().map((type) => [type.id, type])));
+  /** The types a cost is written for (P.4): every type of the farm still in use. */
+  readonly activeCostTypes = computed(() => this.costTypes().filter((type) => !type.archived));
+  /** Whom a cost may be owed to (P.1): a supplier or a collaborator still in use, never a customer. */
+  readonly creditors = computed(() => this.counterparties().filter((counterparty) => counterparty.kind !== 'Customer' && !counterparty.archived));
 
   async load(): Promise<void> {
     try {

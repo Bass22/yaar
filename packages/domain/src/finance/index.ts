@@ -33,3 +33,19 @@ export {
   type PaymentMethod,
   type PaymentRefusal,
 } from './order-balance';
+export {
+  committedCost,
+  costPerBird,
+  effectiveCosts,
+  EXPECTED_LOSS_RATE,
+  NOTE_MAX_LENGTH,
+  recordCost,
+  reviseCost,
+  type CostContext,
+  type CostEntry,
+  type CostHistory,
+  type CostId,
+  type CostInput,
+  type CostPayment,
+  type CostRefusal,
+} from './cost';

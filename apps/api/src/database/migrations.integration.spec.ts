@@ -51,7 +51,7 @@ describe('Migrations', () => {
     const tables = await db.superuser.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations' ORDER BY tablename`;
 
-    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
+    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
   });
 
   it('rejouer les migrations sur une base à jour ne change rien et ne casse rien', async () => {
@@ -73,7 +73,7 @@ describe('Migrations', () => {
        ORDER BY t.relname`;
 
     expect(tables).toEqual(
-      ['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
+      ['audit_events', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
     );
   });
 
@@ -96,6 +96,7 @@ describe('Migrations', () => {
         'audit_events.tenant_id',
         'campaigns.id',
         'cost_types.id',
+        'costs.id',
         'counterparties.id',
         'journal_events.id',
         'journal_events.tenant_id',
