@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { JournalModule } from './journal/journal.module';
 import { CostsModule } from './costs/costs.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { MediaModule } from './media/media.module';
 import { OrdersModule } from './orders/orders.module';
 import { ReferenceDataModule } from './reference-data/reference-data.module';
@@ -14,7 +15,7 @@ import { SitesModule } from './sites/sites.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
-  imports: [ConfigModule, DatabaseModule, AuthModule, UsersModule, SitesModule, CampaignsModule, CostsModule, CounterpartiesModule, JournalModule, MediaModule, OrdersModule, ReferenceDataModule],
+  imports: [ConfigModule, DatabaseModule, AuthModule, UsersModule, SitesModule, CampaignsModule, CostsModule, CounterpartiesModule, JournalModule, LedgerModule, MediaModule, OrdersModule, ReferenceDataModule],
   controllers: [HealthController],
 })
 export class AppModule {}

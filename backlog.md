@@ -1366,42 +1366,54 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## R — Grand livre des tiers
 
-### R.1 — Les soldes se déduisent des écritures · **M** · 🧪
+### R.1 — Les soldes se déduisent des écritures · **M** · 🧪 ✅ (sauf les soldes en nature, W.1)
 > Spec : CdC « Qui doit quoi » · Zone : `packages/domain/src/finance/ledger.ts`
 > Dépend de : Q.3, P.1 · Revue : les deux sens du solde ; aucun solde stocké.
 
-- [ ] Reçu et non payé : tu dois au fournisseur
-- [ ] Payé et non reçu : le fournisseur te doit
-- [ ] Un coût direct « à payer » crée une dette envers le tiers choisi
-- [ ] Le solde d'un tiers est la somme de ses écritures, quel que soit leur ordre (property-based)
-- [ ] Les soldes en nature restent distincts des soldes en francs
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Règles écrites d'abord au CdC (« Le grand livre »). `domain/finance/ledger.ts` : `orderEntries` (le facturable d'une commande en dette, chacun de ses paiements une fois), `costEntries` (une dépense à payer, tant qu'elle n'est pas passée en payée), `settlementEntries`, `ledgerOf` — le solde signé de chaque tiers est la somme de ses écritures, quel que soit leur ordre (propriété) ; rien n'est stocké.
+> **Non fait ici** : les soldes en nature (prêts de poulets) arrivent avec les ventes (W.1) ; ils seront tenus à part des francs.
 
-### R.2 — Régler en une ou plusieurs fois · **S** · 🧪
+- [x] Reçu et non payé : tu dois au fournisseur
+- [x] Payé et non reçu : le fournisseur te doit
+- [x] Un coût direct « à payer » crée une dette envers le tiers choisi
+- [x] Le solde d'un tiers est la somme de ses écritures, quel que soit leur ordre (property-based)
+- [ ] Les soldes en nature restent distincts des soldes en francs — attend W.1
+
+### R.2 — Régler en une ou plusieurs fois · **S** · 🧪 ✅
 > Spec : CdC « règlements partiels » · Zone : `packages/domain/src/finance/settlement.ts`
 > Dépend de : R.1 · Revue : le cas du règlement supérieur à la dette.
 
-- [ ] Un règlement partiel diminue la dette d'autant
-- [ ] Plusieurs règlements soldent la dette exactement
-- [ ] Un règlement supérieur à la dette suit la règle décidée
-- [ ] Un règlement porte sa date, son montant et son moyen
+> Livrée le 2026-11-12. `recordSettlement` : date jamais future, montant entier ≥ 1, moyen (espèces, Wave, Orange Money), sens (donné au tiers, ou reçu de lui), tiers non archivé. Plusieurs règlements se cumulent ; **un règlement plus gros que la dette crée une créance** (décision du fondateur) ; reçu deux fois, compté une fois.
 
-### R.3 — L'écran « Qui doit quoi » · **M**
+- [x] Un règlement partiel diminue la dette d'autant
+- [x] Plusieurs règlements soldent la dette exactement
+- [x] Un règlement supérieur à la dette suit la règle décidée
+- [x] Un règlement porte sa date, son montant et son moyen
+
+### R.3 — L'écran « Qui doit quoi » · **M** ✅ (nom à la voix : N.3b)
 > Spec : CdC « Qui doit quoi » ; `bureau-admin.html` (grand livre des tiers) · Zone : `apps/api/src/counterparties/`, `apps/web/src/app/admin/money/counterparties/`
 > Dépend de : R.2, P.4 · Revue : les badges disent le sens de la dette en mots.
 
-- [ ] Chaque tiers apparaît avec son solde et son sens : « tu dois » ou « il te doit »
-- [ ] L'admin règle une dette depuis la ligne du tiers
-- [ ] Un tiers soldé ne porte plus de badge de dette
-- [ ] Les soldes viennent de l'API ; l'écran n'additionne rien
-- [ ] Le sens se voit sans lire : flèche rouge de toi vers le tiers, verte vers toi ; le tiers a son visage et la voix dit son nom enregistré, avec le montant (écran 10 de `bureau-admin-v2.html`)
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Table `settlements` (lecture et ajout seulement, RLS forcée) ; `GET /api/v1/ledger` (soldes, écritures, totaux « tu dois » et « on te doit », le plus gros solde en haut, les soldés en bas) et `POST /api/v1/settlements` (liste blanche, doublon 200, autre contenu 409, tracé `SettlementRecorded`) ; admin seul. L'onglet **Tiers** remplace son « bientôt » : les deux totaux, puis un tiers par ligne — visage, nom, **flèche rouge →** et « tu dois » ou **flèche verte ←** et « il te doit », le montant et ses billets, un bouton d'écoute (le sens, puis le montant) ; un tiers soldé n'a ni flèche ni montant. Toucher la ligne ouvre son grand livre (chaque écriture datée, signée) et « Régler » : la dette proposée, la date du jour, le sens proposé d'après le solde, le moyen en tuiles jamais choisi d'avance ; la règle du domaine juge avant l'envoi ; un essai repris renvoie le même règlement. 8 phrases au script audio.
+> **Écarts** : la voix ne dit pas encore le nom du tiers (il viendra de son enregistrement, N.3b) ; un paiement de commande se fait toujours sur la commande (Q.9), pour qu'elle passe à « soldée ».
 
-### R.4 — L'avance d'un collaborateur · **S**
-> Spec : CdC « payé par AS » · Zone : `packages/domain/src/finance/ledger.ts`, écran de saisie d'un coût
-> Dépend de : R.1, P.4 · Revue : une dette interne se trace comme les autres.
+- [x] Chaque tiers apparaît avec son solde et son sens : « tu dois » ou « il te doit »
+- [x] L'admin règle une dette depuis la ligne du tiers
+- [x] Un tiers soldé ne porte plus de badge de dette
+- [x] Les soldes viennent de l'API ; l'écran n'additionne rien
+- [x] Le sens se voit sans lire : flèche rouge de toi vers le tiers, verte vers toi ; le tiers a son visage et la voix dit son nom enregistré, avec le montant (écran 10 de `bureau-admin-v2.html`) — le nom à la voix attend N.3b
+
+### R.4 — Payé par un tiers (l'avance d'un collaborateur, l'acheteur qui paie un coût) · **S**
+> Spec : CdC « payé par AS » ; demande du fondateur du 2026-11-12 (« un acheteur de poulets me rembourse en payant directement des coûts de ma campagne ») · Zone : `packages/domain/src/finance/ledger.ts`, écrans d'une dépense et du paiement d'une commande
+> Dépend de : R.1, P.4, W.1 · Revue : une dette interne se trace comme les autres ; à faire après les ventes à crédit.
+> Proposé le 2026-11-12, **à valider par le fondateur** : une dépense, ou le paiement d'une commande, peut être « payé par » un tiers désigné sur sa tuile (collaborateur, acheteur, autre fournisseur) au lieu de l'élevage. Le coût compte dans l'engagé comme d'habitude ; le fournisseur payé ne réclame plus rien ; le tiers qui a payé reçoit une écriture « − montant » dans son grand livre : la créance d'un acheteur baisse, ou l'élevage doit l'avance au collaborateur.
+> **À l'écran** (2026-11-12) : le chemin principal ne change pas (Payé / À payer plus tard) ; « Payé par un tiers… » se range derrière « Plus de détails », pour ne pas induire en erreur le gérant qui n'en a pas besoin ; pas de réglage par élevage ; quand il sert, la relecture le dit, à l'écran et à la voix.
 
 - [ ] Un coût « payé par » un collaborateur crée une dette envers lui
 - [ ] Le coût compte dans l'engagé dès sa saisie
 - [ ] Rembourser le collaborateur solde sa dette
+- [ ] Un acheteur qui paie un coût de la bande voit sa créance baisser d'autant ; s'il paie plus que sa dette, l'élevage lui doit la différence
+- [ ] Le tiers qui a payé se désigne sur sa tuile, à la saisie de la dépense ou du paiement
 
 ## S — Budget et échéances
 
@@ -1694,15 +1706,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'admin voit les vivants et la synthèse des morts à jour
 - [ ] Rejouer la synchro ne change aucun chiffre
 
-### Z.3 — Parcours doré : de la commande au solde · **M** · 🧪
+### Z.3 — Parcours doré : de la commande au solde · **M** · 🧪 ✅ (par HTTP ; dans un navigateur : attend Playwright)
 > Spec : CdC « Commandes » (cas du 12/10) · Zone : tests de bout en bout
 > Dépend de : Q.9, R.3 · Revue : chaque montant attendu est calculé à la main en commentaire.
 
-- [ ] Une commande multi-lignes est reçue en trois livraisons à des dates différentes
-- [ ] Un manque et un bonus donnent les écarts et le facturable attendus
-- [ ] Deux paiements à d'autres dates donnent le solde attendu
-- [ ] L'engagé et « Qui doit quoi » affichent les montants calculés à la main
-- [ ] Le gardien n'a reçu aucun montant pendant tout le parcours
+> Livrée le 2026-11-12, aucune dépendance ajoutée. `apps/api/src/golden/order-to-settlement.integration.spec.ts` rejoue la commande du 12/10 **par les routes**, le gérant au bureau et le gardien sur son téléphone, sur PostgreSQL réel : Sedima créé, commande de trois lignes (950 000 F commandés), annoncée ; véto reçu le 12 (avec papier), aliment le 14 (18 sur 20 : manque −2), poussins le 16 (21 cartons, 1 050 : bonus +50, non facturé) → facturable 915 000 F ; 5 morts → 1 045 vivants, engagé 915 000 F, coût par poulet 915 000 ÷ 976 = 938 F ; 400 000 F en Wave le 13/10 → Sedima : tu dois 515 000 F ; commande close (les 2 sacs ne viendront pas), carte du gardien fermée ; 515 000 F en Orange Money le 20/10 → **soldée**, Sedima à zéro, engagé inchangé. Chaque réponse reçue par le téléphone est relue brute : ni prix, ni montant, ni fournisseur, ni devise.
+> **Écart** : le parcours ne passe pas par un navigateur ; Playwright n'est pas installé (CLAUDE.md §7 : il viendra avec la première tranche qui en a besoin) — à décider.
+
+- [x] Une commande multi-lignes est reçue en trois livraisons à des dates différentes
+- [x] Un manque et un bonus donnent les écarts et le facturable attendus
+- [x] Deux paiements à d'autres dates donnent le solde attendu
+- [x] L'engagé et « Qui doit quoi » affichent les montants calculés à la main
+- [x] Le gardien n'a reçu aucun montant pendant tout le parcours
 
 ### Z.4 — Sauvegarder et restaurer · **M** · 🔒
 > Spec : Archi §9 « Sauvegardes » · Zone : `infra/`

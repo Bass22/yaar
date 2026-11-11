@@ -88,6 +88,7 @@ model Tenant {
   payments        Payment[]
   media           Media[]
   costs           Cost[]
+  settlements     Settlement[]
 
   @@map("tenants")
 }
@@ -295,6 +296,7 @@ enum AuditAction {
   PaymentRecorded
   CostRecorded
   CostRevised
+  SettlementRecorded
 
   @@map("audit_action")
 }
@@ -350,6 +352,7 @@ model Counterparty {
   purchaseOrders PurchaseOrder[]
 
   costs Cost[]
+  settlements Settlement[]
   @@unique([tenantId, id])
   @@map("counterparties")
 }
@@ -538,4 +541,33 @@ model Cost {
   @@unique([tenantId, id])
   @@index([tenantId, campaignId])
   @@map("costs")
+}
+
+enum SettlementDirection {
+  ToCounterparty
+  FromCounterparty
+
+  @@map("settlement_direction")
+}
+
+// A settlement with a counterparty, outside an order (R.2): a money entry, added once and never
+// updated nor deleted. Balances are summed from it, never stored.
+model Settlement {
+  tenantId       String              @map("tenant_id") @db.Uuid
+  id             String              @id @db.Uuid
+  counterpartyId String              @map("counterparty_id") @db.Uuid
+  paidOn         DateTime            @map("paid_on") @db.Date
+  // In the smallest unit of the farm's currency: never a float (rule 7).
+  amount         Int
+  method         PaymentMethod
+  direction      SettlementDirection
+  recordedBy     String              @map("recorded_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  counterparty Counterparty @relation(fields: [tenantId, counterpartyId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, counterpartyId])
+  @@map("settlements")
 }

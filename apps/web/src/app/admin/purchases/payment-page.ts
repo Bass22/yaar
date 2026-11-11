@@ -9,7 +9,7 @@ import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
 
 /** Each way of paying with its picture, its colour and its word. No brand mark: a phone for both mobile moneys. */
-const METHODS: readonly { readonly code: PaymentMethodCode; readonly picto: PictogramName; readonly tone: string; readonly words: string }[] = [
+export const METHODS: readonly { readonly code: PaymentMethodCode; readonly picto: PictogramName; readonly tone: string; readonly words: string }[] = [
   { code: 'Cash', picto: 'coin', tone: 'cash', words: 'Espèces' },
   { code: 'Wave', picto: 'mobile-money', tone: 'wave', words: 'Wave' },
   { code: 'OrangeMoney', picto: 'mobile-money', tone: 'orange', words: 'Orange Money' },

@@ -126,6 +126,17 @@ export async function closePurchaseOrder(tx: Tx, admin: Session, id: string, now
   return ok(undefined);
 }
 
+/** Every order of the farm as the domain sees it, with what it received and its payments: what the ledger reads (R.1). */
+export async function ordersWithMoney(tx: Tx, tenantId: TenantId): Promise<{ order: PurchaseOrder; received: ReadonlyMap<string, number>; payments: Payment[] }[]> {
+  const rows = await tx.purchaseOrder.findMany({ include: { lines: { orderBy: { position: 'asc' } } } });
+  const received = await receivedByCampaign(tx, tenantId, [...new Set(rows.map((row) => row.campaignId))]);
+  const payments = await tx.payment.findMany();
+  return rows.map((row) => {
+    const order = orderOf(row);
+    return { order, received: received.get(row.campaignId) ?? new Map(), payments: payments.filter((payment) => payment.orderId === row.id).map((payment) => paymentOf(payment, order.currency)) };
+  });
+}
+
 /** The billable of each order of a campaign (Q.3): what entered its committed cost by being received. */
 export async function billablesOf(tx: Tx, tenantId: TenantId, campaignId: string): Promise<Money[]> {
   const rows = await tx.purchaseOrder.findMany({ where: { campaignId }, include: { lines: { orderBy: { position: 'asc' } } } });

@@ -49,3 +49,5 @@ export {
   type CostPayment,
   type CostRefusal,
 } from './cost';
+export { costEntries, ledgerOf, orderEntries, settlementEntries, type CounterpartyBalance, type LedgerEntry, type LedgerSource } from './ledger';
+export { recordSettlement, SETTLEMENT_DIRECTIONS, type Settlement, type SettlementContext, type SettlementDirection, type SettlementId, type SettlementInput, type SettlementRefusal } from './settlement';

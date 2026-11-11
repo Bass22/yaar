@@ -106,6 +106,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/counterparties',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
+      // Admin only: « qui doit quoi », every balance summed again from its entries (R.3).
+      'GET /api/v1/ledger',
       // Admin only: a media of the farm cited by an event of its journal, never cached (M.1).
       'GET /api/v1/media/:sha256',
       // Admin only: the farm's orders, their state deduced from the journal (Q.4).
@@ -146,6 +148,8 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/orders/:id/close',
       // Admin only: a payment of an order, kept once when sent twice (Q.9).
       'POST /api/v1/orders/:id/payments',
+      // Admin only: a settlement with a counterparty, kept once when sent twice (R.2).
+      'POST /api/v1/settlements',
       // Admin only: a site of the farm of the session (O.1).
       'POST /api/v1/sites',
       // Always a collaborator: the request does not choose the role (E.5).

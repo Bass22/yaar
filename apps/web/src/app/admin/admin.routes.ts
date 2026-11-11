@@ -7,9 +7,10 @@ import { PaymentPage } from './purchases/payment-page';
 import { PurchasesPage } from './purchases/purchases-page';
 import { ExpenseGesturePage } from './money/expense-gesture-page';
 import { ExpensesPage } from './money/expenses-page';
+import { CounterpartyLedgerPage } from './money/counterparties/counterparty-ledger-page';
+import { LedgerPage } from './money/counterparties/ledger-page';
 import { MorePage } from './more/more-page';
 import { OfficeShell } from './shell/office-shell';
-import { ComingSoon } from './soon/coming-soon';
 
 // The admin's office: loaded on its own, never with the caretaker's notebook (CLAUDE.md §3).
 // Its bar of five follows bureau-admin-v2.html, validated on 2026-11-08 (O.3).
@@ -29,7 +30,8 @@ export const adminRoutes: Route[] = [
       { path: 'achats/depense', component: ExpenseGesturePage },
       { path: 'achats/:id', component: OrderEditorPage },
       { path: 'achats/:id/payer', component: PaymentPage },
-      { path: 'tiers', component: ComingSoon, data: { title: 'Tiers', picto: 'coin', words: 'Qui doit quoi, fournisseurs et clients, arrive bientôt dans le bureau.' } },
+      { path: 'tiers', component: LedgerPage },
+      { path: 'tiers/:id', component: CounterpartyLedgerPage },
       { path: 'plus', component: MorePage },
     ],
   },

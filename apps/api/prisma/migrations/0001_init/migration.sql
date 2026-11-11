@@ -22,7 +22,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
@@ -41,6 +41,9 @@ CREATE TYPE "retention_class" AS ENUM ('OperationalProof', 'SupportingDocument')
 
 -- CreateEnum
 CREATE TYPE "cost_payment_kind" AS ENUM ('Paid', 'ToPay');
+
+-- CreateEnum
+CREATE TYPE "settlement_direction" AS ENUM ('ToCounterparty', 'FromCounterparty');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -264,6 +267,21 @@ CREATE TABLE "costs" (
     CONSTRAINT "costs_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "settlements" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "counterparty_id" UUID NOT NULL,
+    "paid_on" DATE NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "method" "payment_method" NOT NULL,
+    "direction" "settlement_direction" NOT NULL,
+    "recorded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "settlements_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -314,6 +332,12 @@ CREATE INDEX "costs_tenant_id_campaign_id_idx" ON "costs"("tenant_id", "campaign
 
 -- CreateIndex
 CREATE UNIQUE INDEX "costs_tenant_id_id_key" ON "costs"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "settlements_tenant_id_counterparty_id_idx" ON "settlements"("tenant_id", "counterparty_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "settlements_tenant_id_id_key" ON "settlements"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -420,6 +444,12 @@ ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_counterparty_id_fkey" FOREIG
 -- AddForeignKey
 ALTER TABLE "costs" ADD CONSTRAINT "costs_tenant_id_corrects_fkey" FOREIGN KEY ("tenant_id", "corrects") REFERENCES "costs"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "settlements" ADD CONSTRAINT "settlements_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "settlements" ADD CONSTRAINT "settlements_tenant_id_counterparty_id_fkey" FOREIGN KEY ("tenant_id", "counterparty_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -471,6 +501,8 @@ GRANT SELECT, INSERT ON "payments" TO yaar_app;
 GRANT SELECT, INSERT ON "media" TO yaar_app;
 -- A cost is a money entry: added once, corrected by another row, never updated nor deleted (P.2).
 GRANT SELECT, INSERT ON "costs" TO yaar_app;
+-- A settlement is a money entry: added once, never updated nor deleted (R.2).
+GRANT SELECT, INSERT ON "settlements" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -517,6 +549,12 @@ CREATE POLICY tenant_isolation ON "purchase_orders"
 ALTER TABLE "order_lines" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "order_lines" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "order_lines"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "settlements" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "settlements" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "settlements"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 

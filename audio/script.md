@@ -233,6 +233,21 @@ Le gérant qui ne lit pas entend la relecture avant tout Oui d'argent (`bureau-a
 | `cost-per-bird` | Coût par poulet : *nombre* francs. | Bouton d'écoute du coût par poulet — **composé** | |
 | `cost-per-bird-unknown` | Le coût par poulet n'est pas encore connu : les poussins ne sont pas encore comptés. | Coût par poulet absent | |
 
+## 14. Le bureau — qui doit quoi
+
+Le sens de la dette se dit avant le montant (`bureau-admin-v2.html`, écran 10 ; R.3). Le nom du tiers viendra de son enregistrement (N.3b).
+
+| Id | Phrase | Quand | Wolof |
+|---|---|---|---|
+| `ledger-you-owe` | Tu dois : *nombre* francs. | Une ligne où l'élevage doit — **composé**, puis `money-francs` | |
+| `ledger-owes-you` | On te doit : *nombre* francs. | Une ligne où le tiers doit — **composé**, puis `money-francs` | |
+| `ledger-settled` | C'est soldé. Personne ne doit rien. | Une ligne soldée | |
+| `ledger-total-you-owe` | En tout, tu dois : *nombre* francs. | Total en tête — **composé** | |
+| `ledger-total-owed-to-you` | En tout, on te doit : *nombre* francs. | Total en tête — **composé** | |
+| `settle-how-much` | Combien as-tu réglé ? | Le règlement s'ouvre | |
+| `settle-to` | Tu as donné : *nombre* francs. | Relecture d'un règlement donné — **composé** | |
+| `settle-from` | Tu as reçu : *nombre* francs. | Relecture d'un règlement reçu — **composé** | |
+
 ---
 
 ## Annexe — les nombres, pour composer
@@ -249,4 +264,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 443 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 451 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
