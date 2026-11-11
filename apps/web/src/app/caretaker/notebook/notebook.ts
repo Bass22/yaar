@@ -8,7 +8,7 @@ import type { OutboxEntry } from '../../core/outbox/outbox';
 import { AuthService } from '../../core/session/auth';
 import { tenantOf } from '../../core/session/session-store';
 import { JournalSync, OUTBOX } from '../../core/sync/journal-sync';
-import { daysOf, campaignsOf, journalOf, linesOf, liveCountOf, summaryOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
+import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
 
 const CONTEXT_KEY = 'yaar.context';
 const MINUTE = 60_000;
@@ -91,6 +91,12 @@ export class Notebook {
     const campaign = this.campaignContext();
     const oldest = this.days()[0];
     return campaign === null || oldest === undefined ? null : liveCountOf(campaign, this.entries(), oldest.day);
+  });
+  /** What the delivery card still waits for: the server's, less what the phone counted and has not sent (Q.7). */
+  readonly expectedDeliveries = computed(() => {
+    const campaign = this.campaignContext();
+    const oldest = this.days()[0];
+    return campaign === null || oldest === undefined ? [] : expectedDeliveriesOf(campaign, this.entries(), oldest.day);
   });
   /** The deaths already written on the chosen day, by anyone, `null` when none: what the voice reminds before the Oui (K.1). */
   readonly deathsWritten = computed(() => {

@@ -322,7 +322,7 @@ describe("Affecter l'équipe aux sites", () => {
     it("deux admins qui désignent chacun un titulaire au même moment sont servis l'un après l'autre : un seul titulaire, aucune erreur, le dernier servi l'emporte", async () => {
       // Given Ousmane titulaire
       await designate(POULAILLER_NORD, { userId: OUSMANE });
-      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
       const tenant = unwrap(TenantId(TENANT_A));
       const admin = (userId: string): Session => ({ userId, tenantId: tenant, role: 'admin', deviceId: ORDINATEUR_DU_GERANT });
       let release = () => undefined as void;

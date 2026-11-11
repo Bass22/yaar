@@ -1,4 +1,4 @@
-import { err, Money, ok, type Brand, type CurrencyCode, type Result } from '@kit';
+import { err, Money, ok, type Brand, type CurrencyCode, type MoneyError, type Result } from '@kit';
 import { BusinessDay } from '../journal/business-day';
 import { CampaignId, OrderLineId } from '../journal/ids';
 import type { Instant } from '../journal/instant';
@@ -44,6 +44,8 @@ export type PurchaseOrder = {
   /** The campaign it serves, hence the site whose caretaker receives it (decision of 2026-11-09). */
   readonly campaignId: CampaignId;
   readonly orderDay: BusinessDay;
+  /** The farm's currency: every amount of the order is in it (rule 7: never written in the code). */
+  readonly currency: CurrencyCode;
   /** The supplier's slip number, when there is one. */
   readonly reference: string | null;
   readonly lines: readonly OrderLine[];
@@ -105,6 +107,7 @@ export const draftOrder = (input: DraftOrderInput, context: DraftOrderContext): 
       supplierId: supplierId.value,
       campaignId: campaignId.value,
       orderDay: orderDay.value,
+      currency: context.currency,
       reference: reference === '' ? null : reference,
       lines: Object.freeze(lines),
       announcedAt: null,
@@ -167,3 +170,18 @@ export const orderStatus = (order: PurchaseOrder, received: ReadonlyMap<string, 
 
 // A bonus counts: a line is received once it has at least its quantity.
 const fullyReceived = (order: PurchaseOrder, received: ReadonlyMap<string, number>): boolean => order.lines.every((line) => (received.get(line.id) ?? 0) >= line.quantity);
+
+/** What the lines being typed come to, in the farm's currency: `Σ quantity × unit price`. Exact, never a float. */
+export const orderedAmount = (lines: readonly { readonly quantity: number; readonly unitPrice: number }[], currency: CurrencyCode): Result<Money, MoneyError> => {
+  let total = Money.zero(currency);
+  for (const line of lines) {
+    const unitPrice = Money.of(line.unitPrice, currency);
+    if (!unitPrice.ok) return unitPrice;
+    const amount = unitPrice.value.times(line.quantity);
+    if (!amount.ok) return amount;
+    const sum = total.add(amount.value);
+    if (!sum.ok) return sum;
+    total = sum.value;
+  }
+  return ok(total);
+};

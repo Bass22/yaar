@@ -76,9 +76,9 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Source de la météo, et seuil de chaleur qui déclenche la tâche de chaleur | CdC « Points ouverts » (Tâches par élevage). **Tranché le 2026-11-08** : la tâche de chaleur est **la glace dans l'eau**, au-delà de **32 °C**, jugée sur la **prévision du jour J** et sur le **ressenti** si la source le donne ; le **bicarbonate n'est pas lié à la chaleur**, c'est une tâche optionnelle de l'élevage. Elle vaut pour **tous les animaux, à tout âge**. Le bicarbonate tombe **certains jours de la bande, définis dans le référentiel des tâches de l'élevage** (2026-11-08). Reste : la source météo | L.1, L.3 |
 | ~~Une seule campagne en cours par site ?~~ ✅ tranché le 2026-11-07 : non — un site peut avoir plusieurs campagnes en cours à la fois, et le gardien déclare sur chacune | CdC « Hiérarchie » | ~~O.2~~ |
 | Seuil par défaut de l'alerte de mortalité sur 7 jours | CdC « Points ouverts » | O.4 |
-| Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ? | CdC (non précisé) | P.1 |
+| ~~Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ?~~ ✅ tranché le 2026-11-12 : engagé ÷ vivants d'aujourd'hui, arrondi au franc le plus proche ; absent tant que les vivants sont inconnus ou pas au-dessus de zéro | CdC « Les dépenses » | ~~P.1~~ |
 | Champs de saisie propres à chaque type de coût | CdC « Points ouverts » | P.6 |
-| Un règlement supérieur à la dette : refusé, ou il crée une créance ? | CdC (non précisé) | R.2 |
+| ~~Un règlement supérieur à la dette : refusé, ou il crée une créance ?~~ ✅ tranché le 2026-11-12 : accepté, il crée une créance (le tiers doit la différence) | CdC « Commandes » | ~~R.2~~ |
 | Une vente diminue-t-elle le compteur de vivants vu par le gardien ? | CdC (non précisé) | W.1 |
 | ~~Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale)~~ ✅ tranché le 2026-11-07 : la balance n'est pas modélisée — un poids est un entier de grammes positif, saisi tel que lu (le gardien peut le taper), sans capacité ; la forme de la saisie se décide avec `/designer` | CdC « Demande de pesée » | ~~T.3~~ |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
@@ -956,36 +956,44 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## M — Prévenir le chef
 
-### M.1 — Un média se dépose par son empreinte · **M** · 🔒
+### M.1 — Un média se dépose par son empreinte · **M** · 🔒 ✅
 > Spec : Archi §7 · Zone : `apps/api/src/media/` (port de stockage, volume local)
 > Dépend de : F.2 · Revue : type vérifié sur le contenu ; lecture autorisée via l'événement.
 
-- [ ] Un fichier déposé est adressé par son empreinte SHA-256
-- [ ] Le même fichier déposé deux fois n'est stocké qu'une fois
-- [ ] Un fichier dont le contenu n'est ni une image ni un son attendu est refusé
-- [ ] Un fichier trop lourd est refusé
-- [ ] Un média ne se lit que par un utilisateur du tenant de l'événement qui le référence
-- [ ] Chaque média porte sa classe de rétention (preuve opérationnelle ou pièce justificative)
+> Livrée le 2026-11-11, aucune dépendance ajoutée, reprise de build-track (`DocumentStore` → `MediaStore`, provenance en tête du fichier). Règles écrites d'abord dans l'architecture (§7 « Le dépôt »). `PUT /api/v1/media/:empreinte?retention=…` (toute session) : le corps est le fichier, lu en flux ; **l'empreinte annoncée est recalculée sur les octets** (sinon 400) ; seules les images JPEG, PNG, WebP passent, reconnues à leurs premiers octets (sinon 415) ; 2 Mo au plus (413) ; le même fichier renvoyé répond 200 sans rien écrire. Volume `medias` (`MEDIA_PATH`, exigé et absolu au démarrage ; dossier créé au nom de `node` dans l'image), rangé par élevage puis par empreinte. Table `media` (lecture et ajout seulement, RLS forcée) : classe de rétention, qui, quand, depuis quel appareil — la ligne est la trace. `GET /api/v1/media/:empreinte` : **admin seul**, et seulement si un événement du journal de l'élevage cite le média (photo, ou papier d'une réception) ; pièce jointe, `nosniff`, CSP `sandbox`, jamais en cache.
+> **Écarts** : les sons sont refusés jusqu'aux vocaux (M.4, V2) ; le gardien ne relit aucun média (fail-closed : rien ne le demande, un PV peut porter des prix) ; un dépôt n'a pas de ligne d'audit en plus de sa propre ligne.
 
-### M.2 — Les médias attendent le réseau · **M** · 🧪
+- [x] Un fichier déposé est adressé par son empreinte SHA-256
+- [x] Le même fichier déposé deux fois n'est stocké qu'une fois
+- [x] Un fichier dont le contenu n'est ni une image ni un son attendu est refusé (les sons attendront M.4 : refusés d'ici là)
+- [x] Un fichier trop lourd est refusé
+- [x] Un média ne se lit que par un utilisateur du tenant de l'événement qui le référence
+- [x] Chaque média porte sa classe de rétention (preuve opérationnelle ou pièce justificative)
+
+### M.2 — Les médias attendent le réseau · **M** · 🧪 ✅
 > Spec : Archi §5 « Médias hors-ligne » · Zone : `apps/web/src/app/core/outbox/media/`
 > Dépend de : M.1, G.4 · Revue : l'événement part même si le média échoue.
 
-- [ ] Une photo prise hors-ligne est mise en file avec son événement
-- [ ] L'événement part sans attendre le média et le référence par empreinte
-- [ ] Un envoi de média échoué est repris
-- [ ] Le journal montre qu'un média n'est pas encore parti
-- [ ] Un média bien reçu par le serveur s'efface du téléphone : photos et vocaux pèsent des centaines de kilo-octets chacun, c'est là que la mémoire d'un téléphone d'entrée de gamme se remplit (ajouté le 2026-11-07) ; un média pas encore parti ne s'efface jamais
-- [ ] Le stockage pris par les médias en attente est borné, et un dépassement est dit au gardien plutôt que de perdre un média
+> Livrée le 2026-11-11, aucune dépendance ajoutée. Règles écrites d'abord dans l'architecture (§5 « La file des médias »). `MediaQueue` (`core/outbox/media-queue.ts`), base IndexedDB `yaar-media` à part de l'outbox : un média gardé **avant tout envoi**, sous l'empreinte SHA-256 calculée sur le téléphone, avec son auteur et sa classe ; la même photo gardée deux fois prend sa place une fois. `synchronizeMedia` : après les déclarations, et seulement si elles sont parties ; un à un, sous le compte de l'auteur ; reçu (201, ou 200 « déjà là ») → **effacé du téléphone** ; sans réponse → gardé, repris plus tard ; refusé (400, 413, 415) → gardé, marqué refusé, jamais renvoyé. **Borne de 30 Mo** : au-delà, une nouvelle photo n'est pas gardée (`MediaQueueFull`) et le geste le dit. `JournalSync.keepMedia` et le signal `mediaWaiting`, que le journal du jour lit.
 
-### M.3 — Envoyer une photo au chef · **M**
+- [x] Une photo prise hors-ligne est mise en file avec son événement
+- [x] L'événement part sans attendre le média et le référence par empreinte
+- [x] Un envoi de média échoué est repris
+- [x] Le journal montre qu'un média n'est pas encore parti
+- [x] Un média bien reçu par le serveur s'efface du téléphone : photos et vocaux pèsent des centaines de kilo-octets chacun, c'est là que la mémoire d'un téléphone d'entrée de gamme se remplit (ajouté le 2026-11-07) ; un média pas encore parti ne s'efface jamais
+- [x] Le stockage pris par les médias en attente est borné, et un dépassement est dit au gardien plutôt que de perdre un média
+
+### M.3 — Envoyer une photo au chef · **M** ✅ (à regarder sur un vrai téléphone)
 > Spec : CdC « Prévenir le chef » ; `journal-gardien.html` (`.viseur`) · Zone : `apps/web/src/app/caretaker/gestures/photo/`
 > Dépend de : M.2, K.1 · Revue : la compression se fait sur le téléphone.
 
-- [ ] Le gardien prend une photo et la confirme par Oui
-- [ ] La photo est réduite à environ 800 px avant la mise en file
-- [ ] Si l'appareil photo est refusé, l'écran l'explique sans texte seul
-- [ ] La photo apparaît dans le journal du jour
+> Livrée le 2026-11-11, aucune dépendance ajoutée. Règles écrites d'abord au CdC (« La photo au chef »). `PhotoGesture` à côté de « Parler », dès qu'une bande est en cours : l'appareil photo **du téléphone** (`<input capture>`, rien à installer), la voix dit quoi faire ; la photo apparaît dans le viseur, **réduite sur le téléphone** à 800 px de grand côté en JPEG (`REDUCE_PHOTO`) ; Oui la garde dans la file des médias puis écrit l'événement `Photo` au cahier de la bande et du jour choisis ; la voix dit « C'est noté. Le chef verra ta photo. » (le script disait « C'est envoyé », faux sans réseau : changé). Le journal du jour dit « photo pas encore partie » et garde l'horloge tant que l'image attend. Photo illisible : post-it au picto de l'appareil et la voix ; file pleine : post-it et voix. Trois phrases ajoutées au script (`photo-camera-refused`, `photo-phone-full`, et `photo-sent` réécrite).
+> **À vérifier sur un vrai téléphone** : l'appareil photo d'Android ajoute souvent son propre bouton de validation — quatre gestes au lieu de trois ; l'aperçu dans l'application (getUserMedia) les ramènerait à trois, au prix d'un écran de plus à maintenir. À trancher à l'observation.
+
+- [x] Le gardien prend une photo et la confirme par Oui
+- [x] La photo est réduite à environ 800 px avant la mise en file
+- [x] Si l'appareil photo est refusé, l'écran l'explique sans texte seul (photo illisible ; le refus de permission se joue dans l'appareil photo du téléphone : à vérifier sur un vrai téléphone)
+- [x] La photo apparaît dans le journal du jour
 
 ### M.4 — ⏸ Envoyer un message vocal · **M** · V2
 > Spec : CdC « Prévenir le chef » ; `journal-gardien.html` (`.btn-micro`) · Zone : `apps/web/src/app/caretaker/gestures/voice/`
@@ -1036,7 +1044,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > **Non fait ici** : l'écran (N.6) ; désarchiver ; deux types de même nom ne sont pas refusés ; un élevage amorcé avant N.2 n'a pas ses types d'office (aucun n'est déployé).
 
 - [x] L'admin ajoute un type rattaché à une catégorie du socle
-- [x] Déplumage et Congélation, rattachés à Transformation, sont en place d'office dans chaque élevage (décision du 2026-11-09)
+- [x] Déplumage et Congélation, rattachés à Transformation, sont en place d'office dans chaque élevage (décision du 2026-11-09 — remplacée le jour même par la liste précochée, ci-dessous)
+- [x] Un élevage naît avec une liste de types précochés, un par catégorie du socle, et Déplumage et Congélation décochés (archivés) — décision du fondateur, 2026-11-09
 - [x] Un type sans catégorie du socle est refusé
 - [x] Renommer un type ne change que son étiquette ; les écritures passées le suivent
 - [x] Un type s'archive et ne se supprime jamais, même inutilisé (décision du 2026-11-09, comme pour les tiers)
@@ -1091,6 +1100,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 - [ ] L'admin voit ses types par catégorie du socle
 - [ ] Il ajoute, renomme et archive un type
+- [ ] Il coche ou décoche un type de la liste de départ (décocher = archiver, cocher = désarchiver)
 - [ ] Un type du socle n'offre pas d'action de suppression
 - [ ] Les routes des référentiels sont inaccessibles à un collaborateur
 
@@ -1156,7 +1166,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 > **Écritures d'argent (décision du 2026-11-06)** — vaut pour les épopées P, Q, R, S et W : une écriture (coût, paiement, règlement, vente) est ajoutée et jamais modifiée, porte un identifiant créé sur l'appareil, et son enregistrement est idempotent. Une correction est une contre-écriture (P.2). C'est ce qui permet à l'admin de saisir sans réseau (P.7).
 
-### P.1 — Un coût et l'engagé à date · **M** · ⚠ · 🧪
+### P.1 — Un coût et l'engagé à date · **M** · 🧪
 > Spec : CdC « Argent » · Zone : `packages/domain/src/finance/{cost,committed-cost}.ts`
 > Dépend de : B.1 · Revue : rien n'est stocké qui se recalcule ; relire la formule du coût par poulet.
 
@@ -1251,76 +1261,97 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une ligne est complète quand le reçu atteint la quantité commandée
 - [x] Le reçu cumulé est la somme des réceptions, quel que soit leur ordre (property-based)
 
-### Q.3 — Facturable, paiements et solde · **M** · 🧪
-> Spec : Archi §4 (`facturable`, `dette`) ; CdC « Commandes » · Zone : `packages/domain/src/finance/{billable,order-balance}.ts`
+### Q.3 — Facturable, paiements et solde · **M** · 🧪 ✅
+> Spec : Archi §4 (`facturable`, `dette`) ; CdC « Commandes » · Zone : `packages/domain/src/finance/order-balance.ts`
 > Dépend de : Q.1, Q.2 · Revue : les montants attendus, calculés à la main dans les tests, sur le cas du 12/10.
 
-- [ ] `facturable = min(reçu, quantité) × prix unitaire`, ligne par ligne
-- [ ] Un bonus n'augmente pas le facturable ; un manque le diminue
-- [ ] Le coût entre dans l'engagé à la réception, ni à la commande ni au paiement
-- [ ] Plusieurs paiements (date, montant, moyen) se cumulent, indépendamment des réceptions
-- [ ] `dette = payé − facturable` : négatif, tu lui dois ; positif, il te doit
-- [ ] Une commande est soldée quand elle est reçue ou clôturée et que le payé égale le facturable
-- [ ] Pour toute suite de réceptions et de paiements, le solde ne dépend pas de leur ordre (property-based)
+> Livrée le 2026-11-09, aucune dépendance ajoutée, dans `domain/finance` (un seul fichier : facturable et solde se lisent ensemble). `billableOf` : `min(reçu, quantité) × prix unitaire` par ligne, en `Money` du kit. `recordPayment` : date, montant entier d'au moins 1 F, moyen dans `PAYMENT_METHODS` — **espèces ou Wave**, la liste du CdC (un autre moyen s'ajoutera s'il est observé ; à confirmer par le fondateur). **Orange Money ajouté le 2026-11-11** (décision du fondateur : des paiements se font par OM). `orderBalance` : payé (chaque paiement compté une fois, ceux d'une autre commande ignorés), facturable, `dette = payé − facturable` en `SignedMoney`, `paidInFull` — que `orderStatus` (Q.1) reçoit pour dire « soldée ». **Corrigé en route** : une devise était écrite en dur pour une commande sans ligne (règle 7) ; la commande porte désormais sa devise (`currency`, celle de l'élevage).
+> **Non fait ici** : l'engagé de la bande (la somme des facturables par bande, avec les coûts directs) viendra avec les coûts (P) ; la contre-écriture d'un paiement ; rien n'est en base avant Q.4.
 
-### Q.4 — L'API des commandes · **M** · 🔒
+- [x] `facturable = min(reçu, quantité) × prix unitaire`, ligne par ligne
+- [x] Un bonus n'augmente pas le facturable ; un manque le diminue
+- [x] Le coût entre dans l'engagé à la réception, ni à la commande ni au paiement
+- [x] Plusieurs paiements (date, montant, moyen) se cumulent, indépendamment des réceptions
+- [x] `dette = payé − facturable` : négatif, tu lui dois ; positif, il te doit
+- [x] Une commande est soldée quand elle est reçue ou clôturée et que le payé égale le facturable
+- [x] Pour toute suite de réceptions et de paiements, le solde ne dépend pas de leur ordre (property-based)
+
+### Q.4 — L'API des commandes · **M** · 🔒 ✅
 > Spec : Archi §4 (`commandes`) · Zone : `apps/api/src/orders/`, `packages/contracts`
 > Dépend de : Q.3, E.3, N.3 · Revue : réservé à l'admin ; les prix ne sortent jamais vers le gardien.
 
-- [ ] L'admin crée et modifie une commande en brouillon
-- [ ] Il annonce une commande en brouillon
-- [ ] Il clôture une commande incomplète
-- [ ] Un collaborateur reçoit un refus sur toute route de commandes
-- [ ] Chaque changement d'état est tracé dans l'audit
+> Livrée le 2026-11-09, aucune dépendance ajoutée. Tables `purchase_orders` (fournisseur, bande, date, référence, devise, annoncée, close — **aucun état stocké**, règle 8) et `order_lines` (rang, type, quantité, prix en unités entières), RLS forcée ; une commande ne se supprime pas, les lignes d'un brouillon se réécrivent (seul `DELETE` accordé, sur `order_lines`). Routes admin : `GET /api/v1/orders` (chaque commande avec le reçu de ses lignes, lu dans le journal de sa bande, son état déduit par le domaine, son facturable), `POST` (brouillon jugé par `draftOrder` contre les tiers, les types et la devise de l'élevage ; bande de l'élevage et pas close), `PUT /:id` (brouillon réécrit entier), `POST /:id/announce`, `POST /:id/close` (le reçu vient du journal). Refus d'état en 409, d'entrée en 400 avec le motif, d'un autre élevage en 404. Audit `OrderDrafted`, `OrderRevised`, `OrderAnnounced`, `OrderClosed`, avec le site de la bande.
+> **Non fait ici** : aucun paiement en base (Q.9) — le « payé » vaut 0 ; le serveur ne vérifie pas encore qu'une réception écrite par le gardien vise une ligne d'une commande annoncée et pas close (avec la carte livraison, Q.7).
 
-### Q.5 — L'éditeur de commande · **M**
-> Spec : CdC « Commandes » ; `bureau-admin.html` (Commandes, éditeur de facture) · Zone : `apps/web/src/app/admin/orders/`
+- [x] L'admin crée et modifie une commande en brouillon
+- [x] Il annonce une commande en brouillon
+- [x] Il clôture une commande incomplète
+- [x] Un collaborateur reçoit un refus sur toute route de commandes
+- [x] Chaque changement d'état est tracé dans l'audit
+
+### Q.5 — L'éditeur de commande · **M** ✅ (sauf le catalogue de prix, N.5)
+> Spec : CdC « Commandes » ; `bureau-admin.html` (Commandes, éditeur de facture) · Zone : `apps/web/src/app/admin/purchases/`
 > Dépend de : Q.4, O.3, N.5 · Revue : le total en cours de saisie utilise `domain/finance` ; le total enregistré vient de l'API.
 
-- [ ] L'admin compose une commande ligne par ligne
-- [ ] Le prix unitaire est pré-rempli depuis le catalogue
-- [ ] Le total de la saisie en cours s'affiche pendant la frappe
-- [ ] La liste montre chaque commande avec son état de réception et de paiement
-- [ ] Une commande en brouillon s'annonce d'un geste
+> Livrée le 2026-11-09, aucune dépendance ajoutée. L'onglet **Achats** (`PurchasesPage`) liste les commandes : visage et nom du fournisseur, lot, état en picto, couleur et mot (Brouillon, Annoncée au gardien, En partie reçue, Reçue, Close, Soldée), et l'argent — commandé pour un brouillon ou une annoncée, puis « à payer » et payé. Un brouillon s'annonce d'un geste (« Annoncer au gardien ») et se rouvre pour être modifié. L'éditeur (`OrderEditorPage`, `achats/nouvelle` et `achats/:id`) : le lot (le seul choisi d'avance), le fournisseur sur des tuiles visage + nom (jamais choisi d'avance ; ni client ni archivé), **« Nouveau fournisseur » créé sur place** (nom et visage, aussitôt choisi — décision du 2026-11-09), la date du jour, le n° du bon facultatif, les lignes (types commandables en pastilles, quantité × prix l'unité), le **total recalculé pendant la frappe par `orderedAmount` (domaine)**, la règle `draftOrder` jugeant avant tout envoi, chaque refus dit en mots, « Enregistrer » fixé au-dessus de la barre des cinq. Le service `Purchases` lit commandes, tiers, types et **la devise de l'élevage**, ajoutée à `GET /api/v1/reference-data` (règle 7 : jamais écrite dans l'écran). **Les types de départ** sont devenus une liste précochée (décision du fondateur) : un par catégorie du socle, cochés, et Déplumage et Congélation décochés (archivés) — l'amorçage les écrit.
+> **Regardé dans le navigateur à 360 px, le 2026-11-09** : la barre du bas (total, Annuler, Enregistrer) prenait près d'un quart d'un petit écran — ramenée à une rangée (le total à gauche, « Enregistrer » à droite ; « Annuler » sous le titre) ; « N° du bon » passait sur deux lignes — « facultatif » écrit dans le champ ; les pastilles de type ont reçu leur picto (sac, poussin, seringue). Parcours vérifié : fournisseur créé sur place, ligne de 20 sacs à 17 500 F, total 350 000 F, enregistré, annoncé, la carte dit « Annoncée au gardien ».
+> **Non fait ici** : le prix prérempli depuis le catalogue (N.5) ; cocher un type décoché (N.6) ; les montants en billets pour les gérants qui lisent mal ; **Copeaux n'a pas de picto** (à dessiner, puis à faire reconnaître sur le terrain).
 
-### Q.6 — La livraison annoncée arrive chez le gardien · **S** · 🔒
-> Spec : CdC « Livraison annoncée » · Zone : `apps/api/src/journal/caretaker-context/`
+- [x] L'admin compose une commande ligne par ligne
+- [ ] Le prix unitaire est pré-rempli depuis le catalogue — attend N.5
+- [x] Le total de la saisie en cours s'affiche pendant la frappe
+- [x] La liste montre chaque commande avec son état de réception et de paiement
+- [x] Une commande en brouillon s'annonce d'un geste
+
+### Q.6 — La livraison annoncée arrive chez le gardien · **S** · 🔒 ✅
+> Spec : CdC « Livraison annoncée » · Zone : `apps/api/src/journal/caretaker-context.ts`
 > Dépend de : Q.4, F.3 · Revue : quantité attendue seulement ; test de garde sur l'absence de prix.
 
-- [ ] Une commande annoncée ajoute une carte livraison au contexte du gardien du site
-- [ ] La carte porte l'article et la quantité attendue, jamais le prix
-- [ ] Une commande en brouillon n'ajoute aucune carte
-- [ ] Une commande complète ou clôturée retire la carte
+> Livrée le 2026-11-09, aucune dépendance ajoutée, côté serveur. Chaque bande du contexte du gardien porte `deliveries` (`CaretakerDelivery`, par ajout au contrat) : une par commande annoncée, ni close ni entièrement reçue, la plus tôt annoncée d'abord ; chaque ligne dit son type (nom et catégorie, d'où le picto), la quantité attendue, le reçu cumulé (`receivedByLine`, lu dans le journal de la bande) et le reste à venir (`lineDelivery`). **Garde du need-to-know** : le texte même de la réponse ne contient ni prix, ni montant, ni devise, ni fournisseur, ni référence.
+> **Non fait ici** : la carte livraison à l'écran du gardien, et le comptage (Q.7) ; les vivants restent « pas encore connus » tant que les poussins reçus ne sont pas comptés (Q.7 les branchera sur les lignes de poussins).
 
-### Q.7 — Le gardien compte la livraison · **M** · 🧪
+- [x] Une commande annoncée ajoute une carte livraison au contexte du gardien du site
+- [x] La carte porte l'article et la quantité attendue, jamais le prix
+- [x] Une commande en brouillon n'ajoute aucune carte
+- [x] Une commande complète ou clôturée retire la carte
+
+### Q.7 — Le gardien compte la livraison · **M** · 🧪 ✅ (regardé dans le navigateur ; à regarder sur un vrai téléphone)
 > Spec : CdC « Livraison annoncée » ; `journal-gardien.html` (carte livraison, paquets de 4) · Zone : `apps/web/src/app/caretaker/delivery/`
 > Dépend de : Q.6, Q.2, K.1 · Revue : le bonus se dit aussi bien que le manque.
 
-- [ ] La carte livraison n'apparaît que si une commande est annoncée
-- [ ] Le comptage est pré-rempli avec la quantité attendue
-- [ ] Un manque est dit à voix haute (« le chef en attendait 40 »)
-- [ ] Un bonus est dit à voix haute (« 50 de plus que la commande »)
-- [ ] Après une réception partielle, la carte reste ouverte avec « reste N à venir »
-- [ ] La réception part dans l'outbox et fonctionne hors-ligne
+> Livrée le 2026-11-11, aucune dépendance ajoutée. Décisions du fondateur écrites d'abord au CdC : une réception = une ligne ; les poussins se comptent en cartons de 50 (le reçu vaut cartons × 50, pas de vérification carton par carton, les quelques poussins en plus d'un carton ne se déclarent pas) ; une photo du papier par arrivée. **Domaine** (`domain/journal`) : `deliveryCounting` (sacs pour l'aliment et la litière, cartons de 50 pour les poussins — arrondi au-dessus —, unités pour le reste ; pré-rempli avec ce qui reste), `receivedOf`, `validateDeliveryTarget` et deux refus (`UnknownOrderLine`, `OrderNotReceiving`). **Serveur** : l'ingestion refuse une réception sur une ligne de brouillon, de commande close, inconnue ou d'une autre bande ; une correction de réception passe même après la clôture (elle garde la ligne de ce qu'elle corrige) ; **les vivants enfin connus** dans le contexte du gardien dès qu'une ligne de poussins a reçu (poussins reçus, bonus compris, moins morts et pertes ; `null` avant, jamais zéro). **Téléphone** : `DeliveryCard` au-dessus des gestes, seulement si quelque chose reste à venir ; « C'est arrivé — je compte » ; une seule ligne → le compteur aussitôt, plusieurs → les tuiles de ce que le camion a apporté, rien d'avance ; compteur pré-rempli (sacs dessinés par paquets de quatre) ; relecture : manque dit avec ce que le chef attendait, bonus dit ; Non revient au compteur ; le reste à venir et **les vivants suivent hors-ligne** ce que le téléphone a compté (`expectedDeliveriesOf`, `liveCountOf`). Script audio : phrases de la livraison rendues génériques (sacs, cartons, unités).
+> **Écarts** : la carte est dans le cahier, pas encore annoncée par une notification (Y.2) ; Copeaux (litière) n'a pas de picto : les sacs reçus le remplacent.
 
-### Q.8 — Le papier du livreur · **S**
+- [x] La carte livraison n'apparaît que si une commande est annoncée
+- [x] Le comptage est pré-rempli avec la quantité attendue
+- [x] Un manque est dit à voix haute (« le chef en attendait 40 »)
+- [x] Un bonus est dit à voix haute (« 50 de plus que la commande »)
+- [x] Après une réception partielle, la carte reste ouverte avec « reste N à venir »
+- [x] La réception part dans l'outbox et fonctionne hors-ligne
+
+### Q.8 — Le papier du livreur · **S** ✅
 > Spec : CdC « photo du PV de réception » · Zone : `apps/web/src/app/caretaker/delivery/`
 > Dépend de : Q.7, M.3 · Revue : l'absence de papier ne bloque rien.
 
-- [ ] Après le comptage, le gardien photographie le PV
-- [ ] « Pas de papier » termine la réception sans blocage
-- [ ] Le PV est rangé comme pièce justificative et rattaché à la réception
+> Livrée le 2026-11-11 avec Q.7, sur M.1–M.3. Après la dernière ligne comptée, la feuille « Le papier du livreur » : « Photo du papier » (l'appareil photo du téléphone, la photo réduite dans le viseur, Oui ; la croix la reprend) ou « Pas de papier », sans blocage. **Une seule réponse pour toute l'arrivée** : chaque réception de l'arrivée porte le même papier (`Photographed` avec l'empreinte, ou `NoPaper`). La photo est gardée comme **pièce justificative** (`SupportingDocument`) dans la file des médias et part avec le réseau ; l'admin la relit par la route de M.1, puisque la réception la cite. Photo illisible : post-it et voix (« appuie sur Pas de papier, et garde le papier pour le chef »).
 
-### Q.9 — Payer une commande · **M**
-> Spec : CdC « paiements découplés et multiples » ; `bureau-admin.html` (règlements) · Zone : `apps/api/src/orders/payments/`, `apps/web/src/app/admin/orders/`
+- [x] Après le comptage, le gardien photographie le PV
+- [x] « Pas de papier » termine la réception sans blocage
+- [x] Le PV est rangé comme pièce justificative et rattaché à la réception
+
+### Q.9 — Payer une commande · **M** ✅ (sauf la file d'attente hors-ligne, P.7)
+> Spec : CdC « paiements découplés et multiples » ; `bureau-admin.html` (règlements) · Zone : `apps/api/src/orders/`, `apps/web/src/app/admin/purchases/`
 > Dépend de : Q.5 · Revue : un paiement ne touche pas l'engagé.
 
-- [ ] L'admin enregistre un paiement : date, montant, moyen (espèces, Wave)
-- [ ] Hors-ligne, le paiement part en file d'attente et s'affiche « en attente » (P.7)
-- [ ] Plusieurs paiements partiels se cumulent
-- [ ] Un paiement avant toute réception est accepté
-- [ ] L'engagé ne change pas quand un paiement est enregistré
-- [ ] La commande passe à « soldée » quand les conditions de Q.3 sont réunies
+> Livrée le 2026-11-11, aucune dépendance ajoutée. Règles écrites d'abord au CdC (« Payer une commande ») : un paiement sur une commande de l'élevage **quel que soit son état** (un acompte sur un brouillon, le reçu d'une commande close) ; son identifiant naît au bureau : renvoyé à l'identique il compte une fois (200), le même identifiant avec un autre contenu est refusé (409) ; jamais modifié ni effacé ; payer plus que le facturable est permis ; tracé (`PaymentRecorded`). **Orange Money** ajouté aux moyens (décision du fondateur). Serveur : table `payments` (lecture et ajout seulement, RLS forcée), `POST /api/v1/orders/:id/payments` (liste blanche, règle `recordPayment` du domaine), `OrderView.payments` et le payé lu en base — l'état « soldée » de Q.3 en découle. Écran : « Payer » sur chaque carte des achats ; la page `achats/:id/payer` dit à payer, déjà payé, le reste (ou « Sedima te doit … »), liste les paiements faits, propose le reste à payer et la date du jour, trois tuiles de moyen (espèces : la pièce ; Wave et Orange Money : un **téléphone qui envoie des francs**, dessiné pour l'occasion, sans logo de marque, couleur et mot pour les distinguer — **à valider sur le terrain**), jamais choisi d'avance ; la règle du domaine juge avant l'envoi ; un essai raté puis repris renvoie **le même** paiement.
+> **Non fait ici** : la file d'attente hors-ligne du bureau (P.7) — payer demande le réseau ; la contre-écriture d'un paiement erroné ; l'engagé n'existe pas encore (P.1) : le test garde que le facturable ne bouge pas.
+
+- [x] L'admin enregistre un paiement : date, montant, moyen (espèces, Wave, Orange Money)
+- [ ] Hors-ligne, le paiement part en file d'attente et s'affiche « en attente » (P.7) — attend P.7
+- [x] Plusieurs paiements partiels se cumulent
+- [x] Un paiement avant toute réception est accepté
+- [x] L'engagé ne change pas quand un paiement est enregistré
+- [x] La commande passe à « soldée » quand les conditions de Q.3 sont réunies
 
 ## R — Grand livre des tiers
 
@@ -1334,7 +1365,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Le solde d'un tiers est la somme de ses écritures, quel que soit leur ordre (property-based)
 - [ ] Les soldes en nature restent distincts des soldes en francs
 
-### R.2 — Régler en une ou plusieurs fois · **S** · ⚠ · 🧪
+### R.2 — Régler en une ou plusieurs fois · **S** · 🧪
 > Spec : CdC « règlements partiels » · Zone : `packages/domain/src/finance/settlement.ts`
 > Dépend de : R.1 · Revue : le cas du règlement supérieur à la dette.
 

@@ -83,6 +83,10 @@ model Tenant {
   refusedEvents   RefusedEvent[]
   counterparties  Counterparty[]
   costTypes       CostType[]
+  purchaseOrders  PurchaseOrder[]
+  orderLines      OrderLine[]
+  payments        Payment[]
+  media           Media[]
 
   @@map("tenants")
 }
@@ -180,10 +184,11 @@ model Campaign {
   closedAt         DateTime? @map("closed_at") @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  site          Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  journalEvents JournalEvent[]
-  refusedEvents RefusedEvent[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site           Site            @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  journalEvents  JournalEvent[]
+  refusedEvents  RefusedEvent[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, id])
   @@index([tenantId, siteId])
@@ -281,6 +286,11 @@ enum AuditAction {
   CostTypeCreated
   CostTypeConfigured
   CostTypeArchived
+  OrderDrafted
+  OrderRevised
+  OrderAnnounced
+  OrderClosed
+  PaymentRecorded
 
   @@map("audit_action")
 }
@@ -332,7 +342,8 @@ model Counterparty {
   archivedAt DateTime?        @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, id])
   @@map("counterparties")
@@ -375,8 +386,112 @@ model CostType {
   archivedAt DateTime?     @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  orderLines OrderLine[]
 
   @@unique([tenantId, id])
   @@map("cost_types")
+}
+
+// A purchase order of the farm (Q.1, Q.4), for one campaign. Its state is deduced, never stored
+// (rule 8): from announcedAt, closedAt, the deliveries of the journal and the payments.
+model PurchaseOrder {
+  tenantId    String    @map("tenant_id") @db.Uuid
+  id          String    @id @db.Uuid
+  supplierId  String    @map("supplier_id") @db.Uuid
+  campaignId  String    @map("campaign_id") @db.Uuid
+  orderDay    DateTime  @map("order_day") @db.Date
+  reference   String?
+  // The farm's currency when the order was written (rule 7).
+  currency    String
+  announcedAt DateTime? @map("announced_at") @db.Timestamptz(3)
+  closedAt    DateTime? @map("closed_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  supplier Counterparty @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  campaign Campaign     @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  lines    OrderLine[]
+  payments Payment[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, campaignId])
+  @@map("purchase_orders")
+}
+
+enum PaymentMethod {
+  Cash
+  Wave
+  OrangeMoney
+
+  @@map("payment_method")
+}
+
+// A payment of an order (Q.9): a money entry, written once, never updated nor deleted (rule 2).
+// Its identifier is made at the office: sent twice, it is kept once.
+model Payment {
+  tenantId   String        @map("tenant_id") @db.Uuid
+  id         String        @id @db.Uuid
+  orderId    String        @map("order_id") @db.Uuid
+  paidOn     DateTime      @map("paid_on") @db.Date
+  // In the smallest unit of the order's currency: never a float (rule 7).
+  amount     Int
+  method     PaymentMethod
+  // The admin who recorded it.
+  recordedBy String        @map("recorded_by") @db.Uuid
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  order  PurchaseOrder @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, orderId])
+  @@map("payments")
+}
+
+// A line of an order. A draft's lines are rewritten whole (Q.4): the only DELETE they allow.
+model OrderLine {
+  tenantId   String @map("tenant_id") @db.Uuid
+  id         String @id @db.Uuid
+  orderId    String @map("order_id") @db.Uuid
+  // Its rank in the order, as the admin wrote it.
+  position   Int
+  costTypeId String @map("cost_type_id") @db.Uuid
+  quantity   Int
+  // In the smallest unit of the order's currency: never a float (rule 7).
+  unitPrice  Int    @map("unit_price")
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  order    PurchaseOrder @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  costType CostType      @relation(fields: [tenantId, costTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, orderId])
+  @@map("order_lines")
+}
+
+enum RetentionClass {
+  OperationalProof
+  SupportingDocument
+
+  @@map("retention_class")
+}
+
+// A media of the farm (M.1): the file lives on the media volume under its fingerprint; this row
+// says what it is and who sent it. Added once, never updated nor deleted (rule 13). The same
+// file sent by two farms is two rows, two files.
+model Media {
+  tenantId       String         @map("tenant_id") @db.Uuid
+  sha256         String
+  byteSize       Int            @map("byte_size")
+  contentType    String         @map("content_type")
+  retentionClass RetentionClass @map("retention_class")
+  uploadedBy     String         @map("uploaded_by") @db.Uuid
+  deviceId       String         @map("device_id") @db.Uuid
+  uploadedAt     DateTime       @map("uploaded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, sha256])
+  @@map("media")
 }

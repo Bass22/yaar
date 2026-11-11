@@ -47,11 +47,11 @@ describe('Migrations', () => {
     await db?.drop();
   });
 
-  it("les migrations s'appliquent sur une base vide et créent les dix tables", async () => {
+  it("les migrations s'appliquent sur une base vide et créent les douze tables", async () => {
     const tables = await db.superuser.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations' ORDER BY tablename`;
 
-    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
+    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'tenants', 'users']);
   });
 
   it('rejouer les migrations sur une base à jour ne change rien et ne casse rien', async () => {
@@ -73,7 +73,7 @@ describe('Migrations', () => {
        ORDER BY t.relname`;
 
     expect(tables).toEqual(
-      ['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
+      ['audit_events', 'campaigns', 'cost_types', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'site_assignments', 'sites', 'users'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
     );
   });
 
@@ -99,6 +99,9 @@ describe('Migrations', () => {
         'counterparties.id',
         'journal_events.id',
         'journal_events.tenant_id',
+        'order_lines.id',
+        'payments.id',
+        'purchase_orders.id',
         'refused_events.event_id',
         'refused_events.tenant_id',
         'site_assignments.site_id',
@@ -106,7 +109,14 @@ describe('Migrations', () => {
         'sites.id',
         'tenants.id',
         'users.id',
-      ].map((column_name) => ({ column_name, type: 'uuid', has_default: false })),
+      ]
+        .map((column_name) => ({ column_name, type: 'uuid', has_default: false }))
+        // A media is named by its content (M.1): its fingerprint, computed by the phone, is its key.
+        .concat([
+          { column_name: 'media.sha256', type: 'text', has_default: false },
+          { column_name: 'media.tenant_id', type: 'uuid', has_default: false },
+        ])
+        .sort((a, b) => a.column_name.localeCompare(b.column_name)),
     );
     expect(sequences).toEqual({ count: 0 });
   });
@@ -123,6 +133,8 @@ describe('Migrations', () => {
       { column_name: 'cost_types.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'counterparties.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'journal_events.received_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'payments.created_at', column_default: 'CURRENT_TIMESTAMP' },
+      { column_name: 'purchase_orders.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'refused_events.received_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'site_assignments.created_at', column_default: 'CURRENT_TIMESTAMP' },
       { column_name: 'sites.created_at', column_default: 'CURRENT_TIMESTAMP' },

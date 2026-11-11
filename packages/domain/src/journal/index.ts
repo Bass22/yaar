@@ -35,6 +35,8 @@ export {
   type DeclaredQuantity,
 } from './day-summary';
 export { lineDelivery, receivedByLine, type LineDelivery } from './delivery';
+export { CHICKS_PER_BOX, deliveryCounting, receivedOf, type CountingUnit, type DeliveryCounting } from './delivery-counting';
+export { validateDeliveryTarget, type DeliveryTarget } from './delivery-target';
 export {
   authorizeDeclaration,
   type Author,

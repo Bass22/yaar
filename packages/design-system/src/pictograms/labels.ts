@@ -35,6 +35,7 @@ export const PICTOGRAM_LABELS: Readonly<Record<PictogramName, string>> = {
   hen: 'Poule',
   'hot-sun': 'Forte chaleur',
   microphone: 'Message vocal',
+  'mobile-money': 'Paiement par téléphone',
   'microphone-white': 'Message vocal',
   moon: 'Nuit',
   'open-bag': "Sac d'aliment ouvert",

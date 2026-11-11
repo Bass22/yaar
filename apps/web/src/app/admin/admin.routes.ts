@@ -2,6 +2,9 @@ import type { Route } from '@angular/router';
 import { HomePage } from './home/home-page';
 import { LotsPage } from './lots/lots-page';
 import { OpenCampaignPage } from './lots/open-campaign-page';
+import { OrderEditorPage } from './purchases/order-editor-page';
+import { PaymentPage } from './purchases/payment-page';
+import { PurchasesPage } from './purchases/purchases-page';
 import { MorePage } from './more/more-page';
 import { OfficeShell } from './shell/office-shell';
 import { ComingSoon } from './soon/coming-soon';
@@ -17,7 +20,10 @@ export const adminRoutes: Route[] = [
       { path: 'accueil', component: HomePage },
       { path: 'lots', component: LotsPage },
       { path: 'lots/ouvrir', component: OpenCampaignPage },
-      { path: 'achats', component: ComingSoon, data: { title: 'Achats', picto: 'truck', words: 'Les commandes et les réceptions arrivent bientôt dans le bureau.' } },
+      { path: 'achats', component: PurchasesPage },
+      { path: 'achats/nouvelle', component: OrderEditorPage },
+      { path: 'achats/:id', component: OrderEditorPage },
+      { path: 'achats/:id/payer', component: PaymentPage },
       { path: 'tiers', component: ComingSoon, data: { title: 'Tiers', picto: 'coin', words: 'Qui doit quoi, fournisseurs et clients, arrive bientôt dans le bureau.' } },
       { path: 'plus', component: MorePage },
     ],

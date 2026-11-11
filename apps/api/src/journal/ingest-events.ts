@@ -7,12 +7,15 @@ import {
   validateAgainstDay,
   validateCounterDeclaration,
   validateDeclaration,
+  validateDeliveryTarget,
   validateRetraction,
   type BusinessDay,
   type Campaign,
   type CampaignId,
+  type DeliveryTarget,
   type JournalEvent,
   type JournalEventId,
+  type OrderLineId,
   type Refusal,
   type SiteStaff,
   type TimeZone,
@@ -40,6 +43,8 @@ export type IngestionPorts = {
   event(id: JournalEventId): Promise<JournalEvent | null>;
   /** Whether the journal holds a retraction of that event. */
   isRetracted(id: JournalEventId): Promise<boolean>;
+  /** The order line a delivery names, with its campaign and its order's state; `null` when the farm has none. */
+  orderLine(id: OrderLineId): Promise<DeliveryTarget | null>;
   /** Every event written for that day of that campaign: declarations, corrections, retractions. */
   dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]>;
   /** Adds the event, with the device of the session. */
@@ -150,6 +155,11 @@ async function judge(event: JournalEvent, context: Parameters<typeof validateDec
   const declared = validateDeclaration(event, context);
   if (!declared.ok) {
     return declared;
+  }
+  // A delivery is received on a line of an announced order not closed, of its campaign (Q.7). A
+  // correction keeps the line of what it corrects: a count is corrected even once the order is closed.
+  if (event.type === 'Delivery') {
+    return validateDeliveryTarget(event.campaignId, await ports.orderLine(event.orderLineId));
   }
   // Only "nothing lost" is judged against its day: no need to read the day for anything else.
   return event.type === 'NoLoss' ? validateAgainstDay(event, await ports.dayJournal(event.campaignId, event.businessDate)) : declared;

@@ -2,7 +2,7 @@ import { unwrap } from '@kit';
 import { TimeZone, type BusinessDay } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerJournalLine, FactPayload } from '@contracts';
 import type { OutboxEntry, OutboxState } from '../../core/outbox/outbox';
-import { daysOf, campaignsOf, journalOf, linesOf, liveCountOf, summaryOf } from './notebook-view';
+import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf } from './notebook-view';
 
 // Spec: backlog J.1 (les bandes du site), J.2 (trois jours et leur mini-résumé), J.3 (le journal
 // du jour) ; cahier des charges « En-tête et contexte », « Journal du jour », « Rattrapage » ;
@@ -18,7 +18,7 @@ const HIER = '2026-11-05' as BusinessDay;
 const AUJOURDHUI = '2026-11-06' as BusinessDay;
 const where = { tenantId: TENANT, siteId: SITE };
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], deliveries: [], ...fields });
 const uneLigne = (rank: number, fact: FactPayload, fields: Partial<CaretakerJournalLine> = {}): CaretakerJournalLine => ({
   id: uuid(rank),
   businessDate: HIER,
@@ -205,4 +205,45 @@ describe('Les vivants, en direct', () => {
     expect(liveCountOf(uneBande({ liveCount: 2 }), [surLeTelephone(1, morts(5))], AVANT_HIER)).toBe(-3);
     expect(liveCountOf(uneBande({ liveCount: null }), [surLeTelephone(1, morts(5))], AVANT_HIER)).toBeNull();
   });
+
+  // Spec: backlog Q.7 — les poussins comptés hors-ligne font connaître les vivants avant le retour du réseau.
+  it('des poussins comptés sur le téléphone, pas encore partis : les vivants sont connus, morts déduits ; l’aliment ne compte pas', () => {
+    const attendus = uneBande({
+      liveCount: null,
+      deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', expected: 20, received: 0, remaining: 20 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', expected: 1000, received: 0, remaining: 1000 }] }],
+    });
+    const recus = (rank: number, orderLineId: string, receivedQuantity: number) => surLeTelephone(rank, { type: 'Delivery', orderLineId, receivedQuantity, deliveryNote: { kind: 'NoPaper' } });
+
+    // 1 050 chicks (21 boxes) − 3 deaths = 1 047.
+    expect(liveCountOf(attendus, [recus(1, uuid(21), 20), recus(2, uuid(22), 1050), surLeTelephone(3, morts(3))], AVANT_HIER)).toBe(1047);
+    expect(liveCountOf(attendus, [recus(1, uuid(21), 20)], AVANT_HIER)).toBeNull();
+    // A second delivery of chicks adds to what the server already counted.
+    expect(liveCountOf({ ...attendus, liveCount: 500 }, [recus(4, uuid(22), 500)], AVANT_HIER)).toBe(1000);
+  });
 });
+
+// Spec: backlog Q.7 — après une réception partielle, la carte reste ouverte avec « reste N à venir » ;
+// une réception comptée hors-ligne se voit aussitôt sur la carte.
+describe('Les livraisons encore attendues', () => {
+  const AVANT_HIER = '2026-11-04' as BusinessDay;
+  const attendus = uneBande({
+    deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', expected: 20, received: 8, remaining: 12 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', expected: 1000, received: 0, remaining: 1000 }] }],
+  });
+  const recus = (rank: number, orderLineId: string, receivedQuantity: number, state: OutboxState = 'pending') => surLeTelephone(rank, { type: 'Delivery', orderLineId, receivedQuantity, deliveryNote: { kind: 'NoPaper' } }, state);
+
+  it('chaque ligne dit ce qui reste à venir, d’après le serveur', () => {
+    expect(expectedDeliveriesOf(attendus, [], AVANT_HIER).map(({ orderLineId, remaining }) => [orderLineId, remaining])).toEqual([[uuid(21), 12], [uuid(22), 1000]]);
+  });
+
+  it('ce que le téléphone a compté et pas encore envoyé baisse le reste ; une ligne complète quitte la carte', () => {
+    expect(expectedDeliveriesOf(attendus, [recus(1, uuid(21), 5)], AVANT_HIER).map(({ remaining }) => remaining)).toEqual([7, 1000]);
+    expect(expectedDeliveriesOf(attendus, [recus(1, uuid(21), 12), recus(2, uuid(22), 1050)], AVANT_HIER)).toEqual([]);
+  });
+
+  it('ce que le serveur a déjà compté ne baisse pas le reste deux fois', () => {
+    const dejaCompte = { ...attendus, journal: [uneLigne(1, { type: 'Delivery', orderLineId: uuid(21), receivedQuantity: 5, deliveryNote: { kind: 'NoPaper' } })] };
+
+    expect(expectedDeliveriesOf(dejaCompte, [recus(1, uuid(21), 5, 'sent')], AVANT_HIER).map(({ remaining }) => remaining)).toEqual([12, 1000]);
+  });
+});
+

@@ -66,6 +66,10 @@ services:
       DATABASE_URL: postgresql://yaar_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD manquant}@db:5432/yaar
       # Signs the session tokens. Changing it signs everyone out.
       JWT_SECRET: ${JWT_SECRET:?définir JWT_SECRET dans infra/.env avant de démarrer}
+      # The media volume (M.1): photos kept under their fingerprint, never removed.
+      MEDIA_PATH: /data/medias
+    volumes:
+      - medias:/data/medias
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -110,3 +114,4 @@ networks:
 
 volumes:
   db-data:
+  medias:

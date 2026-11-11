@@ -50,7 +50,7 @@ describe('Table du journal', () => {
       await db.superuser.user.create({ data: { id: authorId, tenantId, phone: `+22177000000${tenantId === TENANT_A ? 1 : 2}`, name: 'Ousmane', role: 'collaborator', pinHash: '$argon2id$v=19$m=19456,t=2,p=1$dGVzdC1vbmx5LXNhbHQ$dGVzdC1vbmx5LWRpZ2VzdC1ub3QtYS1yZWFsLXBpbg' } });
       await db.superuser.campaign.create({ data: { id: campaignId, tenantId, siteId, placementDay: new Date('2026-10-15'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 } });
     }
-    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons' });
+    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons', mediaPath: '/data/medias' });
     // And trois morts déjà au journal de chaque élevage, sous le même identifiant
     await api.runInTenant(TENANT_A, (tx) => tx.journalEvent.create({ data: troisMorts(TENANT_A) }));
     await api.runInTenant(TENANT_B, (tx) => tx.journalEvent.create({ data: troisMorts(TENANT_B) }));

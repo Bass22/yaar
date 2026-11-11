@@ -4,9 +4,11 @@ import { clip, counted, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
 import { JournalSync } from '../../core/sync/journal-sync';
 import { SpeakerButton } from '../../ui/speaker-button';
+import { DeliveryCard } from '../delivery/delivery-card';
 import { BAGS } from '../gestures/bag/bags';
 import { DEATHS } from '../gestures/death/deaths';
 import { DeclarationGesture } from '../gestures/declaration-gesture';
+import { PhotoGesture } from '../gestures/photo/photo-gesture';
 import { TalkToChef } from '../gestures/talk/talk-to-chef';
 import { LineCorrection } from '../journal/correction/line-correction';
 import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
@@ -25,7 +27,7 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, LineCorrection, NothingLostReminder, RefusalNotice, TalkToChef, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, DeliveryCard, LineCorrection, NothingLostReminder, PhotoGesture, RefusalNotice, TalkToChef, NotebookCover, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -68,6 +70,8 @@ import { NotebookCover } from './notebook-cover';
             }
             <app-nothing-lost-reminder [yesterday]="notebook.forgottenYesterday()" (writeForYesterday)="writeForYesterday()" />
             @if (notebook.declarationTarget(); as target) {
+              <!-- Only when an order is announced and something is still to come (CdC « Affichage par phase »). -->
+              <app-delivery-card [lines]="notebook.expectedDeliveries()" [target]="target" />
               <div class="gestures" role="group" aria-label="Écrire dans le cahier">
                 <app-declaration-gesture [gesture]="deaths" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
                 <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.bagsWritten()" />
@@ -83,7 +87,13 @@ import { NotebookCover } from './notebook-cover';
       @if (notebook.site() !== null) {
         <section class="warn" aria-label="Prévenir le chef">
           <h2 class="warn-title"><app-pictogram picto="microphone" [decorative]="true" /> Prévenir le chef</h2>
-          <div class="talk"><app-talk-to-chef [chef]="notebook.context()?.chef ?? null" /></div>
+          <div class="talk">
+            <app-talk-to-chef [chef]="notebook.context()?.chef ?? null" />
+            <!-- A photo is written in the notebook of a flock: only while one is running. -->
+            @if (notebook.declarationTarget(); as target) {
+              <app-photo-gesture [target]="target" />
+            }
+          </div>
         </section>
       }
     </main>
@@ -129,7 +139,14 @@ export class NotebookPage {
     return day === null || day.when === 'today' ? null : DAY_NAMES[day.when].toUpperCase();
   });
   protected readonly journalTitle = computed(() => DAY_NAMES[this.notebook.day()?.when ?? 'today']);
-  protected readonly lines = computed((): NamedLine[] => this.notebook.lines().map((line) => ({ ...line, authorName: this.notebook.nameOf(line.authorId) })));
+  protected readonly lines = computed((): NamedLine[] =>
+    this.notebook.lines().map((line) => ({
+      ...line,
+      authorName: this.notebook.nameOf(line.authorId),
+      // The event may have left while its photo still waits on the phone (M.2).
+      mediaWaiting: line.fact.type === 'Photo' && this.sync.mediaWaiting().has(line.fact.media),
+    })),
+  );
 
   protected backToToday(): void {
     const today = this.notebook.days()[2];

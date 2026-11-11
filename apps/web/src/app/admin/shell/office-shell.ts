@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import { Pictogram } from '../../ui/pictogram';
 import { Office } from '../office';
+import { Purchases } from '../purchases/purchases';
 
 type Tab = { readonly path: string; readonly label: string; readonly picto: PictogramName };
 
@@ -20,7 +21,7 @@ const TABS: readonly Tab[] = [
 @Component({
   selector: 'app-office-shell',
   imports: [Pictogram, RouterLink, RouterLinkActive, RouterOutlet],
-  providers: [Office],
+  providers: [Office, Purchases],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="head">

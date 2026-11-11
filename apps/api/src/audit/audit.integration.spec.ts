@@ -160,7 +160,7 @@ describe('Trace des actions sensibles', () => {
     });
 
     it("une entrée ne se modifie ni ne se supprime : ni par l'application, ni même par un superutilisateur", async () => {
-      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
       try {
         await expect(api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.auditEvent.deleteMany())).rejects.toThrow(/permission denied|42501/);
       } finally {

@@ -15,7 +15,7 @@ import {
   type JournalEventId,
   type TimeZone,
 } from '@domain/journal';
-import type { CaretakerCampaign, CaretakerJournalLine, FactPayload } from '@contracts';
+import type { CaretakerCampaign, CaretakerDeliveryLine, CaretakerJournalLine, FactPayload } from '@contracts';
 import type { OutboxEntry } from '../../core/outbox/outbox';
 
 // What the notebook shows, computed from the last context the server sent and from what the
@@ -81,20 +81,53 @@ export function summaryOf(journal: readonly JournalEvent[], campaignId: string, 
 }
 
 /**
- * The live count shown on the strip (K.1): the server's, less the deaths the phone wrote and the
- * server has not counted yet — not in the journal it sent. A sent one whose day has left the three
- * days of the notebook is no longer in that journal, but the server has counted it. Signed, never
- * clamped; unknown while the chicks received are (CLAUDE.md §4 rules 9 and 10).
+ * The live count shown on the strip (K.1, Q.7): the server's, plus the chicks and less the deaths
+ * the phone wrote and the server has not counted yet — not in the journal it sent. A sent one
+ * whose day has left the three days of the notebook is no longer in that journal, but the server
+ * has counted it. Signed, never clamped; unknown while no chick is known to be received
+ * (CLAUDE.md §4 rules 9 and 10).
  */
 export function liveCountOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): number | null {
-  if (campaign.liveCount === null) {
+  const counted = new Set(campaign.journal.map((line) => line.id));
+  const chickLines = new Set(campaign.deliveries.flatMap((delivery) => delivery.lines).filter((line) => line.category === 'Chicks').map((line) => line.orderLineId));
+  const notCountedYet = entries.filter(
+    (entry) => entry.payload.campaignId === campaign.campaignId && !counted.has(entry.id) && (entry.state !== 'sent' || entry.payload.businessDate >= oldestDay) && !('corrects' in entry.payload) && 'fact' in entry.payload,
+  );
+  let chicks = 0;
+  let deaths = 0;
+  for (const { payload } of notCountedYet) {
+    if (!('fact' in payload)) continue;
+    if (payload.fact.type === 'Delivery' && chickLines.has(payload.fact.orderLineId)) chicks += payload.fact.receivedQuantity;
+    if (payload.fact.type === 'Death') deaths += payload.fact.quantity;
+  }
+  if (campaign.liveCount === null && chicks === 0) {
     return null;
   }
+  return (campaign.liveCount ?? 0) + chicks - deaths;
+}
+
+/** A line still expected on the phone: the server's, with what the phone counted and the server has not yet. */
+export type ExpectedLine = CaretakerDeliveryLine;
+
+/**
+ * The deliveries the card still waits for (Q.7): the server's, less what the phone counted and
+ * the server has not counted yet — the same reading as the live count. A line with nothing left
+ * to come leaves the card; an order with no line left, too.
+ */
+export function expectedDeliveriesOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): ExpectedLine[] {
   const counted = new Set(campaign.journal.map((line) => line.id));
-  const notCountedYet = entries.filter(
-    (entry) => entry.payload.campaignId === campaign.campaignId && !counted.has(entry.id) && (entry.state !== 'sent' || entry.payload.businessDate >= oldestDay),
-  );
-  return notCountedYet.reduce((live, { payload }) => (!('corrects' in payload) && 'fact' in payload && payload.fact.type === 'Death' ? live - payload.fact.quantity : live), campaign.liveCount);
+  const onPhone = new Map<string, number>();
+  for (const { id, state, payload } of entries) {
+    if (payload.campaignId !== campaign.campaignId || counted.has(id) || (state === 'sent' && payload.businessDate < oldestDay) || 'corrects' in payload || !('fact' in payload)) continue;
+    if (payload.fact.type === 'Delivery') onPhone.set(payload.fact.orderLineId, (onPhone.get(payload.fact.orderLineId) ?? 0) + payload.fact.receivedQuantity);
+  }
+  return campaign.deliveries
+    .flatMap((delivery) => delivery.lines)
+    .map((line) => {
+      const received = line.received + (onPhone.get(line.orderLineId) ?? 0);
+      return { ...line, received, remaining: Math.max(0, line.expected - received) };
+    })
+    .filter((line) => line.remaining > 0);
 }
 
 /** A line of the day's journal, as written in the notebook. */
@@ -114,6 +147,8 @@ export type NotebookLine = {
    * (taken back, or no measured value).
    */
   readonly pencil: LinePencil;
+  /** For a delivery: what was received, by name and category, when the phone knows it (Q.7). */
+  readonly delivery?: { readonly name: string; readonly category: string };
 };
 
 export type LinePencil = 'edit' | 'locked' | 'correct' | null;
@@ -125,6 +160,12 @@ export function linesOf(campaign: CaretakerCampaign, journal: readonly JournalEv
   const stateOf = new Map(entries.map((entry) => [entry.id, entry.state]));
   const pencilOf = (id: string, type: string, correctionWaits: boolean): LinePencil =>
     type !== 'Death' && type !== 'BagOpened' ? null : stateOf.get(id) === 'in-doubt' || correctionWaits ? 'locked' : stateOf.get(id) === 'pending' ? 'edit' : 'correct';
+  // What each order line delivers: from the server's lines, or from what is still expected.
+  const deliveredOf = new Map<string, { name: string; category: string }>([
+    ...campaign.deliveries.flatMap((delivery) => delivery.lines.map((line) => [line.orderLineId, { name: line.name, category: line.category }] as const)),
+    ...campaign.journal.flatMap((line) => (line.fact.type === 'Delivery' && line.delivery !== undefined ? [[line.fact.orderLineId, line.delivery] as const] : [])),
+  ]);
+  const deliveryOf = (fact: FactPayload) => (fact.type === 'Delivery' ? deliveredOf.get(fact.orderLineId) : undefined);
   const standing: NotebookLine[] = effectiveJournal(journal)
     .filter((line) => line.declaration.businessDate === day && line.declaration.type !== 'Loss')
     .map((line) => ({
@@ -136,7 +177,11 @@ export function linesOf(campaign: CaretakerCampaign, journal: readonly JournalEv
       retracted: line.retraction !== null,
       waiting: waiting.has(line.declaration.id) || (line.correction !== null && waiting.has(line.correction.id)),
       pencil: line.retraction !== null ? null : pencilOf(line.declaration.id, line.declaration.type, line.correction !== null && waiting.has(line.correction.id)),
-    }));
+    }))
+    .map((line) => {
+      const delivery = deliveryOf(line.fact);
+      return delivery === undefined ? line : { ...line, delivery };
+    });
   const takenBack: NotebookLine[] = campaign.journal.filter((line) => line.retracted && line.businessDate === day).map(retractedLine);
   return [...standing, ...takenBack].sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : a.recordedAt > b.recordedAt ? -1 : 0));
 }

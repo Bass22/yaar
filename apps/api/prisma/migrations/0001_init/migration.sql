@@ -22,7 +22,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
@@ -32,6 +32,12 @@ CREATE TYPE "cost_category" AS ENUM ('Feed', 'Chicks', 'Health', 'Bedding', 'Lab
 
 -- CreateEnum
 CREATE TYPE "cost_behaviour" AS ENUM ('Fixed', 'Variable');
+
+-- CreateEnum
+CREATE TYPE "payment_method" AS ENUM ('Cash', 'Wave', 'OrangeMoney');
+
+-- CreateEnum
+CREATE TYPE "retention_class" AS ENUM ('OperationalProof', 'SupportingDocument');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -179,6 +185,63 @@ CREATE TABLE "cost_types" (
     CONSTRAINT "cost_types_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "purchase_orders" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "supplier_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "order_day" DATE NOT NULL,
+    "reference" TEXT,
+    "currency" TEXT NOT NULL,
+    "announced_at" TIMESTAMPTZ(3),
+    "closed_at" TIMESTAMPTZ(3),
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "purchase_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "payments" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "order_id" UUID NOT NULL,
+    "paid_on" DATE NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "method" "payment_method" NOT NULL,
+    "recorded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "order_lines" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "order_id" UUID NOT NULL,
+    "position" INTEGER NOT NULL,
+    "cost_type_id" UUID NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "unit_price" INTEGER NOT NULL,
+
+    CONSTRAINT "order_lines_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "media" (
+    "tenant_id" UUID NOT NULL,
+    "sha256" TEXT NOT NULL,
+    "byte_size" INTEGER NOT NULL,
+    "content_type" TEXT NOT NULL,
+    "retention_class" "retention_class" NOT NULL,
+    "uploaded_by" UUID NOT NULL,
+    "device_id" UUID NOT NULL,
+    "uploaded_at" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "media_pkey" PRIMARY KEY ("tenant_id","sha256")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -205,6 +268,24 @@ CREATE UNIQUE INDEX "counterparties_tenant_id_id_key" ON "counterparties"("tenan
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cost_types_tenant_id_id_key" ON "cost_types"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "purchase_orders_tenant_id_campaign_id_idx" ON "purchase_orders"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "purchase_orders_tenant_id_id_key" ON "purchase_orders"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "payments_tenant_id_order_id_idx" ON "payments"("tenant_id", "order_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_tenant_id_id_key" ON "payments"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "order_lines_tenant_id_order_id_idx" ON "order_lines"("tenant_id", "order_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "order_lines_tenant_id_id_key" ON "order_lines"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -269,6 +350,33 @@ ALTER TABLE "counterparties" ADD CONSTRAINT "counterparties_tenant_id_fkey" FORE
 -- AddForeignKey
 ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
+-- AddForeignKey
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_tenant_id_supplier_id_fkey" FOREIGN KEY ("tenant_id", "supplier_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_order_id_fkey" FOREIGN KEY ("tenant_id", "order_id") REFERENCES "purchase_orders"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_order_id_fkey" FOREIGN KEY ("tenant_id", "order_id") REFERENCES "purchase_orders"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_cost_type_id_fkey" FOREIGN KEY ("tenant_id", "cost_type_id") REFERENCES "cost_types"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
 CREATE UNIQUE INDEX "site_assignments_one_primary_per_site" ON "site_assignments"("site_id") WHERE "is_primary";
@@ -310,6 +418,14 @@ GRANT SELECT, INSERT, UPDATE ON "campaigns" TO yaar_app;
 GRANT SELECT, INSERT, UPDATE ON "counterparties" TO yaar_app;
 -- A cost type is archived, never deleted (N.2): no DELETE.
 GRANT SELECT, INSERT, UPDATE ON "cost_types" TO yaar_app;
+-- An order is never deleted; it is closed (Q.4).
+GRANT SELECT, INSERT, UPDATE ON "purchase_orders" TO yaar_app;
+-- A draft's lines are rewritten whole (Q.4): erased, then written again. Never updated.
+GRANT SELECT, INSERT, DELETE ON "order_lines" TO yaar_app;
+-- A payment is a money entry: written once, never updated nor deleted (Q.9, rule 2).
+GRANT SELECT, INSERT ON "payments" TO yaar_app;
+-- A media row is added once; the file is never removed (M.1, rule 13).
+GRANT SELECT, INSERT ON "media" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -344,6 +460,30 @@ CREATE POLICY tenant_isolation ON "sites"
 ALTER TABLE "site_assignments" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "site_assignments" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "site_assignments"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "purchase_orders" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "purchase_orders" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "purchase_orders"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "order_lines" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "order_lines" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "order_lines"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "media" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "media" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "media"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "payments" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "payments" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "payments"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 

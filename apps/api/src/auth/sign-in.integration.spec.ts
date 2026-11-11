@@ -55,7 +55,7 @@ describe('Connexion', () => {
 
   beforeAll(async () => {
     db = await createTestDatabase();
-    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
     hasher = unHacheurCompte();
     const real = new Argon2PinHasher();
     await db.superuser.tenant.create({ data: { id: TENANT, name: 'Ferme', currency: 'XOF' } });

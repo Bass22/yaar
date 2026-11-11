@@ -102,6 +102,25 @@ export interface CaretakerCampaign {
   readonly liveCount: number | null;
   /** Today, yesterday and the day before, in writing order. Losses that are not deaths are not shown. */
   readonly journal: readonly CaretakerJournalLine[];
+  /** One per announced order still expected, earliest announced first (Q.6). Never a price. */
+  readonly deliveries: readonly CaretakerDelivery[];
+}
+
+/** A delivery the caretaker waits for: an announced order, neither fully received nor closed. Quantities only (rule 4). */
+export interface CaretakerDelivery {
+  readonly orderId: string;
+  readonly lines: readonly CaretakerDeliveryLine[];
+}
+
+export interface CaretakerDeliveryLine {
+  readonly orderLineId: string;
+  /** The farm's name for what comes (« Aliment démarrage »); its category gives the picture. */
+  readonly name: string;
+  readonly category: 'Feed' | 'Chicks' | 'Health' | 'Bedding' | 'Labour' | 'Equipment' | 'Cleaning' | 'Transport' | 'Processing' | 'Utilities' | 'FinancialCharges' | 'Other';
+  readonly expected: number;
+  readonly received: number;
+  /** Never below zero: a bonus leaves nothing to come. */
+  readonly remaining: number;
 }
 
 export interface CaretakerJournalLine {
@@ -114,4 +133,6 @@ export interface CaretakerJournalLine {
   readonly corrected: boolean;
   /** Taken back by the admin: shown, never counted nor recalled. */
   readonly retracted: boolean;
+  /** For a delivery: what was received, by the farm's name and its category (Q.7) — never a price. */
+  readonly delivery?: { readonly name: string; readonly category: CaretakerDeliveryLine['category'] };
 }

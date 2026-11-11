@@ -2,12 +2,16 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { DestroyRef, Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { FactPayload, JournalBatchResponse, JournalEventPayload } from '@contracts';
+import { MediaQueue, synchronizeMedia, type MediaAnswer, type RetentionClass } from '../outbox/media-queue';
 import { Outbox, OutboxUnavailable, type EventDraft, type OutboxEntry } from '../outbox/outbox';
 import { AuthService } from '../session/auth';
 import { synchronize, type SyncAnswer, type SyncStop } from './synchronize';
 
 /** The outbox of the phone, opened once. */
 export const OUTBOX = new InjectionToken<Promise<Outbox>>('OUTBOX', { providedIn: 'root', factory: () => Outbox.open() });
+
+/** The media waiting on the phone (M.2), opened once; `null` when the phone cannot keep them. */
+export const MEDIA_QUEUE = new InjectionToken<Promise<MediaQueue | null>>('MEDIA_QUEUE', { providedIn: 'root', factory: () => MediaQueue.open().catch(() => null) });
 
 /**
  * The phone's side of the journal (G.3, G.4, G.5): a declaration goes to the outbox first, then
@@ -20,6 +24,7 @@ export class JournalSync {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly outbox = inject(OUTBOX);
+  private readonly media = inject(MEDIA_QUEUE);
   private running: Promise<void> | null = null;
   private again = false;
 
@@ -28,6 +33,8 @@ export class JournalSync {
   readonly stopped = signal<SyncStop | null>(null);
   /** The phone cannot keep the outbox (storage disabled, full): declarations would be lost — the screens say so. */
   readonly storageUnavailable = signal(false);
+  /** The fingerprints of this account's media not yet on the server (M.2): the journal says they have not left. */
+  readonly mediaWaiting = signal<ReadonlySet<string>>(new Set());
   /** Moves whenever the outbox may have changed — a declaration kept, an event sent: the notebook reads it again. */
   readonly revision = signal(0);
 
@@ -83,6 +90,22 @@ export class JournalSync {
     return this.send([{ ...draft, id: crypto.randomUUID() }], session.token);
   }
 
+  /**
+   * Keeps a media of the person signed in on the phone, before anything leaves (M.2), and returns
+   * its fingerprint: the event that cites it carries it, and leaves without waiting for it.
+   * Rejects when the phone cannot keep it — full (`MediaQueueFull`) or no storage.
+   */
+  async keepMedia(bytes: Uint8Array, contentType: string, retention: RetentionClass): Promise<string> {
+    const session = this.auth.session();
+    const queue = await this.media;
+    if (session.status === 'none' || queue === null) {
+      throw new Error('This phone cannot keep a media now.');
+    }
+    const fingerprint = await queue.keep(session.userId, bytes, contentType, retention);
+    await this.refreshCounts();
+    return fingerprint;
+  }
+
   /** « J'ai compris »: these refusals were heard, they are no longer shown (G.5). */
   async acknowledgeRefusals(ids: readonly string[]): Promise<void> {
     await (await this.outbox).acknowledgeRefusals(ids);
@@ -118,6 +141,11 @@ export class JournalSync {
     try {
       const report = await synchronize(await this.outbox, this.auth.session(), (events, token) => this.send(events, token), Date.now());
       this.stopped.set(report.stopped);
+      // The media leave after the events that cite them, never before; the events never wait for them.
+      const queue = await this.media;
+      if (report.stopped === null && queue !== null) {
+        await synchronizeMedia(queue, this.auth.session(), (media, token) => this.sendMedia(media, token));
+      }
       await this.refreshCounts();
     } catch (error) {
       if (!(error instanceof OutboxUnavailable)) {
@@ -137,7 +165,27 @@ export class JournalSync {
     const outbox = await this.outbox;
     this.waiting.set(await outbox.waiting(session.userId));
     this.refused.set(await outbox.refused(session.userId));
+    const queue = await this.media;
+    this.mediaWaiting.set(new Set(queue === null ? [] : (await queue.waiting(session.userId)).map(({ sha256 }) => sha256)));
     this.revision.update((revision) => revision + 1);
+  }
+
+  private async sendMedia(media: { readonly sha256: string; readonly bytes: Uint8Array; readonly contentType: string; readonly retention: RetentionClass }, token: string): Promise<MediaAnswer> {
+    try {
+      const response = await firstValueFrom(
+        this.http.put(`/api/v1/media/${media.sha256}`, new Blob([media.bytes as Uint8Array<ArrayBuffer>], { type: media.contentType }), {
+          params: { retention: media.retention },
+          headers: new HttpHeaders({ Authorization: `Bearer ${token}`, 'Content-Type': media.contentType }),
+          observe: 'response',
+        }),
+      );
+      return response.status === 201 ? 'stored' : 'already-there';
+    } catch (error) {
+      if (!(error instanceof HttpErrorResponse) || error.status === 0 || error.status >= 500) return 'unreachable';
+      if (error.status === 401) return 'unauthorized';
+      // A file the server will never take (type, size, fingerprint): kept on the phone, not sent again.
+      return [400, 413, 415].includes(error.status) ? 'refused' : 'unreachable';
+    }
   }
 
   private async send(events: readonly JournalEventPayload[], token: string): Promise<SyncAnswer> {

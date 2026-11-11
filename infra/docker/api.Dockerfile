@@ -72,6 +72,9 @@ RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/apps/api/dist ./dist
 
+# The media volume (M.1): owned by `node`, so a fresh named volume mounted here inherits it.
+RUN mkdir -p /data/medias && chown node:node /data/medias
+
 # The official image ships an unprivileged `node` user: the API never runs as root.
 USER node
 EXPOSE 3000

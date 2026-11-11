@@ -35,6 +35,8 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   PlacementInFuture: { kind: 'PlacementInFuture' },
   PlacementTooOld: { kind: 'PlacementTooOld' },
   InvalidPlannedDuration: { kind: 'InvalidPlannedDuration', value: 0 },
+  UnknownOrderLine: { kind: 'UnknownOrderLine' },
+  OrderNotReceiving: { kind: 'OrderNotReceiving' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -98,6 +100,10 @@ function explain(refusal: Refusal): string {
       return 'mise en place de plus de 60 jours';
     case 'InvalidPlannedDuration':
       return `durée prévue invalide : ${refusal.value} jours`;
+    case 'UnknownOrderLine':
+      return 'ligne de commande inconnue dans cette bande';
+    case 'OrderNotReceiving':
+      return 'commande en brouillon ou close : elle ne reçoit pas';
     default:
       return assertNever(refusal);
   }

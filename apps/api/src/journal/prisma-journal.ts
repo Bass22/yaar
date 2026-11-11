@@ -10,6 +10,8 @@ import {
   isCounterDeclaration,
   isRetraction,
   type Campaign,
+  type DeliveryTarget,
+  type OrderLineId,
   type JournalEvent,
   type JournalEventId,
   type Refusal,
@@ -70,6 +72,11 @@ export class PrismaJournal implements IngestionPorts {
 
   async isRetracted(id: JournalEventId): Promise<boolean> {
     return (await this.tx.journalEvent.count({ where: { retracts: id } })) > 0;
+  }
+
+  async orderLine(id: OrderLineId): Promise<DeliveryTarget | null> {
+    const line = await this.tx.orderLine.findUnique({ where: { id }, select: { order: { select: { campaignId: true, announcedAt: true, closedAt: true } } } });
+    return line === null ? null : { campaignId: line.order.campaignId as CampaignId, announced: line.order.announcedAt !== null, closed: line.order.closedAt !== null };
   }
 
   async dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]> {

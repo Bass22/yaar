@@ -30,6 +30,7 @@ export const PICTOGRAM_NAMES = [
   'hot-sun',
   'microphone-white',
   'microphone',
+  'mobile-money',
   'moon',
   'open-bag',
   'paper',

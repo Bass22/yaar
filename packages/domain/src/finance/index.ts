@@ -7,6 +7,7 @@ export {
   announceOrder,
   closeOrder,
   draftOrder,
+  orderedAmount,
   orderStatus,
   reviseOrder,
   type CostTypeId,
@@ -19,3 +20,16 @@ export {
   type PurchaseOrder,
   type PurchaseOrderId,
 } from './purchase-order';
+export {
+  billableOf,
+  orderBalance,
+  PAYMENT_METHODS,
+  recordPayment,
+  type Billable,
+  type OrderBalance,
+  type Payment,
+  type PaymentId,
+  type PaymentInput,
+  type PaymentMethod,
+  type PaymentRefusal,
+} from './order-balance';

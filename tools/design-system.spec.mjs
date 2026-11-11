@@ -76,7 +76,7 @@ describe('Pictos pré-cuits', () => {
     const avatars = [...read('journal-gardien-entree.html').matchAll(/<symbol id="(avatar-[^"]+)"/g)].map(([, id]) => id);
     const sources = readdirSync(SOURCE_DIR).filter((file) => file.endsWith('.svg'));
     // The office's own pictos, drawn in bureau-admin-v2.html (validated on 2026-11-08), added as screens use them.
-    const office = { cloche: 'bell', camion: 'truck', 'piece-f': 'coin' };
+    const office = { cloche: 'bell', camion: 'truck', 'piece-f': 'coin', 'telephone-argent': 'mobile-money' };
     const officeMockup = read('bureau-admin-v2.html');
 
     assert.equal(avatars.length, 12, 'douze avatars (E.9, décision du 2026-11-07)');

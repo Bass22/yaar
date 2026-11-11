@@ -88,6 +88,12 @@ describe("Le socle de l'éditeur", () => {
     expect(body.strains).toEqual([{ strain: 'Cobb500', name: 'Cobb 500', species: 'Broiler' }]);
   });
 
+  it("la devise de l'élevage, lue dans sa fiche : le bureau en a besoin pour compter une commande (Q.5)", async () => {
+    const body = (await (await read({ Authorization: `Bearer ${tokenOf(LE_GERANT, 'admin')}` })).json()) as ReferenceData;
+
+    expect(body.currency).toBe('XOF');
+  });
+
   it('le gardien ne lit pas le socle (403) ; sans session, rien (401)', async () => {
     expect((await read({ Authorization: `Bearer ${tokenOf(OUSMANE, 'collaborator')}` })).status).toBe(403);
     expect((await read({})).status).toBe(401);

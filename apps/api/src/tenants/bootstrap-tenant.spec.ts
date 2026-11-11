@@ -62,15 +62,17 @@ describe("Amorçage d'un élevage", () => {
     expect(await hasher.verify(admin.pinHash as never, unwrap(Pin('482913', 'admin')))).toBe(true);
   });
 
-  // Spec: backlog N.2 — Déplumage et Congélation en place d'office (décision du 2026-11-09)
-  it("l'élevage naît avec ses types d'office : Déplumage et Congélation, sous Transformation, variables", async () => {
+  // Spec: backlog N.2 — la liste précochée des types de départ (décision du fondateur, 2026-11-09)
+  it("l'élevage naît avec ses types de départ : les cochés en service, avec les drapeaux de leur catégorie ; Déplumage et Congélation décochés, donc archivés", async () => {
     const { tenantId } = unwrap(await amorce(unElevage({ adminPhone: '+221770000077' })));
 
-    const types = await db.superuser.costType.findMany({ where: { tenantId }, orderBy: { name: 'asc' }, select: { name: true, category: true, behaviour: true, archivedAt: true } });
-    expect(types).toEqual([
-      { name: 'Congélation', category: 'Processing', behaviour: 'Variable', archivedAt: null },
-      { name: 'Déplumage', category: 'Processing', behaviour: 'Variable', archivedAt: null },
-    ]);
+    const types = await db.superuser.costType.findMany({ where: { tenantId }, select: { name: true, category: true, behaviour: true, archivedAt: true } });
+    expect(types.filter(({ archivedAt }) => archivedAt === null)).toHaveLength(11);
+    expect(types.find(({ name }) => name === 'Aliment')).toMatchObject({ category: 'Feed', behaviour: 'Variable' });
+    expect(types.find(({ name }) => name === 'Salaire du gardien')).toMatchObject({ category: 'Labour', behaviour: 'Fixed' });
+    const unchecked = types.filter(({ archivedAt }) => archivedAt !== null).map(({ name, category }) => ({ name, category }));
+    expect(unchecked).toHaveLength(2);
+    expect(unchecked).toEqual(expect.arrayContaining([{ name: 'Déplumage', category: 'Processing' }, { name: 'Congélation', category: 'Processing' }]));
   });
 
   it("relancé avec le même numéro, il refuse au lieu de créer un doublon — même pour un autre élevage", async () => {

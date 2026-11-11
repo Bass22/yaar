@@ -79,6 +79,13 @@ describe("L'API reçoit le journal", () => {
         { tenantId: TENANT_B, siteId: SITE_DE_B, userId: GARDIEN_DE_B, isPrimary: true },
       ],
     });
+    // An announced order of the Nord flock, whose lines 7 and 8 receive the deliveries below (Q.7).
+    await db.superuser.counterparty.create({ data: { id: uuid(71), tenantId: TENANT_A, kind: 'Supplier', name: 'Sedima', face: 'closed-bag' } });
+    await db.superuser.costType.create({ data: { id: uuid(72), tenantId: TENANT_A, category: 'Feed', name: 'Aliment', behaviour: 'Variable' } });
+    await db.superuser.purchaseOrder.create({ data: { id: uuid(73), tenantId: TENANT_A, supplierId: uuid(71), campaignId: BANDE_NORD, orderDay: new Date('2026-10-30'), currency: 'XOF', announcedAt: new Date('2026-10-30T09:00:00.000Z') } });
+    await db.superuser.orderLine.createMany({
+      data: [7, 8].map((rank, position) => ({ id: uuid(rank), tenantId: TENANT_A, orderId: uuid(73), position, costTypeId: uuid(72), quantity: 40, unitPrice: 17_500 })),
+    });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
       .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET })
@@ -176,7 +183,7 @@ describe("L'API reçoit le journal", () => {
       }),
     ]);
     // Under the application role, farm B sees none of it.
-    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
     try {
       expect(await api.runInTenant(unwrap(TenantId(TENANT_B)), (tx) => tx.refusedEvent.count())).toBe(0);
       expect(await api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.refusedEvent.count({ where: { eventId: uuid(90) } }))).toBe(1);
@@ -228,7 +235,7 @@ describe("L'API reçoit le journal", () => {
 
     // Then tout est accepté, et chaque événement relu en base est celui que le domaine a décodé de l'envoi
     expect(outcomes.every((outcome) => (outcome as { status: string }).status === 'Accepted')).toBe(true);
-    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
     try {
       const tenantId = unwrap(TenantId(TENANT_A));
       for (const raw of sent) {

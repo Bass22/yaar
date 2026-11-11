@@ -104,6 +104,10 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/counterparties',
       'GET /api/v1/health',
       'GET /api/v1/health/ready',
+      // Admin only: a media of the farm cited by an event of its journal, never cached (M.1).
+      'GET /api/v1/media/:sha256',
+      // Admin only: the farm's orders, their state deduced from the journal (Q.4).
+      'GET /api/v1/orders',
       // Admin only: the publisher's base, read and never written nor deleted by a route (N.1).
       'GET /api/v1/reference-data',
       // Admin only: a cost type's name and fixed/variable flag — never its category (N.2).
@@ -128,6 +132,14 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/counterparties/:id/archive',
       // Every session, judged by the domain: the author and the farm come from the session (F.2).
       'POST /api/v1/journal/events',
+      // Admin only: a draft order, judged by the domain (Q.4).
+      'POST /api/v1/orders',
+      // Admin only: a draft announced to the site's caretaker (Q.4).
+      'POST /api/v1/orders/:id/announce',
+      // Admin only: an announced order not fully received is closed (Q.4).
+      'POST /api/v1/orders/:id/close',
+      // Admin only: a payment of an order, kept once when sent twice (Q.9).
+      'POST /api/v1/orders/:id/payments',
       // Admin only: a site of the farm of the session (O.1).
       'POST /api/v1/sites',
       // Always a collaborator: the request does not choose the role (E.5).
@@ -137,6 +149,10 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/users/:userId/reset-pin',
       'POST /api/v1/users/:userId/sign-out-everywhere',
       'POST /api/v1/users/:userId/unblock',
+      // Every session: a photo sent by its fingerprint, kept once when sent twice (M.1).
+      'PUT /api/v1/media/:sha256',
+      // Admin only: a draft rewritten whole (Q.4).
+      'PUT /api/v1/orders/:id',
       'PUT /api/v1/sites/:siteId/primary-caretaker',
       'PUT /api/v1/sites/:siteId/staff/:userId',
     ]);

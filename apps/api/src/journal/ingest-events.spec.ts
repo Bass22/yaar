@@ -70,6 +70,10 @@ class FarmInMemory implements IngestionPorts {
   async isRetracted(id: JournalEventId): Promise<boolean> {
     return this.journal.some(({ event }) => isRetraction(event) && event.retracts === id);
   }
+  // No order in this farm: deliveries are tested against the real tables (delivery-ingestion).
+  async orderLine(): Promise<null> {
+    return null;
+  }
   async dayJournal(campaignId: CampaignIdType, day: BusinessDay): Promise<readonly JournalEvent[]> {
     return this.journal.map((row) => row.event).filter((event) => event.campaignId === campaignId && event.businessDate === day);
   }

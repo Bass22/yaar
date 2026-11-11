@@ -1,14 +1,14 @@
 import { unwrap } from '@kit';
-import { campaignDay, effectiveJournal, factOf, recentBusinessDays, TimeZone, type BusinessDay, type JournalLine } from '@domain/journal';
-import type { CaretakerCampaign, CaretakerContext, CaretakerJournalLine, CaretakerSite, FactPayload } from '@contracts';
+import { CampaignId, campaignDay, computeLiveCount, effectiveJournal, factOf, lineDelivery, receivedByLine, recentBusinessDays, TimeZone, type BusinessDay, type JournalEvent, type JournalLine, type OrderLineId, type Quantity } from '@domain/journal';
+import type { CaretakerCampaign, CaretakerContext, CaretakerDelivery, CaretakerDeliveryLine, CaretakerJournalLine, CaretakerSite, FactPayload } from '@contracts';
 import type { Prisma } from '@prisma/client';
 import type { Session } from '../auth/session';
 import { PrismaJournal } from './prisma-journal';
 
 // What the caretaker's notebook shows (Architecture §5 « Descente »), read in the tenant
 // transaction of the request. Built from the journal and the field rules only: no amount, no
-// price, no balance reaches the phone (CLAUDE.md §4 rule 4) — its type is its own, and nothing
-// here reads an order, a cost or a sale.
+// price, no balance reaches the phone (CLAUDE.md §4 rule 4) — its type is its own. Of an order it
+// reads the quantities only (Q.6); nothing here reads a price, a cost or a sale.
 
 /** The sites the session reaches — the admin all of the farm's, a collaborator their own — each with its notebook. */
 export async function caretakerContext(tx: Prisma.TransactionClient, session: Session, now: Date): Promise<CaretakerContext> {
@@ -49,25 +49,66 @@ async function campaignContext(
   today: BusinessDay,
 ): Promise<CaretakerCampaign> {
   const placementDay = campaign.placementDay.toISOString().slice(0, 10) as BusinessDay;
+  const events = await journal.campaignJournal(campaign.id);
   // Only the caretaker's three days, and only what the caretaker sees: losses that are not deaths stay with the admin.
-  const lines = effectiveJournal(await journal.campaignJournal(campaign.id)).filter(
+  const lines = effectiveJournal(events).filter(
     (line) => days.includes(line.declaration.businessDate) && line.declaration.type !== 'Loss',
   );
   const authors = await tx.user.findMany({ where: { id: { in: [...new Set(lines.map((line) => line.declaration.authorId))] } }, select: { id: true, name: true } });
   const nameOf = new Map(authors.map((author) => [author.id, author.name]));
+  // What each delivery line received is, by name and category: quantities and words only (rule 4).
+  const deliveredLineIds = [...new Set(lines.flatMap((line) => (line.fact?.type === 'Delivery' ? [line.fact.orderLineId] : [])))];
+  const delivered = await tx.orderLine.findMany({ where: { id: { in: deliveredLineIds } }, select: { id: true, costType: { select: { name: true, category: true } } } });
+  const deliveredOf = new Map(delivered.map((line) => [line.id, line.costType]));
   return {
     campaignId: campaign.id,
     placementDay,
     campaignDay: campaignDay(placementDay, today),
-    // Unknown, not zero: the order lines that deliver the chicks do not exist yet (orders come later).
-    liveCount: null,
-    journal: lines.map((line) => lineOf(line, nameOf.get(line.declaration.authorId) ?? '')),
+    liveCount: await liveCountOf(tx, campaign.id, events),
+    journal: lines.map((line) => lineOf(line, nameOf.get(line.declaration.authorId) ?? '', deliveredOf)),
+    deliveries: await deliveriesOf(tx, campaign.id, events),
   };
 }
 
-function lineOf(line: JournalLine, authorName: string): CaretakerJournalLine {
+/**
+ * The birds alive (Q.7): the chicks received on the campaign's chick lines, bonus included, less
+ * deaths and losses. Unknown — never zero — until a chick line has received something.
+ */
+async function liveCountOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<number | null> {
+  const chickLines = await tx.orderLine.findMany({ where: { order: { campaignId }, costType: { category: 'Chicks' } }, select: { id: true } });
+  const count = computeLiveCount(events, { campaignId: unwrap(CampaignId(campaignId)), placementOrderLines: chickLines.map(({ id }) => id as OrderLineId) });
+  return count.received > 0 ? count.liveCount : null;
+}
+
+/**
+ * The deliveries the caretaker waits for (Q.6): every announced order of the campaign that is
+ * neither closed nor fully received, line by line — what comes, how many, what came. Quantities
+ * only: the price, the supplier and the reference stay at the office (rule 4).
+ */
+async function deliveriesOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<CaretakerDelivery[]> {
+  const orders = await tx.purchaseOrder.findMany({
+    where: { campaignId, announcedAt: { not: null }, closedAt: null },
+    orderBy: [{ announcedAt: 'asc' }, { id: 'asc' }],
+    select: { id: true, lines: { orderBy: { position: 'asc' }, select: { id: true, quantity: true, costType: { select: { name: true, category: true } } } } },
+  });
+  const received = receivedByLine(events);
+  return orders
+    .map((order) => ({
+      orderId: order.id,
+      lines: order.lines.map((line) => {
+        const state = lineDelivery(line.quantity as Quantity, received.get(line.id as OrderLineId) ?? 0);
+        return { orderLineId: line.id, name: line.costType.name, category: line.costType.category, expected: state.ordered, received: state.received, remaining: state.remaining };
+      }),
+    }))
+    .filter((delivery) => delivery.lines.some((line) => line.remaining > 0));
+}
+
+function lineOf(line: JournalLine, authorName: string, deliveredOf: ReadonlyMap<string, { name: string; category: CaretakerDeliveryLine['category'] }>): CaretakerJournalLine {
   const { declaration } = line;
+  const fact = line.fact ?? factOf(declaration);
+  const delivery = fact.type === 'Delivery' ? deliveredOf.get(fact.orderLineId) : undefined;
   return {
+    ...(delivery === undefined ? {} : { delivery: { name: delivery.name, category: delivery.category } }),
     id: declaration.id,
     businessDate: declaration.businessDate,
     recordedAt: declaration.recordedAt,

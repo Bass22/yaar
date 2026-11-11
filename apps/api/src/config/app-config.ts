@@ -8,6 +8,8 @@ export type AppConfig = {
   readonly databaseUrl: string;
   /** Signs the session tokens. At least 32 characters, drawn at random, never shared. */
   readonly jwtSecret: string;
+  /** The media volume (M.1): an absolute path, where files are kept under their fingerprint. */
+  readonly mediaPath: string;
 };
 
 /** Injection token of the validated configuration. */
@@ -17,7 +19,7 @@ const DEFAULT_PORT = 3000;
 
 /** Throws when the environment cannot run the API. A message never repeats a value: it may be a secret. */
 export function loadAppConfig(env: Readonly<Record<string, string | undefined>>): AppConfig {
-  return { databaseUrl: databaseUrlOf(env['DATABASE_URL']), jwtSecret: jwtSecretOf(env['JWT_SECRET']), port: portOf(env['PORT']) };
+  return { databaseUrl: databaseUrlOf(env['DATABASE_URL']), jwtSecret: jwtSecretOf(env['JWT_SECRET']), port: portOf(env['PORT']), mediaPath: mediaPathOf(env['MEDIA_PATH']) };
 }
 
 /**
@@ -34,6 +36,13 @@ function databaseUrlOf(raw: string | undefined): string {
   }
   if (!/^postgres(ql)?:\/\/\S+$/.test(raw)) {
     throw new Error('Configuration : DATABASE_URL doit être une adresse postgresql://.');
+  }
+  return raw;
+}
+
+function mediaPathOf(raw: string | undefined): string {
+  if (raw === undefined || !raw.startsWith('/')) {
+    throw new Error('Configuration : MEDIA_PATH est exigé, un chemin absolu vers le volume des médias (par exemple /data/medias).');
   }
   return raw;
 }

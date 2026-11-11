@@ -61,7 +61,11 @@ export type Refusal =
   /** Placed more than 60 days ago: such a campaign would be over (or the year is mistyped). */
   | { readonly kind: 'PlacementTooOld' }
   /** A planned duration is a whole number of days, from 1 to 60. */
-  | { readonly kind: 'InvalidPlannedDuration'; readonly value: number };
+  | { readonly kind: 'InvalidPlannedDuration'; readonly value: number }
+  /** A delivery names an order line the farm does not have in this campaign (Q.7). */
+  | { readonly kind: 'UnknownOrderLine' }
+  /** A delivery on a draft, or on a closed order: only an announced order not closed receives (Q.1, Q.7). */
+  | { readonly kind: 'OrderNotReceiving' };
 
 export type RefusalKind = Refusal['kind'];
 

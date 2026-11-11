@@ -46,8 +46,25 @@ export const COST_CATEGORIES: readonly CostCategoryEntry[] = Object.freeze([
   entry('Other', 'Variable', false),
 ]);
 
-/** Types every farm starts with, under a category of the base (decision of 2026-11-09). User-facing names. */
-export const DEFAULT_COST_TYPES: readonly { readonly name: string; readonly category: CostCategory }[] = Object.freeze([
-  Object.freeze({ name: 'Déplumage', category: 'Processing' as const }),
-  Object.freeze({ name: 'Congélation', category: 'Processing' as const }),
+/**
+ * The list every broiler farm starts with (founder's decision, 2026-11-09): one type per category
+ * of the base, checked; Processing's two unchecked — not every farm processes. Unchecked means
+ * archived: offered nowhere until checked. User-facing names.
+ */
+const startingType = (name: string, category: CostCategory, checked: boolean) => Object.freeze({ name, category, checked });
+
+export const DEFAULT_COST_TYPES: readonly { readonly name: string; readonly category: CostCategory; readonly checked: boolean }[] = Object.freeze([
+  startingType('Aliment', 'Feed', true),
+  startingType('Poussins', 'Chicks', true),
+  startingType('Vaccins et soins', 'Health', true),
+  startingType('Copeaux', 'Bedding', true),
+  startingType('Salaire du gardien', 'Labour', true),
+  startingType('Équipement', 'Equipment', true),
+  startingType('Nettoyage et désinfection', 'Cleaning', true),
+  startingType('Transport', 'Transport', true),
+  startingType('Eau et électricité', 'Utilities', true),
+  startingType('Frais financiers', 'FinancialCharges', true),
+  startingType('Autres', 'Other', true),
+  startingType('Déplumage', 'Processing', false),
+  startingType('Congélation', 'Processing', false),
 ]);

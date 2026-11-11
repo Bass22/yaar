@@ -34,6 +34,8 @@ export interface StrainView {
 }
 
 export interface ReferenceData {
+  /** The farm's currency (ISO 4217): every amount of the office is in it (rule 7). */
+  readonly currency: string;
   readonly costCategories: readonly CostCategoryView[];
   readonly lossTypes: readonly LossTypeCode[];
   readonly strains: readonly StrainView[];

@@ -259,7 +259,7 @@ describe('Session à chaque requête', () => {
   });
 
   it('les tenants restent ceux de la base : vérification de cohérence du jeu de test', async () => {
-    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET });
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
     try {
       expect(await api.runInTenant(unwrap(TenantId(TENANT_B)), (tx) => tx.site.count())).toBe(1);
     } finally {

@@ -26,7 +26,7 @@ const NOW = new Date('2026-11-06T08:00:00.000Z');
 const AUJOURDHUI = '2026-11-06';
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], deliveries: [], ...fields });
 const contexte = (bande: CaretakerCampaign = uneBande()): CaretakerContext => ({
   chef: null,
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: AUJOURDHUI, primaryCaretakerId: OUSMANE, campaigns: [bande] }],

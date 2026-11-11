@@ -19,7 +19,7 @@ const token = `e30.${btoa(JSON.stringify({ sub: LE_GERANT, tenant: TENANT })).re
 const NOW = new Date('2026-11-06T08:00:00.000Z');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: uuid(4), placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: uuid(4), placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], deliveries: [], ...fields });
 const contexte = (): CaretakerContext => ({
   chef: { name: 'Le gérant', phone: '+221770000003' },
   sites: [

@@ -7,6 +7,7 @@ import {
   closeOrder,
   draftOrder,
   orderStatus,
+  orderedAmount,
   reviseOrder,
   type DraftOrderContext,
   type DraftOrderInput,
@@ -75,7 +76,7 @@ describe('Une commande', () => {
     it('une commande a un fournisseur, une bande, une date, une référence et ses lignes : type, quantité, prix unitaire en francs', () => {
       const order = brouillon();
 
-      expect(order).toMatchObject({ id: uuid(1), supplierId: SEDIMA, campaignId: BANDE, orderDay: '2026-10-12', reference: 'BC-0412', announcedAt: null, closedAt: null });
+      expect(order).toMatchObject({ id: uuid(1), supplierId: SEDIMA, campaignId: BANDE, orderDay: '2026-10-12', currency: 'XOF', reference: 'BC-0412', announcedAt: null, closedAt: null });
       expect(order.lines.map(({ id, costTypeId, quantity, unitPrice }) => ({ id, costTypeId, quantity, unitPrice: unitPrice.amount }))).toEqual([
         { id: LIGNE_ALIMENT, costTypeId: ALIMENT_DEMARRAGE, quantity: 20, unitPrice: 17_500 },
         { id: LIGNE_POUSSINS, costTypeId: POUSSINS, quantity: 1000, unitPrice: 550 },
@@ -212,5 +213,20 @@ describe('Une commande', () => {
 
       expect(ligne?.unitPrice.times(ligne.quantity)).toEqual({ ok: true, value: unwrap(Money.of(350_000, XOF)) });
     });
+  });
+});
+
+// Spec: backlog Q.5 — le total de la saisie en cours, calculé par le domaine, pas par l'écran.
+describe('Le total commandé, pendant la saisie', () => {
+  it('somme des quantités × prix unitaires : 20 × 17 500 + 1 000 × 550 = 900 000 F', () => {
+    expect(orderedAmount([{ quantity: 20, unitPrice: 17_500 }, { quantity: 1000, unitPrice: 550 }], XOF)).toEqual({ ok: true, value: unwrap(Money.of(900_000, XOF)) });
+  });
+
+  it('aucune ligne : zéro franc, un montant défini', () => {
+    expect(orderedAmount([], XOF)).toEqual({ ok: true, value: Money.zero(XOF) });
+  });
+
+  it('une quantité ou un prix qui ne sont pas des entiers positifs : pas de total', () => {
+    expect([orderedAmount([{ quantity: 2.5, unitPrice: 100 }], XOF).ok, orderedAmount([{ quantity: 2, unitPrice: -100 }], XOF).ok]).toEqual([false, false]);
   });
 });

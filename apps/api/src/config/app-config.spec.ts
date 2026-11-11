@@ -5,12 +5,19 @@ import { loadAppConfig, loadDatabaseUrl } from './app-config';
 
 const UNE_BASE = 'postgresql://yaar:s3cr3t-de-test@db:5432/yaar';
 const UN_SECRET = 'un-secret-de-test-assez-long-pour-signer-des-jetons';
-const OK = { DATABASE_URL: UNE_BASE, JWT_SECRET: UN_SECRET };
+const OK = { DATABASE_URL: UNE_BASE, JWT_SECRET: UN_SECRET, MEDIA_PATH: '/data/medias' };
 
 describe("Configuration de l'API", () => {
   it("la configuration se lit dans l'environnement : la base, et le port (3000 par défaut)", () => {
-    expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000 });
-    expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081 });
+    expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000, mediaPath: '/data/medias' });
+    expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081, mediaPath: '/data/medias' });
+  });
+
+  // Spec: backlog M.1 — le volume des médias (architecture §7)
+  it('sans MEDIA_PATH, ou avec un chemin relatif, la configuration est refusée et le message nomme la variable', () => {
+    for (const path of [undefined, '', 'data/medias', '../medias']) {
+      expect(() => loadAppConfig({ ...OK, MEDIA_PATH: path })).toThrow(/MEDIA_PATH/);
+    }
   });
 
   // Spec: backlog D.4, E.8 — les scripts de l'éditeur tournent dans la tâche de migration, qui n'a pas le secret des jetons

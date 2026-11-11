@@ -4,10 +4,17 @@ import type { FactPayload } from '@contracts';
 import { Pictogram } from '../../ui/pictogram';
 import type { NotebookLine } from './notebook-view';
 
-export type NamedLine = NotebookLine & { readonly authorName: string };
+export type NamedLine = NotebookLine & {
+  readonly authorName: string;
+  /** A photo still on the phone, whatever its line: it has not reached the chef yet (M.2). */
+  readonly mediaWaiting?: boolean;
+};
 
-/** The picto and the words of a fact, as written in the notebook. */
-export function lineOf(fact: FactPayload): { readonly picto: PictogramName; readonly words: string } {
+/** The real object of a delivery's category; the received bags stand for the others (Bedding has none drawn yet). */
+const DELIVERED_PICTO: Partial<Record<string, PictogramName>> = { Feed: 'closed-bag', Chicks: 'chick', Health: 'syringe' };
+
+/** The picto and the words of a fact, as written in the notebook; a delivery says what was received when it is known. */
+export function lineOf(fact: FactPayload, delivery?: { readonly name: string; readonly category: string }): { readonly picto: PictogramName; readonly words: string } {
   const plural = (count: number, one: string, many: string) => `${count} ${count > 1 ? many : one}`;
   switch (fact.type) {
     case 'Death':
@@ -18,8 +25,10 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
       return { picto: 'round-check', words: 'Rien perdu' };
     case 'Loss':
       return { picto: 'question', words: plural(fact.quantity, 'perdu', 'perdus') };
-    case 'Delivery':
-      return { picto: 'received-bags', words: plural(fact.receivedQuantity, 'reçu', 'reçus') };
+    case 'Delivery': {
+      const received = `${fact.receivedQuantity.toLocaleString('fr-FR')} ${fact.receivedQuantity > 1 ? 'reçus' : 'reçu'}`;
+      return delivery === undefined ? { picto: 'received-bags', words: received } : { picto: DELIVERED_PICTO[delivery.category] ?? 'received-bags', words: `${delivery.name} : ${received}` };
+    }
     case 'Weighing':
       return { picto: 'scale', words: plural(fact.weights.length, 'poulet pesé', 'poulets pesés') };
     case 'TaskDone':
@@ -49,7 +58,7 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
             <app-pictogram class="what" [picto]="pictoOf(line)" [decorative]="true" />
             <span class="words">
               <b>{{ wordsOf(line) }}</b>
-              <small>{{ line.authorName }}{{ line.corrected ? ' · corrigé' : '' }}{{ line.retracted ? ' · annulé par le chef' : line.waiting ? " · en attente d'envoi" : ' · bien envoyé' }}</small>
+              <small>{{ line.authorName }}{{ line.corrected ? ' · corrigé' : '' }}{{ line.retracted ? ' · annulé par le chef' : line.waiting ? " · en attente d'envoi" : line.mediaWaiting ? ' · photo pas encore partie' : ' · bien envoyé' }}</small>
             </span>
             @if (line.pencil !== null) {
               <button type="button" class="pencil" [class.locked]="line.pencil === 'locked'" [class.unavailable]="line.pencil === 'correct' && !online()" [attr.aria-label]="pencilLabel(line)" (click)="correct.emit(line)">
@@ -57,7 +66,7 @@ export function lineOf(fact: FactPayload): { readonly picto: PictogramName; read
               </button>
             }
             @if (!line.retracted) {
-              <app-pictogram class="state" [picto]="line.waiting ? 'stamp-pending' : 'stamp-done'" />
+              <app-pictogram class="state" [picto]="line.waiting || line.mediaWaiting ? 'stamp-pending' : 'stamp-done'" />
             }
           </li>
         }
@@ -104,10 +113,10 @@ export class DayJournal {
   }
 
   protected pictoOf(line: NamedLine): PictogramName {
-    return lineOf(line.fact).picto;
+    return lineOf(line.fact, line.delivery).picto;
   }
 
   protected wordsOf(line: NamedLine): string {
-    return lineOf(line.fact).words;
+    return lineOf(line.fact, line.delivery).words;
   }
 }

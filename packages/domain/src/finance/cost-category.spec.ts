@@ -43,12 +43,29 @@ describe("Le socle des catégories de coût", () => {
 });
 
 // Spec: backlog N.2 — les types propres à l'élevage ; cahier des charges « Référentiels à deux
-// niveaux » (Déplumage et Congélation, sous Transformation, en place d'office : décision du 2026-11-09).
-describe('Les types en place d’office dans chaque élevage', () => {
-  it('Déplumage et Congélation, rattachés à Transformation', () => {
-    expect(DEFAULT_COST_TYPES).toEqual([
-      { name: 'Déplumage', category: 'Processing' },
-      { name: 'Congélation', category: 'Processing' },
+// niveaux » (les types de départ : une liste précochée, Transformation décochée — décision du
+// fondateur, 2026-11-09).
+describe('Les types de départ de chaque élevage', () => {
+  it('un type précoché par catégorie du socle, sauf Transformation', () => {
+    expect(DEFAULT_COST_TYPES.filter(({ checked }) => checked)).toEqual([
+      { name: 'Aliment', category: 'Feed', checked: true },
+      { name: 'Poussins', category: 'Chicks', checked: true },
+      { name: 'Vaccins et soins', category: 'Health', checked: true },
+      { name: 'Copeaux', category: 'Bedding', checked: true },
+      { name: 'Salaire du gardien', category: 'Labour', checked: true },
+      { name: 'Équipement', category: 'Equipment', checked: true },
+      { name: 'Nettoyage et désinfection', category: 'Cleaning', checked: true },
+      { name: 'Transport', category: 'Transport', checked: true },
+      { name: 'Eau et électricité', category: 'Utilities', checked: true },
+      { name: 'Frais financiers', category: 'FinancialCharges', checked: true },
+      { name: 'Autres', category: 'Other', checked: true },
+    ]);
+  });
+
+  it('Déplumage et Congélation, sous Transformation, sont dans la liste mais décochés : tout le monde ne transforme pas', () => {
+    expect(DEFAULT_COST_TYPES.filter(({ checked }) => !checked)).toEqual([
+      { name: 'Déplumage', category: 'Processing', checked: false },
+      { name: 'Congélation', category: 'Processing', checked: false },
     ]);
     expect(Object.isFrozen(DEFAULT_COST_TYPES)).toBe(true);
   });

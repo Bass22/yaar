@@ -85,9 +85,16 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
       await tx.tenant.create({ data: { id: tenantId, name: tenantName, currency: input.currency } });
       await tx.site.create({ data: { id: siteId, tenantId, name: siteName, timeZone: timeZone.value } });
       await tx.user.create({ data: { id: adminId, tenantId, phone: input.adminPhone, name: adminName, role: 'admin', pinHash } });
-      // The types every farm starts with (N.2): Déplumage and Congélation, under Processing.
+      // The list every farm starts with (N.2): checked types in service, unchecked ones archived.
       await tx.costType.createMany({
-        data: DEFAULT_COST_TYPES.map(({ name, category }) => ({ id: ids(), tenantId, category, name, behaviour: COST_CATEGORIES.find((entry) => entry.category === category)?.behaviour ?? 'Variable' })),
+        data: DEFAULT_COST_TYPES.map(({ name, category, checked }) => ({
+          id: ids(),
+          tenantId,
+          category,
+          name,
+          behaviour: COST_CATEGORIES.find((entry) => entry.category === category)?.behaviour ?? 'Variable',
+          archivedAt: checked ? null : now(),
+        })),
       });
       await recordAudit(tx, tenantId, { action: 'AdminAdded', actorId: null, subjectId: adminId, deviceId: null }, now());
     });

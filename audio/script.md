@@ -140,13 +140,19 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 
 | Id | Phrase | Quand | Wolof |
 |---|---|---|---|
-| `delivery-announced` | Le chef a commandé des sacs d'aliment. Quand le camion arrive, appuie sur le bouton vert, et compte les sacs. | Carte de livraison annoncée | |
-| `delivery-expected` | Sacs attendus : *nombre*. | Juste après — **composé** | |
-| `delivery-how-many` | Combien de sacs reçus ? Sur l'écran, chaque paquet dessiné fait quatre sacs. Compte, et corrige si besoin. | Le compteur de réception s'ouvre | |
-| `delivery-received` | Sacs reçus : *nombre*. | Confirmation — **composé** | |
-| `delivery-short` | Attention : il en manque. Le chef en attendait plus. | Moins que commandé | |
-| `delivery-bonus` | Il y en a plus que la commande : c'est un bonus. | Plus que commandé | |
-| `delivery-paper` | Dernière chose : le papier du livreur. Prends-le en photo. S'il n'y a pas de papier, appuie sur le bouton gris. | Après le Oui de la réception | |
+| `delivery-announced` | Le chef a commandé. Quand le camion arrive, appuie sur le bouton vert, et compte ce qui est arrivé. | Carte de livraison annoncée (Q.7 : une carte pour toutes les lignes attendues) | |
+| `delivery-choose` | Qu'est-ce que le camion a apporté ? Touche chaque chose, puis appuie sur « Je compte ». | Plusieurs lignes attendues : le choix s'ouvre (Q.7) | |
+| `delivery-how-many` | Combien de sacs reçus ? Sur l'écran, chaque paquet dessiné fait quatre sacs. Compte, et corrige si besoin. | Le compteur s'ouvre sur des sacs | |
+| `delivery-how-many-boxes` | Combien de cartons de poussins reçus ? Compte les cartons. | Le compteur s'ouvre sur des cartons de poussins (Q.7) | |
+| `delivery-how-many-units` | Combien en as-tu reçu ? Compte, et corrige si besoin. | Le compteur s'ouvre sur autre chose (Q.7) | |
+| `delivery-received` | Sacs reçus : *nombre*. | Relecture, des sacs — **composé** | |
+| `delivery-received-boxes` | Cartons reçus : *nombre*. | Relecture, des cartons — **composé** | |
+| `delivery-received-units` | Reçus : *nombre*. | Relecture, autre chose — **composé** | |
+| `delivery-short` | Attention : il en manque. | Moins que ce qui restait à venir | |
+| `delivery-expected` | Le chef en attendait : *nombre*. | Juste après le manque — **composé** (le nombre dans l'unité comptée) | |
+| `delivery-bonus` | Il y en a plus que la commande : c'est un bonus. | Plus que ce qui restait à venir | |
+| `delivery-paper` | Dernière chose : le papier du livreur. Prends-le en photo. S'il n'y a pas de papier, appuie sur le bouton gris. | Après la dernière ligne comptée | |
+| `delivery-paper-camera-refused` | L'appareil photo ne s'ouvre pas. Appuie sur « Pas de papier », et garde le papier pour le chef. | Photo du papier illisible (Q.8) | |
 | `delivery-paper-saved` | C'est noté, et le papier est bien gardé. Merci ! | Réception avec papier | |
 
 ## 9. Pesée
@@ -169,7 +175,9 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `voice-sent` | C'est envoyé. Le chef va écouter ton message. | Message envoyé | |
 | `talk-no-chef` | Le numéro du chef n'est pas encore dans le cahier. Appelle-le directement. | « Parler » touché sans admin à joindre (M.5) | |
 | `photo-take` | Prends la photo de ce que tu veux montrer au chef. | L'appareil photo s'ouvre | |
-| `photo-sent` | C'est envoyé. Le chef va regarder ta photo. | Photo envoyée | |
+| `photo-sent` | C'est noté. Le chef verra ta photo. | Photo gardée sur le téléphone, elle part avec le réseau (M.3 ; « envoyé » serait faux sans réseau) | |
+| `photo-camera-refused` | L'appareil photo ne s'ouvre pas. Appelle le chef pour qu'il t'aide. | Appareil photo refusé ou en panne (M.3) | |
+| `photo-phone-full` | Le téléphone est plein de photos qui attendent le réseau. Va où il y a du réseau, puis recommence. | Trop de photos en attente (M.2) | |
 
 ## 11. Envoi et refus
 
@@ -212,4 +220,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 414 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 422 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
