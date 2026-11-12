@@ -127,10 +127,24 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
   }
 
   switch (type as Fact['type']) {
-    case 'Death':
+    case 'Death': {
+      const quantity = quantityOf(raw, 'quantity');
+      if (!quantity.ok) return quantity;
+      if (raw['deathEvidence'] === undefined) return ok({ type: 'Death', quantity: quantity.value });
+      // Added by K.6: photographed with its fingerprint, or no photo — nothing else.
+      const evidence = raw['deathEvidence'];
+      if (isObject(evidence) && evidence['kind'] === 'NoPhoto' && unknownField(evidence, ['kind'], 'fact.deathEvidence.') === null) {
+        return ok({ type: 'Death', quantity: quantity.value, deathEvidence: { kind: 'NoPhoto' } });
+      }
+      if (isObject(evidence) && evidence['kind'] === 'Photographed' && unknownField(evidence, ['kind', 'media'], 'fact.deathEvidence.') === null) {
+        const media = MediaFingerprint(evidence['media']);
+        return media.ok ? ok({ type: 'Death', quantity: quantity.value, deathEvidence: { kind: 'Photographed', media: media.value } }) : malformed('fact.deathEvidence.media');
+      }
+      return malformed('fact.deathEvidence');
+    }
     case 'BagOpened': {
       const quantity = quantityOf(raw, 'quantity');
-      return quantity.ok ? ok({ type: type as 'Death' | 'BagOpened', quantity: quantity.value }) : quantity;
+      return quantity.ok ? ok({ type: 'BagOpened', quantity: quantity.value }) : quantity;
     }
     case 'NoLoss':
       return ok({ type: 'NoLoss' });
@@ -196,6 +210,7 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
 // schema only grows by optional fields).
 const OPTIONAL_FIELDS: { readonly [Type in Fact['type']]?: readonly string[] } = {
   Weighing: ['photos'],
+  Death: ['deathEvidence'],
 };
 
 // The fields of each type of fact, besides `type`. Closed: a type absent here is unknown.

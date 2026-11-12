@@ -28,4 +28,5 @@ export const DEATHS: Gesture = {
   unit: 'mort',
   howMany: 'deaths-how-many',
   confirmationOf,
+  photographed: true,
 };

@@ -39,7 +39,7 @@ describe('Déclarer des morts', () => {
   let taps: number;
 
   const ouvre = async (context: CaretakerContext = contexte(), outboxProvider: { useValue: Promise<Outbox> } | { useFactory: () => Promise<Outbox> } = { useValue: Promise.resolve(outbox) }) => {
-    const voice = provideHeardVoice(['deaths-how-many', 'deaths-today-1', 'deaths-today-2', 'deaths-today-3', 'deaths-yesterday-1', 'confirm', 'already-written-5', 'deaths-in-addition-1', 'cancelled', 'written-thanks', 'storage-full', 'past-day-yesterday']);
+    const voice = provideHeardVoice(['deaths-how-many', 'deaths-today-1', 'deaths-today-2', 'deaths-today-3', 'deaths-yesterday-1', 'confirm', 'already-written-5', 'deaths-in-addition-1', 'deaths-show', 'cancelled', 'written-thanks', 'storage-full', 'past-day-yesterday']);
     heard = voice.heard;
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), { provide: OUTBOX, ...outboxProvider }, { provide: CLOCK, useValue: { now: () => NOW } }, ...voice.providers],
@@ -93,7 +93,7 @@ describe('Déclarer des morts', () => {
     expect(taps).toBe(3);
     await soon(async () => expect(await ecrits()).toHaveLength(1));
     expect(await ecrits()).toEqual([
-      { id: expect.any(String), siteId: NORD, campaignId: BANDE, businessDate: '2026-11-06', recordedAt: '2026-11-06T08:00:00.000Z', fact: { type: 'Death', quantity: 1 } },
+      { id: expect.any(String), siteId: NORD, campaignId: BANDE, businessDate: '2026-11-06', recordedAt: '2026-11-06T08:00:00.000Z', fact: { type: 'Death', quantity: 1, deathEvidence: { kind: 'NoPhoto' } } },
     ]);
   });
 
@@ -114,7 +114,7 @@ describe('Déclarer des morts', () => {
     await tape('app-sheet section.on .plus');
     await tape('app-sheet section.on .yes');
 
-    await soon(() => expect(heard).toEqual([['wo/deaths-how-many'], ['wo/deaths-today-2', 'wo/confirm']]));
+    await soon(() => expect(heard).toEqual([['wo/deaths-how-many'], ['wo/deaths-today-2', 'wo/confirm', 'wo/deaths-show']]));
     expect(ouverte(element)?.querySelector('.phrase')?.textContent).toContain("2 poulets morts aujourd'hui ?");
     expect(ouverte(element)?.querySelector('.title')?.textContent).toBe("C'est bien ça ?");
   });
@@ -127,7 +127,7 @@ describe('Déclarer des morts', () => {
     await tape('app-sheet section.on .yes');
 
     await soon(async () => expect(await ecrits()).toHaveLength(1));
-    await soon(() => expect(heard).toContainEqual(['wo/deaths-yesterday-1', 'wo/confirm']));
+    await soon(() => expect(heard).toContainEqual(['wo/deaths-yesterday-1', 'wo/confirm', 'wo/deaths-show']));
     expect((await ecrits())[0]?.businessDate).toBe('2026-11-05');
   });
 
@@ -138,7 +138,7 @@ describe('Déclarer des morts', () => {
     await tape('app-declaration-gesture.death app-gesture-button button');
     await tape('app-sheet section.on .yes');
 
-    await soon(() => expect(heard.at(-1)).toEqual(['wo/deaths-today-1', 'wo/already-written-5', 'wo/deaths-in-addition-1']));
+    await soon(() => expect(heard.at(-1)).toEqual(['wo/deaths-today-1', 'wo/already-written-5', 'wo/deaths-in-addition-1', 'wo/deaths-show']));
     expect(ouverte(element)?.querySelector('.already')?.textContent).toContain('Il y a déjà 5 morts écrits pour ce jour. Ton mort, c’est en plus ?');
     // The title asks what the voice asks: « c'est en plus ? », not « c'est bien ça ? ».
     expect(ouverte(element)?.querySelector('.title')?.textContent).toBe('C’est en plus ?');

@@ -7,7 +7,13 @@ type Uuid = string;
 
 /** The fact observed, without its envelope. Facts only: never an average, never an amount. */
 export type FactPayload =
-  | { readonly type: 'Death' | 'BagOpened'; readonly quantity: number }
+  | {
+      readonly type: 'Death';
+      readonly quantity: number;
+      /** Whether the caretaker showed the dead (K.6): absent when never asked — not « no photo ». */
+      readonly deathEvidence?: { readonly kind: 'Photographed'; readonly media: string } | { readonly kind: 'NoPhoto' };
+    }
+  | { readonly type: 'BagOpened'; readonly quantity: number }
   | { readonly type: 'NoLoss' }
   | { readonly type: 'Loss'; readonly lossType: 'Missing' | 'Donation' | 'Theft'; readonly quantity: number }
   | {
@@ -185,4 +191,11 @@ export interface WeighingsView {
   /** Validated weighings only, earliest first. */
   readonly curve: readonly { readonly weighingId: string; readonly campaignDay: number; readonly average: number }[];
   readonly toValidate: readonly WeighingToValidate[];
+}
+
+/** Answer of GET /api/v1/campaigns/:id/death-photos (admin, K.6): for each caretaker, how its death declarations were answered. */
+export interface DeathPhotosView {
+  readonly campaignId: string;
+  /** By name. Declarations taken back do not count. */
+  readonly caretakers: readonly { readonly authorId: string; readonly name: string; readonly photographed: number; readonly noPhoto: number; readonly unanswered: number }[];
 }

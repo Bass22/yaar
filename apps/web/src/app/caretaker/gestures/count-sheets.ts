@@ -40,10 +40,19 @@ import type { Gesture } from './gesture';
         @if (confirmation().already; as already) {
           <p class="already">{{ already }}</p>
         }
-        <div class="actions">
-          <button type="button" class="no" (click)="cancel()"><app-pictogram picto="cross" [decorative]="true" /> Non</button>
-          <button type="button" class="yes" [disabled]="saving()" (click)="confirm()"><app-pictogram picto="check" [decorative]="true" /> Oui</button>
-        </div>
+        @if (askPhoto()) {
+          <!-- Two Oui (K.6): always answered, never blocking — « pas de photo » writes at once. -->
+          <div class="actions photo">
+            <button type="button" class="no" (click)="cancel()"><app-pictogram picto="cross" [decorative]="true" /> Non</button>
+            <button type="button" class="yes no-photo" [disabled]="saving()" (click)="confirm()">Oui, pas de photo</button>
+            <button type="button" class="yes show" [disabled]="saving()" (click)="show()"><app-pictogram picto="camera-white" [decorative]="true" /> Oui, je montre</button>
+          </div>
+        } @else {
+          <div class="actions">
+            <button type="button" class="no" (click)="cancel()"><app-pictogram picto="cross" [decorative]="true" /> Non</button>
+            <button type="button" class="yes" [disabled]="saving()" (click)="confirm()"><app-pictogram picto="check" [decorative]="true" /> Oui</button>
+          </div>
+        }
       </app-sheet>
       <app-stamp [shown]="stamped()" [word]="stampWord()" />
     </div>
@@ -67,6 +76,10 @@ import type { Gesture } from './gesture';
     .no { flex: 1; background: var(--color-neutral); color: var(--color-on-sign); }
     .yes { flex: 2; background: var(--color-pasture); color: var(--color-on-sign); }
     .yes:disabled { opacity: 0.6; cursor: wait; }
+    .actions.photo { display: grid; grid-template-columns: 1fr 2fr; grid-template-areas: 'show show' 'no no-photo'; }
+    .actions.photo .show { grid-area: show; }
+    .actions.photo .no { grid-area: no; }
+    .actions.photo .no-photo { grid-area: no-photo; background: var(--color-earth); font-size: 1.05rem; }
   `,
 })
 export class CountSheets {
@@ -84,6 +97,10 @@ export class CountSheets {
   readonly stampWord = input('C’est noté !');
   /** Oui on the read-back, with the count. */
   readonly confirmed = output<number>();
+  /** The read-back offers two Oui (K.6): « Oui, je montre » — the photo first —, and « Oui, pas de photo ». */
+  readonly askPhoto = input(false);
+  /** « Oui, je montre », with the count: the host opens the camera. */
+  readonly showing = output<number>();
 
   protected readonly step = signal<'closed' | 'count' | 'confirm'>('closed');
   protected readonly count = signal(1);
@@ -114,7 +131,7 @@ export class CountSheets {
 
   protected readBack(): void {
     this.step.set('confirm');
-    void this.voice.say(this.confirmation().phrase);
+    void this.voice.say(this.askPhoto() ? [...this.confirmation().phrase, clip('deaths-show')] : this.confirmation().phrase);
   }
 
   protected cancel(): void {
@@ -128,6 +145,12 @@ export class CountSheets {
   protected confirm(): void {
     if (this.step() === 'confirm' && !this.saving()) {
       this.confirmed.emit(this.count());
+    }
+  }
+
+  protected show(): void {
+    if (this.step() === 'confirm' && !this.saving()) {
+      this.showing.emit(this.count());
     }
   }
 }

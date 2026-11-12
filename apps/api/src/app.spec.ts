@@ -97,6 +97,8 @@ describe("Démarrage de l'API", () => {
     expect(routes).toEqual([
       'DELETE /api/v1/sites/:siteId/staff/:userId',
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
+      // Admin only: how each caretaker answered for the dead, photo or not (K.6).
+      'GET /api/v1/campaigns/:id/death-photos',
       // Admin only: the money of a campaign — committed, cost per bird, costs and their history (P.3).
       'GET /api/v1/campaigns/:id/money',
       // Admin only: the sales of a campaign, revenue, cashed in, margin, average price (W.3).

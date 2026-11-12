@@ -914,16 +914,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] ~~Le contexte du gardien donne la date de saisie de la dernière correction~~ sans objet depuis la correction en ligne : voir la note d'une ligne (J.3 ne reçoit que la valeur effective) : sans elle, une correction écrite hors-ligne plus tôt passerait, sur le téléphone, devant une correction plus récente reçue du serveur
 - [x] Aucun geste ne supprime une ligne du journal
 
-### K.6 — La photo des morts · **M** · 🎨 · 🧪
+### K.6 — La photo des morts · **M** · 🎨 · 🧪 ✅ (écran à valider par le fondateur, à éprouver sur le terrain)
 > Spec : CdC « Photo des morts » · Zone : `apps/web/src/app/caretaker/gestures/death/`, `packages/domain/src/journal/` (champ facultatif du fait `Death`, ajouté sans rien changer au sens des autres)
 > Dépend de : M.3 · Revue : jamais bloquante ; la règle des trois taps tient sans photo.
 
-- [ ] La relecture des morts offre deux Oui : « Oui, je montre » ouvre l'appareil photo, « Oui, pas de photo » écrit tout de suite (maquette d'abord)
-- [ ] La déclaration porte sa réponse : photographiée (avec l'empreinte du média) ou pas de photo ; sans réponse (ancienne version, admin), elle n'est pas comptée comme « pas de photo »
-- [ ] La photo part avec la déclaration, ou après elle quand le réseau revient : la déclaration n'attend jamais la photo
-- [ ] Appareil photo refusé ou en panne : la déclaration s'écrit « pas de photo », et l'écran le dit
-- [ ] Le bureau voit la part des morts photographiés, par gardien
-- [ ] Une consigne de prise de vue est dite quand l'appareil s'ouvre, pour des photos utiles à l'entraînement (par exemple « les morts posés au sol, entiers, à la lumière ») — texte et phrase du script à trancher avec le fondateur avant de coder
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Consigne du fondateur : « Prends en photo tous les morts, dans un endroit bien éclairé. » Pas de maquette à part : l'écran réel, à valider. Domaine : le fait `Death` gagne `deathEvidence` (`Photographed` avec l'empreinte, ou `NoPhoto`), facultatif et gelé. Serveur : décodé (toute autre forme refusée), photo lisible par l'admin, `GET /api/v1/campaigns/:id/death-photos` (admin) : par gardien, photographiées, « pas de photo », sans réponse ; les annulées ne comptent pas. Cahier : la relecture des morts offre « Oui, je montre » (la consigne dite, l'appareil s'ouvre, la photo part en preuve opérationnelle, la déclaration la cite) et « Oui, pas de photo » (trois taps) ; la voix demande s'il montre ; appareil refusé ou téléphone plein : écrit « pas de photo », dit à l'écran et à la voix. Un sac ouvert garde un seul Oui. Bureau : page des lots, « Les morts en photo », « Ousmane 1 sur 3 en photo · 1 sans réponse ». 3 clips audio (467).
+
+- [x] La relecture des morts offre deux Oui : « Oui, je montre » ouvre l'appareil photo, « Oui, pas de photo » écrit tout de suite (maquette d'abord)
+- [x] La déclaration porte sa réponse : photographiée (avec l'empreinte du média) ou pas de photo ; sans réponse (ancienne version, admin), elle n'est pas comptée comme « pas de photo »
+- [x] La photo part avec la déclaration, ou après elle quand le réseau revient : la déclaration n'attend jamais la photo
+- [x] Appareil photo refusé ou en panne : la déclaration s'écrit « pas de photo », et l'écran le dit
+- [x] Le bureau voit la part des morts photographiés, par gardien
+- [x] Une consigne de prise de vue est dite quand l'appareil s'ouvre, pour des photos utiles à l'entraînement (par exemple « les morts posés au sol, entiers, à la lumière ») — texte et phrase du script à trancher avec le fondateur avant de coder
 
 ## L — Tâches et météo
 

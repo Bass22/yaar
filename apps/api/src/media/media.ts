@@ -39,7 +39,7 @@ export async function readMedia(tx: Tx, tenantId: string, sha256: string): Promi
   const media = await tx.media.findUnique({ where: { tenantId_sha256: { tenantId, sha256 } }, select: { contentType: true } });
   if (media === null) return null;
   const cited = await tx.journalEvent.findFirst({
-    where: { OR: [{ fact: { path: ['media'], equals: sha256 } }, { fact: { path: ['deliveryNote', 'media'], equals: sha256 } }, { fact: { path: ['photos'], array_contains: [sha256] } }] },
+    where: { OR: [{ fact: { path: ['media'], equals: sha256 } }, { fact: { path: ['deliveryNote', 'media'], equals: sha256 } }, { fact: { path: ['photos'], array_contains: [sha256] } }, { fact: { path: ['deathEvidence', 'media'], equals: sha256 } }] },
     select: { id: true },
   });
   if (cited !== null) return media;

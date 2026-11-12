@@ -28,6 +28,8 @@ export type Gesture = {
   readonly unit: string;
   readonly howMany: ScriptClip;
   readonly confirmationOf: (count: number, when: NotebookDay['when'], alreadyWritten: number | null) => Confirmation;
+  /** The read-back asks whether the caretaker shows what was counted (K.6): the dead only. */
+  readonly photographed?: true;
 };
 
 /** The phrases recorded whole stop here; beyond, « c'est en plus ? » no longer says the number, just said. */
