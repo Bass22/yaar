@@ -237,4 +237,56 @@ describe('Les pesées, au bureau', () => {
 
     expect(all('.curve li').map(text)).toEqual([`Jour 14 600 g cible ${milliers(CIBLE_J14)} g`]);
   });
+
+  // Spec: backlog V.2 — la courbe de poids contre la souche ; cahier des charges « Le graphe du poids »
+  describe('le graphe du poids', () => {
+    it('la cible de la souche en pointillés, les pesées validées en points reliés, la dernière avec sa moyenne', async () => {
+      // Given deux pesées validées : J14 600 g, J21 900 g
+      const { element, all } = await ouvre('/admin/lots/pesees', pesees({ curve: [{ weighingId: uuid(201), campaignDay: 14, average: 600 }, { weighingId: uuid(202), campaignDay: 21, average: 900 }] }));
+      const chart = element().querySelector('app-weight-chart svg');
+
+      // Then la cible part de J0 ; les points sont à J14 (122 ; 128,8) et J21 (169 ; 114,2), reliés
+      expect(chart?.querySelector('.target')?.getAttribute('d')).toMatch(/^M28\.0 156\.0 L/);
+      expect(chart?.querySelector('.real')?.getAttribute('d')).toBe('M122.0 128.8 L169.0 114.2');
+      expect(all('app-weight-chart circle').map((point) => [point.getAttribute('cx'), point.getAttribute('cy')])).toEqual([
+        ['122', '128.8'],
+        ['169', '114.2'],
+      ]);
+      expect(text(chart?.querySelector('.last'))).toBe('900 g');
+      expect(chart?.getAttribute('role')).toBe('img');
+      expect(chart?.getAttribute('aria-label')).toBe(`Courbe de poids : 2 pesées validées, la dernière à J21 : 900 g, la cible Cobb 500 ce jour-là : ${milliers(targetAt(STRAINS[0]!, 21)!.weight)} g.`);
+      expect(text(element().querySelector('app-weight-chart .legend'))).toBe('Cobb 500 (guide) tes pesées validées');
+    });
+
+    it('sans pesée validée, seule la cible s’affiche, et l’écran le dit', async () => {
+      const { element } = await ouvre('/admin/lots/pesees', pesees({ curve: [] }));
+      const chart = element().querySelector('app-weight-chart svg');
+
+      expect(chart?.querySelector('.target')).not.toBeNull();
+      expect(chart?.querySelector('.real')).toBeNull();
+      expect(chart?.querySelectorAll('circle')).toHaveLength(0);
+      expect(chart?.getAttribute('aria-label')).toBe('Courbe de poids : aucune pesée validée ; la cible Cobb 500 seule.');
+      expect(text(element().querySelector('app-weight-chart .legend'))).toBe('Cobb 500 (guide)');
+    });
+
+    it('le graphe tient dans la largeur de l’écran : il s’étire à 100 %, son dessin garde ses proportions', async () => {
+      const { element } = await ouvre('/admin/lots/pesees');
+      const chart = element().querySelector('app-weight-chart svg');
+
+      expect(chart?.getAttribute('viewBox')).toBe('0 0 320 180');
+      expect(chart?.hasAttribute('width')).toBe(false);
+    });
+
+    it('le dernier jour finit au bord droit sans être coupé ; l’unité « kg » ne chevauche pas le plus haut kilo', async () => {
+      const { all } = await ouvre('/admin/lots/pesees');
+      const days = all('app-weight-chart text.tick').filter((tick) => /^J\d+$/.test(text(tick)));
+      const last = days.at(-1);
+
+      // Then « J42 » s'aligne par sa fin à x = 310 + 8 = 318, dans les 320 du dessin ; les autres jours restent centrés
+      expect([text(last), last?.getAttribute('text-anchor'), last?.getAttribute('x')]).toEqual(['J42', 'end', '318']);
+      expect(days.slice(0, -1).every((day) => day.getAttribute('text-anchor') === 'middle')).toBe(true);
+      // « kg » s'écrit à droite de l'axe (x = 34), les kilos à gauche (x = 18)
+      expect(all('app-weight-chart text.unit').map((unit) => [text(unit), unit.getAttribute('x')])).toEqual([['kg', '34']]);
+    });
+  });
 });

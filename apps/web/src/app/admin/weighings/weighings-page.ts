@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { WeighingToValidate } from '@contracts';
 import { averageWeight, STRAINS, targetAt, Weight, weightBounds } from '@domain/journal';
 import { Pictogram } from '../../ui/pictogram';
+import { WeightChart } from '../tracking/weight-chart/weight-chart';
 import { FiguresAge } from '../figures-age';
 import { Office } from '../office';
 import { Weighings } from './weighings';
@@ -20,7 +21,7 @@ type Draft = { readonly typed: readonly string[]; readonly problem: string | nul
 // curve, validated weighings only, against the strain's target. Stands in for the inbox (O.4).
 @Component({
   selector: 'app-weighings-page',
-  imports: [FiguresAge, Pictogram, RouterLink],
+  imports: [FiguresAge, Pictogram, RouterLink, WeightChart],
   providers: [Weighings],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -101,6 +102,9 @@ type Draft = { readonly typed: readonly string[]; readonly problem: string | nul
     @if (weighings.view()?.curve?.length === 0) {
       <p class="none"><app-pictogram picto="scale" [decorative]="true" /> Aucune pesée validée pour ce lot.</p>
     }
+    @if (weighings.view(); as view) {
+      <app-weight-chart [curve]="view.curve" [strain]="strain()" />
+    }
     <ol class="curve">
       @for (point of weighings.view()?.curve ?? []; track point.weighingId) {
         <li>
@@ -163,6 +167,7 @@ type Draft = { readonly typed: readonly string[]; readonly problem: string | nul
     .weight input:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
     .average { margin: 10px 0 0; font: 700 1.1rem var(--font-hand); color: var(--color-ink); }
     .problem { margin: 8px 0 0; padding: 6px 10px; border: 2px dashed var(--color-alert); background: var(--color-alert-light); color: var(--color-alert); font-weight: 700; }
+    app-weight-chart { margin-block-end: 12px; }
     .curve { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
     .curve li { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: var(--color-shell); border: 2px solid var(--color-card-edge); border-radius: var(--radius-wobble-2); }
     .curve .day { min-inline-size: 64px; font-weight: 700; color: var(--color-earth); }
@@ -192,7 +197,7 @@ export class WeighingsPage {
   protected readonly photoUrls = signal<ReadonlyMap<string, string>>(new Map());
   private readonly destroyRef = inject(DestroyRef);
 
-  private readonly strain = computed(() => STRAINS.find(({ code }) => code === this.weighings.view()?.strain) ?? null);
+  protected readonly strain = computed(() => STRAINS.find(({ code }) => code === this.weighings.view()?.strain) ?? null);
 
   constructor() {
     effect(() => {

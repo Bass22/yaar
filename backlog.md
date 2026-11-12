@@ -1581,14 +1581,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'indice de consommation vaut l'aliment consommé ÷ les kilos produits
 - [ ] Sans pesée validée, l'indice est absent, pas zéro
 
-### V.2 — La courbe de poids contre la souche · **M**
+### V.2 — La courbe de poids contre la souche · **M** ✅
 > Spec : CdC « Suivi » ; `bureau-admin.html` (graphe poids) · Zone : `apps/web/src/app/admin/tracking/weight-chart/`
 > Dépend de : T.5, N.4 · Revue : la géométrie du graphe est une fonction pure.
 
-- [ ] La courbe réelle relie les pesées validées
-- [ ] La courbe cible vient de la souche de la campagne
-- [ ] Sans pesée validée, seule la courbe cible s'affiche
-- [ ] Le graphe se lit à 360 px de large
+> Livrée le 2026-11-12, aucune dépendance ajoutée, aucun changement d'API (la courbe et la souche étaient déjà dans `GET /api/v1/campaigns/:id/weighings`). Règle écrite d'abord au CdC (« Le graphe du poids »). `weightChart(courbe, souche)` (`weight-chart-geometry.ts`), pure : jours de J0 à J42, ou jusqu'à la semaine entière qui suit une pesée plus tardive ; kilos gradués jusqu'au kilo au-dessus du plus haut poids montré ; cible jour par jour tant que la table la donne ; pesées triées par jour, reliées à partir de deux ; la dernière porte sa moyenne, écrite à gauche près du bord droit. Coordonnées des tests calculées à la main. `WeightChart` dessine en SVG à 100 % de la largeur (jetons seuls, aucune couleur écrite), avec une description pour qui écoute l'écran. **Placé sur la page des pesées** en attendant l'onglet Suivi (V.3), qui le reprendra ; la liste des pesées reste dessous.
+
+- [x] La courbe réelle relie les pesées validées
+- [x] La courbe cible vient de la souche de la campagne
+- [x] Sans pesée validée, seule la courbe cible s'affiche
+- [x] Le graphe se lit à 360 px de large
 
 ### V.3 — Les indicateurs du suivi · **M**
 > Spec : CdC « Suivi » (KPI) · Zone : `apps/web/src/app/admin/tracking/`
