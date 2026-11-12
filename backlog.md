@@ -82,7 +82,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Une vente diminue-t-elle le compteur de vivants vu par le gardien ?~~ ✅ tranché le 2026-11-12 : oui, les poulets vendus sortent des vivants ; le restant à vendre = les vivants. Prix par tête ou au kilo, au choix à chaque vente ; l'acheteur paie tout, une partie ou rien sur le moment, le reste est une créance | CdC « Les ventes » | ~~W.1~~ |
 | ~~Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale)~~ ✅ tranché le 2026-11-07 : la balance n'est pas modélisée — un poids est un entier de grammes positif, saisi tel que lu (le gardien peut le taper), sans capacité ; la forme de la saisie se décide avec `/designer` | CdC « Demande de pesée » | ~~T.3~~ |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
-| Le demi-sac entamé laissé à la clôture sort-il de la consommation d'aliment de la bande (−25 kg) ? Aujourd'hui non | CdC « Les restes et le bilan » | Rien ; affine V.1 |
+| ~~Le demi-sac entamé laissé à la clôture sort-il de la consommation d'aliment de la bande (−25 kg) ?~~ ✅ tranché le 2026-11-12 : oui, au dernier jour où un sac a été ouvert | CdC « Les restes et le bilan » | ~~X.2~~ |
+| L'aliment acheté au poids (15 kg au lieu d'un sac de 50 kg, vu par le fondateur le 2026-11-12) : comment le commander, et comment le gardien le déclare-t-il ouvert ? Aujourd'hui tout l'aliment se compte en sacs de 50 kg (V.1) : 15 kg commandés comme un sac comptent 50 kg mangés et faussent le prix moyen des restes | Fondateur, 2026-11-12 | V.1, X.1 (exactitude) |
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
 | Correspondance des onglets Excel vers les événements | CdC « Points ouverts » | Z.6 |
@@ -1438,17 +1439,19 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## S — Budget et échéances
 
-### S.1 — Le budget est un plan, jamais une dette · **M**
+### S.1 — Le budget est un plan, jamais une dette · **M** ✅
 > Spec : CdC « Budget de campagne » · Zone : `packages/domain/src/finance/budget.ts`
 > Dépend de : P.1 · Revue : le budget ne touche ni l'engagé ni le grand livre.
+> Décisions du fondateur (2026-11-12) : un poste = une catégorie ; proposition = médiane du coût par poussin reçu des bandes closes × effectif prévu, que l'admin change à sa guise ; le budget se tient sur la bande, modifiable jusqu'à la clôture, chaque écriture tracée.
 
-- [ ] Un budget prévisionnel se saisit par poste à l'ouverture de la campagne
-- [ ] Il est pré-rempli depuis l'historique : coût par poussin des campagnes passées × effectif
-- [ ] Sans historique, le pré-remplissage est vide, pas à zéro
-- [ ] L'écart budget − engagé se calcule par poste
-- [ ] Saisir un budget ne change ni l'engagé ni aucun solde de tiers
+- [x] Un budget prévisionnel se saisit par poste (catégorie) sur la bande, modifiable jusqu'à la clôture, depuis Lots → « Le budget » (l'ouverture ne l'enchaîne pas encore)
+- [x] Il est pré-rempli depuis l'historique : médiane du coût par poussin reçu des bandes closes × effectif prévu (décision du 2026-11-12)
+- [x] Sans historique, le pré-remplissage est vide, pas à zéro
+- [x] L'écart budget − engagé se calcule par poste
+- [x] Saisir un budget ne change ni l'engagé ni aucun solde de tiers
 
-### S.2 — Les échéances récurrentes créent leur dette à date · **M** · 🧪
+### S.2 — ⏸ Les échéances récurrentes créent leur dette à date · **M** · 🧪
+> **Reportée par le fondateur le 2026-11-12** : pour le moment, tout coût se crée ou se duplique depuis l'existant ; le fondateur dira quand gérer les échéances récurrentes.
 > Spec : CdC « échéances récurrentes » · Zone : `packages/domain/src/finance/recurring-charge.ts`, tâche planifiée de l'API
 > Dépend de : R.1 · Revue : relancer la tâche ne crée pas deux dettes.
 
@@ -1457,13 +1460,13 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] La tâche planifiée relancée ne crée pas de doublon
 - [ ] Une échéance d'une campagne clôturée ne crée plus rien
 
-### S.3 — Budget contre engagé à l'écran · **S**
+### S.3 — Budget contre engagé à l'écran · **S** ✅ (écran à valider par le fondateur)
 > Spec : CdC « l'onglet Argent affiche budget vs engagé par poste » · Zone : `apps/web/src/app/admin/money/budget/`
 > Dépend de : S.1, P.4 · Revue : un dépassement se lit sans la couleur seule.
 
-- [ ] Chaque poste montre son budget et son engagé
-- [ ] Un poste sans budget n'affiche pas zéro
-- [ ] Un dépassement porte icône, couleur et mot
+- [x] Chaque poste montre son budget et son engagé
+- [x] Un poste sans budget n'affiche pas zéro
+- [x] Un dépassement porte icône, couleur et mot
 
 ## T — Pesées
 
@@ -1655,24 +1658,26 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > Spec : CdC « Clôture de campagne » · Zone : `packages/domain/src/finance/closing-report.ts`, `packages/domain/src/journal/leftovers.ts`
 > Dépend de : W.1, V.1 · Revue : le bilan d'un jeu d'essai, recalculé à la main.
 
-> Décisions du fondateur (2026-11-12) : restes de tout ce qui se commande (pas les poussins) ; valeur au prix moyen payé dans la bande, qui sort de la bande close et entre dans celle qui reçoit ; l'admin choisit la bande qui reçoit (même site, pas close) ; coût par poulet et prix de vente moyen sur les poussins reçus. Reste ouvert : retirer le demi-sac entamé de la consommation (V.1) ?
+> Décisions du fondateur (2026-11-12) : restes de tout ce qui se commande (pas les poussins) ; valeur au prix moyen payé dans la bande, qui sort de la bande close et entre dans celle qui reçoit ; l'admin choisit la bande qui reçoit (même site, pas close) ; coût par poulet et prix de vente moyen sur les poussins reçus ; un entamé au plus par type, compté pour moitié (le pot d'antibiotiques comme le sac) ; le sac d'aliment entamé sort de la consommation (fait avec X.2).
 
-- [x] Les restes se saisissent en sacs entiers et en demi-sac entamé
+- [x] Les restes se saisissent en sacs ou unités entiers, plus un entamé compté pour moitié
 - [x] Les restes se transfèrent à la bande que l'admin choisit, du même site (leur valeur sort de la bande close et entre dans l'autre)
 - [x] Le bilan donne : poussins, pertes, coûts, revenus, coût par poulet, bénéfice
 - [x] Le bilan donne le prix de vente moyen par poussin reçu, face au coût par poulet
 - [x] Le bilan porte un commentaire libre
 - [x] Le bilan se recalcule à l'identique depuis les écritures
 
-### X.2 — Clôturer une campagne · **M**
+### X.2 — Clôturer une campagne · **M** ✅ (écran à valider par le fondateur)
 > Spec : CdC « Clôture de campagne » · Zone : `apps/api/src/campaigns/closing/`, `apps/web/src/app/admin/closing/`
 > Dépend de : X.1, O.2 · Revue : la clôture est tracée et ne supprime rien.
 
-- [ ] L'admin clôture une campagne après avoir saisi les restes
-- [ ] Une campagne clôturée refuse toute nouvelle déclaration
-- [ ] Le bilan n'apparaît qu'à la clôture
-- [ ] La clôture est tracée dans l'audit
-- [ ] Le gardien du site voit qu'il n'y a plus de campagne en cours
+- [x] L'admin clôture une campagne après avoir saisi les restes
+- [x] Une campagne clôturée refuse toute nouvelle déclaration
+- [x] Le bilan n'apparaît qu'à la clôture
+- [x] La clôture est tracée dans l'audit
+- [x] Le gardien du site voit qu'il n'y a plus de campagne en cours
+- [x] La bande qui reçoit les restes les paie (leur valeur entre dans son engagé) ; le sac d'aliment entamé sort de la consommation (décision du 2026-11-12)
+- [x] Les lots clôturés restent consultables, chacun avec son bilan
 
 ### X.3 — ⏸ L'événement qui arrive après la clôture · **S** · ⚠ · 🧪
 > Spec : non précisé — règle à écrire avant de coder.
@@ -1725,7 +1730,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Cela fonctionne quand l'application était fermée
 - [ ] Une notification dont la cible est inconnue ouvre l'écran d'accueil
 
-### Y.5 — Ce que chaque audience voit du bilan · **S** · 🔒
+### Y.5 — ⏸ Ce que chaque audience voit du bilan · **S** · 🔒
+> **Reportée par le fondateur le 2026-11-12** : la communication des résultats attend que les besoins réels soient validés ; on reste sur le pilotage des bandes de poulets de chair.
 > Spec : CdC « Partage du bilan », « partages sortants sans montants par défaut » · Zone : `packages/domain/src/finance/shared-report.ts`
 > Dépend de : X.1 · Revue : la version « groupe » ne contient aucun montant, par construction.
 
@@ -1734,7 +1740,8 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] L'audience par défaut est « groupe »
 - [ ] Le type de la version « groupe » ne peut pas porter de montant (test de garde)
 
-### Y.6 — Partager l'image du bilan · **M** · 🎨
+### Y.6 — ⏸ Partager l'image du bilan · **M** · 🎨
+> **Reportée par le fondateur le 2026-11-12**, avec Y.5.
 > Spec : CdC « Partage du bilan (WhatsApp) » · Zone : `apps/web/src/app/admin/closing/share/`
 > Dépend de : Y.5, X.2 · Revue : la maquette de l'image d'abord ; le tampon de la marque y figure.
 

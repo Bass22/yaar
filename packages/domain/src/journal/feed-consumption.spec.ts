@@ -55,6 +55,33 @@ describe("La consommation d'aliment", () => {
     expect(BAG_WEIGHT).toBe(50_000);
   });
 
+  describe('le sac entamé laissé à la clôture (X.2, décision du 2026-11-12)', () => {
+    // 1 000 poussins à J0 ; 2 sacs à J1 ; 100 morts à J2 ; 1 sac à J3, le dernier ouvert
+    const journal = [declare(1, 0, recus(1000)), declare(2, 1, sacs(2)), declare(3, 2, morts(100)), declare(4, 3, sacs(1))];
+    const close = (openedFeedBagsLeft: number, today = 5) =>
+      feedConsumption(journal, { campaignId: LA_BANDE, placementDay: MISE_EN_PLACE, today: jour(today), placementOrderLines: [LIGNE_POUSSINS], sold: [], strain: COBB, openedFeedBagsLeft });
+
+    it('sa moitié restante, 25 kg, sort du dernier jour où un sac a été ouvert', () => {
+      // Sans lui : J1 100 000 ÷ 1 000 = 100 ; J3 50 000 ÷ 900 = 55,56 → 156 g
+      expect(close(0).cumulative).toBe(156);
+      // Avec un sac entamé : J3 (50 000 − 25 000) ÷ 900 = 27,78 → 100 + 27,78 = 128 g
+      expect(close(1).cumulative).toBe(128);
+    });
+
+    it('les sacs restent comptés tels que déclarés', () => {
+      expect(close(1).bagsOpened).toBe(3);
+    });
+
+    it('un jour avant le dernier sac ouvert n’est pas touché (l’indice d’une pesée de J2)', () => {
+      const avecPesee = [...journal, declare(5, 2, pesee(200, 200, 200, 200, 200))];
+      const validee = valide(6, 2, avecPesee.at(-1) as Declaration);
+      const conso = feedConsumption([...avecPesee, validee], { campaignId: LA_BANDE, placementDay: MISE_EN_PLACE, today: jour(5), placementOrderLines: [LIGNE_POUSSINS], sold: [], strain: COBB, openedFeedBagsLeft: 1 });
+
+      // J2 : 100 g pour 200 g = 0,5, comme sans le sac entamé
+      expect(conso.feedConversion?.value).toBe(0.5);
+    });
+  });
+
   describe('le cumul par poulet', () => {
     it('vaut les sacs ouverts × 50 kg ÷ les vivants : à J0, 1 sac pour 1 000 poussins = 50 g par poulet', () => {
       // Given 1 000 poussins reçus et 1 sac ouvert le jour de la mise en place

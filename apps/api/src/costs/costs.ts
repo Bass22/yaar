@@ -7,6 +7,7 @@ import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
 import { birdsOf } from '../journal/caretaker-context';
 import { PrismaJournal } from '../journal/prisma-journal';
+import { leftoversReceived } from '../campaigns/leftovers';
 import { billablesOf } from '../orders/orders';
 
 type Tx = Prisma.TransactionClient;
@@ -62,7 +63,9 @@ export async function campaignMoney(tx: Tx, tenantId: TenantId, campaignId: stri
   const rows = await tx.cost.findMany({ where: { campaignId } });
   const recordedBy = new Map(rows.map((row) => [row.id, row.recordedBy]));
   const costs = effectiveCosts(rows.map((row) => entryOf(row, currency)));
-  const committed = committedCost(costs, await billablesOf(tx, tenantId, campaignId), currency);
+  // Leftovers received from a campaign closed into this one count as its cost (X.2).
+  const received = (await leftoversReceived(tx, tenantId, campaignId, currency)).map(({ value }) => value);
+  const committed = committedCost(costs, [...(await billablesOf(tx, tenantId, campaignId)), ...received], currency);
   const birds = await birdsOf(tx, campaignId, await new PrismaJournal(tx, tenantId).campaignJournal(campaignId));
   return {
     campaignId,
@@ -81,6 +84,13 @@ export async function campaignMoney(tx: Tx, tenantId: TenantId, campaignId: stri
       history: history.map((entry) => ({ id: entry.id, recordedAt: entry.recordedAt, recordedBy: recordedBy.get(entry.id) ?? '', spentOn: entry.spentOn, amount: entry.amount.amount, payment: entry.payment })),
     })),
   };
+}
+
+/** The costs of a campaign as they count (their latest value), type by type: for the budget by category (S.1). */
+export async function effectiveCampaignCosts(tx: Tx, tenantId: TenantId, campaignId: string): Promise<{ costTypeId: string; amount: Money }[]> {
+  const currency = await currencyOf(tx, tenantId);
+  const rows = await tx.cost.findMany({ where: { campaignId } });
+  return effectiveCosts(rows.map((row) => entryOf(row, currency))).map(({ current }) => ({ costTypeId: current.costTypeId, amount: current.amount }));
 }
 
 // The instant of writing is the device's when it says it (P.7, rule 2), the server's otherwise.

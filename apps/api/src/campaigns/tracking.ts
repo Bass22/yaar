@@ -18,6 +18,7 @@ import type { TrackingView } from '@contracts';
 import { campaignMoney } from '../costs/costs';
 import { PrismaJournal } from '../journal/prisma-journal';
 import { campaignSales } from '../sales/sales';
+import { writtenLeftovers } from './leftovers';
 
 type Tx = Prisma.TransactionClient;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -32,12 +33,13 @@ export async function campaignTracking(tx: Tx, tenantId: TenantId, campaignId: s
     ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { placementDay: true, plannedDuration: true, strain: true, site: { select: { timeZone: true } } } })
     : null;
   if (campaign === null) return null;
-  const [money, sales, events, chickLines, saleRows] = await Promise.all([
+  const [money, sales, events, chickLines, saleRows, leftovers] = await Promise.all([
     campaignMoney(tx, tenantId, campaignId),
     campaignSales(tx, tenantId, campaignId),
     new PrismaJournal(tx, tenantId).campaignJournal(campaignId),
     tx.orderLine.findMany({ where: { order: { campaignId }, costType: { category: 'Chicks' } }, select: { id: true } }),
     tx.sale.findMany({ where: { campaignId }, select: { soldOn: true, birds: true } }),
+    writtenLeftovers(tx, campaignId),
   ]);
   if (money === null || sales === null) return null;
 
@@ -47,7 +49,10 @@ export async function campaignTracking(tx: Tx, tenantId: TenantId, campaignId: s
   const placementOrderLines = chickLines.map((line) => line.id as OrderLineId);
   const count = computeLiveCount(events, { campaignId: id, placementOrderLines, sold: sales.birdsSold });
   const sold = saleRows.map(({ soldOn, birds }) => ({ soldOn: soldOn.toISOString().slice(0, 10) as BusinessDay, quantity: birds }));
-  const feed = feedConsumption(events, { campaignId: id, placementDay, today, placementOrderLines, sold, strain: STRAINS.find(({ code }) => code === campaign.strain) ?? null });
+  const feed = feedConsumption(events, { campaignId: id, placementDay, today, placementOrderLines, sold, strain: STRAINS.find(({ code }) => code === campaign.strain) ?? null,
+    // The bags of feed left opened at the closing: their half was not eaten (X.2).
+    openedFeedBagsLeft: leftovers.filter(({ category, opened }) => category === 'Feed' && opened).length,
+  });
 
   return {
     campaignId,

@@ -22,6 +22,8 @@ import { LotList } from './lot-list';
       <a class="sales" routerLink="ventes"><app-pictogram picto="hen" [decorative]="true" /> Les ventes</a>
       <a class="weighings" routerLink="pesees"><app-pictogram picto="scale" [decorative]="true" /> Les pesées</a>
       <a class="tracking" routerLink="suivi"><app-pictogram picto="paper" [decorative]="true" /> Le suivi</a>
+      <a class="budget" routerLink="budget"><app-pictogram picto="coin" [decorative]="true" /> Le budget</a>
+      <a class="closing" routerLink="cloture"><app-pictogram picto="stamp-done" [decorative]="true" /> Clôturer une bande</a>
     }
     @for (lot of office.lots(); track lot.campaignId) {
       @if (office.lots().length > 1) {
@@ -30,6 +32,7 @@ import { LotList } from './lot-list';
       <app-death-photos [campaignId]="lot.campaignId" />
     }
     <a class="open-campaign" routerLink="ouvrir"><app-pictogram picto="chick" [decorative]="true" /> Ouvrir une bande</a>
+    <a class="closed-lots" routerLink="clos">Lots clôturés ›</a>
   `,
   styles: `
     .lot-name { margin: 16px 0 -8px; font: 700 1rem var(--font-hand); color: var(--color-muted); }
@@ -39,15 +42,23 @@ import { LotList } from './lot-list';
       border: 2px dashed var(--color-card-edge); border-radius: 4px; color: var(--color-ink); font-weight: 700; text-decoration: none;
     }
     .open-campaign:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
-    .sales, .weighings, .tracking {
+    .sales, .weighings, .tracking, .budget {
       display: flex; align-items: center; justify-content: center; gap: 8px; margin-block-start: 16px; min-block-size: 56px; text-decoration: none;
       border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard); background: var(--color-pasture); color: var(--color-on-sign); font: 700 1.1rem var(--font-hand);
     }
     .weighings { background: var(--color-blue); }
+    .budget { background: var(--color-orange); color: var(--color-ink); }
     .tracking { background: var(--color-earth); }
-    .sales app-pictogram, .weighings app-pictogram, .tracking app-pictogram { inline-size: 28px; block-size: 28px; }
-    .sales:focus-visible, .weighings:focus-visible, .tracking:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
+    .sales app-pictogram, .weighings app-pictogram, .tracking app-pictogram, .budget app-pictogram { inline-size: 28px; block-size: 28px; }
+    .sales:focus-visible, .weighings:focus-visible, .tracking:focus-visible, .budget:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
     .open-campaign app-pictogram { inline-size: 28px; block-size: 28px; }
+    .closing {
+      display: flex; align-items: center; justify-content: center; gap: 8px; margin-block-start: 16px; min-block-size: 52px; text-decoration: none;
+      border: 2px solid var(--color-ink); border-radius: var(--radius-wobble-1); background: var(--color-paper); color: var(--color-ink); font: 700 1.05rem var(--font-hand);
+    }
+    .closing app-pictogram { inline-size: 28px; block-size: 28px; }
+    .closed-lots { display: flex; align-items: center; justify-content: flex-end; min-block-size: 44px; margin-block-start: 8px; color: var(--color-muted); font-weight: 700; }
+    .closing:focus-visible, .closed-lots:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
   `,
 })
 export class LotsPage {

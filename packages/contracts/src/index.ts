@@ -24,3 +24,5 @@ export type { RecordSaleRequest, SalePricingView, SaleReceiptRequest, SaleRefusa
 export type { CaretakerWeighingRequest, RecordWeighingRequest, WeighingsView, WeighingToValidate } from './journal';
 export type { DeathPhotosView } from './journal';
 export type { TrackingView } from './tracking';
+export type { CampaignClosingRefusal, ClosedLotView, CloseCampaignRequest, ClosingReportView, LeftoverRequest, LeftoverView } from './closing';
+export type { BudgetLineView, BudgetRefusal, BudgetView, RecordBudgetRequest } from './budget';

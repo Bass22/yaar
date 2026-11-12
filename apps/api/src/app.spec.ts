@@ -97,6 +97,10 @@ describe("Démarrage de l'API", () => {
     expect(routes).toEqual([
       'DELETE /api/v1/sites/:siteId/staff/:userId',
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
+      // Admin only: the budget of a campaign by category, against its committed cost (S.1).
+      'GET /api/v1/campaigns/:id/budget',
+      // Admin only: the report of a closed campaign — 404 while it runs (X.2).
+      'GET /api/v1/campaigns/:id/closing-report',
       // Admin only: how each caretaker answered for the dead, photo or not (K.6).
       'GET /api/v1/campaigns/:id/death-photos',
       // Admin only: the money of a campaign — committed, cost per bird, costs and their history (P.3).
@@ -107,6 +111,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/campaigns/:id/tracking',
       // Admin only: the real weight curve and the weighings waiting for validation (T.5).
       'GET /api/v1/campaigns/:id/weighings',
+      // Admin only: the closed campaigns, their reports one tap away (X.2).
+      'GET /api/v1/campaigns/closed',
       'GET /api/v1/caretaker/context',
       // Admin only: the farm's cost types under the base, archived ones marked (N.2).
       'GET /api/v1/cost-types',
@@ -134,6 +140,8 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/auth/sign-in',
       // Admin only: a campaign on a site of the farm of the session, judged by the domain (O.2).
       'POST /api/v1/campaigns',
+      // Admin only, online: close a campaign with its leftovers and its comment, traced (X.2).
+      'POST /api/v1/campaigns/:id/closing',
       // Admin only: a cost type under a category of the base (N.2).
       'POST /api/v1/cost-types',
       // Admin only: archived, never deleted (N.2).
@@ -174,6 +182,8 @@ describe("Démarrage de l'API", () => {
       // Every session: a photo sent by its fingerprint, kept once when sent twice (M.1).
       // Admin only: a weighing asked of a flock, on a day (T.2).
       'POST /api/v1/weighing-requests',
+      // Admin only, online: the budget of a campaign written again, the latest counting, traced (S.1).
+      'PUT /api/v1/campaigns/:id/budget',
       'PUT /api/v1/media/:sha256',
       // Admin only: a draft rewritten whole (Q.4).
       'PUT /api/v1/orders/:id',

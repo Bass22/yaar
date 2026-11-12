@@ -10,6 +10,7 @@ const OFFICE_KEY = 'yaar.office';
 /** A lot of the farm as the office lists it: a running campaign on its site. */
 export type OfficeLot = {
   readonly campaignId: string;
+  readonly siteId: string;
   readonly siteName: string;
   readonly campaignDay: number;
   /** `null` while the chicks received are unknown: said, never shown as zero. */
@@ -39,7 +40,7 @@ export class Office {
   });
   readonly lots = computed((): OfficeLot[] =>
     (this.kept()?.context.sites ?? []).flatMap((site) =>
-      site.campaigns.map((campaign) => ({ campaignId: campaign.campaignId, siteName: site.name, campaignDay: campaign.campaignDay, liveCount: campaign.liveCount })),
+      site.campaigns.map((campaign) => ({ campaignId: campaign.campaignId, siteId: site.siteId, siteName: site.name, campaignDay: campaign.campaignDay, liveCount: campaign.liveCount })),
     ),
   );
   /** The farm's sites, with the day it is on each. */

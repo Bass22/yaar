@@ -1,5 +1,6 @@
 import { err, Money, ok, type CurrencyCode, type Result } from '@kit';
 import {
+  type ReceivedStock,
   announceOrder,
   billableOf,
   closeOrder,
@@ -158,6 +159,20 @@ export async function billablesOf(tx: Tx, tenantId: TenantId, campaignId: string
     const billable = billableOf(orderOf(row), received);
     if (!billable.ok) throw new Error(`Order ${row.id} has no computable billable`);
     return billable.value.total;
+  });
+}
+
+/**
+ * What a campaign received and paid for, type by type (X.1): each order line counts two halves a
+ * unit received — bonus included — at its billable. The base of the average price of the leftovers.
+ */
+export async function receivedStockOf(tx: Tx, tenantId: TenantId, campaignId: string): Promise<ReceivedStock[]> {
+  const rows = await tx.purchaseOrder.findMany({ where: { campaignId }, include: { lines: { orderBy: { position: 'asc' } } } });
+  const received = (await receivedByCampaign(tx, tenantId, [campaignId])).get(campaignId) ?? new Map<string, number>();
+  return rows.flatMap((row) => {
+    const billable = billableOf(orderOf(row), received);
+    if (!billable.ok) throw new Error(`Order ${row.id} has no computable billable`);
+    return row.lines.map((line, index) => ({ costTypeId: line.costTypeId, halves: 2 * (received.get(line.id) ?? 0), value: billable.value.lines[index]!.billable }));
   });
 }
 

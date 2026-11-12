@@ -65,3 +65,13 @@ export {
   type TransferContext,
   type TransferRefusal,
 } from './closing-report';
+export {
+  budgetVariance,
+  committedByCategory,
+  recordBudget,
+  suggestedBudget,
+  type BudgetLine,
+  type BudgetLineInput,
+  type BudgetRefusal,
+  type ClosedCampaignCosts,
+} from './budget';

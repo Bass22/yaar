@@ -51,7 +51,7 @@ describe('Migrations', () => {
     const tables = await db.superuser.$queryRaw<{ tablename: string }[]>`
       SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations' ORDER BY tablename`;
 
-    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'sale_receipts', 'sales', 'settlements', 'site_assignments', 'sites', 'tenants', 'users', 'weighing_requests']);
+    expect(tables.map((table) => table.tablename)).toEqual(['audit_events', 'budget_lines', 'campaign_leftovers', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'sale_receipts', 'sales', 'settlements', 'site_assignments', 'sites', 'tenants', 'users', 'weighing_requests']);
   });
 
   it('rejouer les migrations sur une base à jour ne change rien et ne casse rien', async () => {
@@ -73,7 +73,7 @@ describe('Migrations', () => {
        ORDER BY t.relname`;
 
     expect(tables).toEqual(
-      ['audit_events', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'sale_receipts', 'sales', 'settlements', 'site_assignments', 'sites', 'users', 'weighing_requests'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
+      ['audit_events', 'budget_lines', 'campaign_leftovers', 'campaigns', 'cost_types', 'costs', 'counterparties', 'journal_events', 'media', 'order_lines', 'payments', 'purchase_orders', 'refused_events', 'sale_receipts', 'sales', 'settlements', 'site_assignments', 'sites', 'users', 'weighing_requests'].map((name) => ({ name, tenant_column: true, tenant_index: true })),
     );
   });
 
@@ -94,6 +94,11 @@ describe('Migrations', () => {
       [
         'audit_events.id',
         'audit_events.tenant_id',
+        'budget_lines.id',
+        'budget_lines.tenant_id',
+        'campaign_leftovers.campaign_id',
+        'campaign_leftovers.cost_type_id',
+        'campaign_leftovers.tenant_id',
         'campaigns.id',
         'cost_types.id',
         'costs.id',
@@ -120,6 +125,8 @@ describe('Migrations', () => {
         .concat([
           { column_name: 'media.sha256', type: 'text', has_default: false },
           { column_name: 'media.tenant_id', type: 'uuid', has_default: false },
+          // A budget line is keyed by its writing and its category, a word of the base (S.1).
+          { column_name: 'budget_lines.category', type: 'cost_category', has_default: false },
         ])
         .sort((a, b) => a.column_name.localeCompare(b.column_name)),
     );

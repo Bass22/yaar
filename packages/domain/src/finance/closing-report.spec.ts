@@ -29,7 +29,7 @@ const recu = (costTypeId: string, received: number, billable: number): ReceivedS
 // Le jeu d'essai : 20 sacs de démarrage à 15 000 F et 10 à 16 000 F, 10 flacons de vaccin à 12 500 F.
 const STOCK: readonly ReceivedStock[] = [recu(DEMARRAGE, 20, 300_000), recu(DEMARRAGE, 10, 160_000), recu(VACCIN, 10, 125_000)];
 const RESTES = restes(
-  { costTypeId: DEMARRAGE, category: 'Feed', whole: 3, halfBag: true },
+  { costTypeId: DEMARRAGE, category: 'Feed', whole: 3, opened: true },
   { costTypeId: VACCIN, category: 'Health', whole: 2 },
   { costTypeId: LITIERE, category: 'Bedding', whole: 1 },
 );
@@ -59,7 +59,7 @@ describe('La valeur des restes', () => {
 
   it('un seul arrondi, à la fin, au franc le plus proche', () => {
     // 100 F pour 3 sacs ; un demi-sac → 100 × 1 ÷ 6 = 16,67 → 17 F
-    const [valeur] = leftoverValues(restes({ costTypeId: DEMARRAGE, category: 'Feed', whole: 0, halfBag: true }), [recu(DEMARRAGE, 3, 100)], XOF);
+    const [valeur] = leftoverValues(restes({ costTypeId: DEMARRAGE, category: 'Feed', whole: 0, opened: true }), [recu(DEMARRAGE, 3, 100)], XOF);
 
     expect(valeur?.value).toEqual(F(17));
   });
@@ -78,7 +78,7 @@ describe('La valeur des restes', () => {
         const whole = entiers % (sacs + 1);
         if (whole === sacs && demi) return;
         if (whole === 0 && !demi) return;
-        const [valeur] = leftoverValues(restes({ costTypeId: DEMARRAGE, category: 'Feed', whole, halfBag: demi }), [recu(DEMARRAGE, sacs, prix)], XOF);
+        const [valeur] = leftoverValues(restes({ costTypeId: DEMARRAGE, category: 'Feed', whole, opened: demi }), [recu(DEMARRAGE, sacs, prix)], XOF);
         expect(valeur?.value?.amount).toBeLessThanOrEqual(prix);
       }),
     );

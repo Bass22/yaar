@@ -22,7 +22,7 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'WeighingValidated', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded', 'SaleRecorded', 'SaleReceiptRecorded', 'WeighingRequested');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded', 'SaleRecorded', 'SaleReceiptRecorded', 'WeighingRequested', 'CampaignClosed', 'BudgetRecorded');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
@@ -112,6 +112,8 @@ CREATE TABLE "campaigns" (
     "planned_headcount" INTEGER NOT NULL,
     "planned_duration" INTEGER NOT NULL,
     "closed_at" TIMESTAMPTZ(3),
+    "leftovers_to" UUID,
+    "closing_comment" TEXT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "campaigns_pkey" PRIMARY KEY ("id")
@@ -192,6 +194,30 @@ CREATE TABLE "cost_types" (
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "cost_types_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "budget_lines" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "category" "cost_category" NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "amount" INTEGER,
+    "recorded_at" TIMESTAMPTZ(3) NOT NULL,
+    "recorded_by" UUID NOT NULL,
+
+    CONSTRAINT "budget_lines_pkey" PRIMARY KEY ("tenant_id","id","category")
+);
+
+-- CreateTable
+CREATE TABLE "campaign_leftovers" (
+    "tenant_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "cost_type_id" UUID NOT NULL,
+    "whole" INTEGER NOT NULL,
+    "opened" BOOLEAN NOT NULL,
+
+    CONSTRAINT "campaign_leftovers_pkey" PRIMARY KEY ("tenant_id","campaign_id","cost_type_id")
 );
 
 -- CreateTable
@@ -358,6 +384,9 @@ CREATE UNIQUE INDEX "counterparties_tenant_id_id_key" ON "counterparties"("tenan
 CREATE UNIQUE INDEX "cost_types_tenant_id_id_key" ON "cost_types"("tenant_id", "id");
 
 -- CreateIndex
+CREATE INDEX "budget_lines_tenant_id_campaign_id_idx" ON "budget_lines"("tenant_id", "campaign_id");
+
+-- CreateIndex
 CREATE INDEX "purchase_orders_tenant_id_campaign_id_idx" ON "purchase_orders"("tenant_id", "campaign_id");
 
 -- CreateIndex
@@ -427,6 +456,9 @@ ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_tenant_id_fkey" FOREIGN KEY ("
 ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_tenant_id_site_id_fkey" FOREIGN KEY ("tenant_id", "site_id") REFERENCES "sites"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_tenant_id_leftovers_to_fkey" FOREIGN KEY ("tenant_id", "leftovers_to") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
 ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
@@ -467,6 +499,21 @@ ALTER TABLE "counterparties" ADD CONSTRAINT "counterparties_tenant_id_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_tenant_id_cost_type_id_fkey" FOREIGN KEY ("tenant_id", "cost_type_id") REFERENCES "cost_types"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -598,6 +645,10 @@ GRANT SELECT, INSERT ON "sales" TO yaar_app;
 GRANT SELECT, INSERT ON "sale_receipts" TO yaar_app;
 -- A request for a weighing is added once; what answers it is read from the journal (T.2).
 GRANT SELECT, INSERT ON "weighing_requests" TO yaar_app;
+-- Leftovers are written once, with the closing (X.2): never updated nor deleted.
+GRANT SELECT, INSERT ON "campaign_leftovers" TO yaar_app;
+-- A budget is written again whole, never updated nor deleted (S.1): the latest written counts.
+GRANT SELECT, INSERT ON "budget_lines" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -647,6 +698,16 @@ CREATE POLICY tenant_isolation ON "order_lines"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
+ALTER TABLE "budget_lines" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "budget_lines" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "budget_lines"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "campaign_leftovers" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "campaign_leftovers" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "campaign_leftovers"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 ALTER TABLE "weighing_requests" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "weighing_requests" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "weighing_requests"
@@ -714,6 +775,13 @@ CREATE POLICY tenant_isolation ON "campaigns"
 ALTER TABLE "costs" ADD CONSTRAINT "costs_payment_shape" CHECK (("payment_kind" IN ('ToPay', 'PaidBy')) = ("counterparty_id" IS NOT NULL));
 ALTER TABLE "costs" ADD CONSTRAINT "costs_corrects_another" CHECK ("corrects" IS DISTINCT FROM "id");
 
+-- A budget is a plan in whole units, zero allowed, never below (S.1).
+ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_amount" CHECK ("amount" IS NULL OR "amount" >= 0);
+-- A leftover is whole ones, an opened one, or both; never nothing, never below zero (X.1).
+ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_shape" CHECK ("whole" >= 0 AND ("whole" > 0 OR "opened"));
+-- What the closing writes exists only once closed, and leftovers go to another campaign (X.2).
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_closing_shape" CHECK ("closed_at" IS NOT NULL OR ("leftovers_to" IS NULL AND "closing_comment" IS NULL));
+ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_leftovers_elsewhere" CHECK ("leftovers_to" IS DISTINCT FROM "id");
 -- A sale by the kilo carries its weight; a sale by the head carries none.
 ALTER TABLE "sales" ADD CONSTRAINT "sales_pricing_shape" CHECK (("pricing_kind" = 'PerKilo') = ("grams" IS NOT NULL));
 

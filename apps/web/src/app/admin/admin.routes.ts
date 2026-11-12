@@ -1,4 +1,8 @@
 import type { Route } from '@angular/router';
+import { BudgetPage } from './budget/budget-page';
+import { ClosedLotsPage } from './closing/closed-lots-page';
+import { ClosingPage } from './closing/closing-page';
+import { ClosingReportPage } from './closing/closing-report-page';
 import { HomePage } from './home/home-page';
 import { LotsPage } from './lots/lots-page';
 import { OpenCampaignPage } from './lots/open-campaign-page';
@@ -31,6 +35,10 @@ export const adminRoutes: Route[] = [
       { path: 'lots/ventes', component: SalesPage },
       { path: 'lots/pesees', component: WeighingsPage },
       { path: 'lots/suivi', component: TrackingPage },
+      { path: 'lots/budget', component: BudgetPage },
+      { path: 'lots/cloture', component: ClosingPage },
+      { path: 'lots/clos', component: ClosedLotsPage },
+      { path: 'lots/bilan/:id', component: ClosingReportPage },
       { path: 'lots/vente', component: SaleGesturePage },
       { path: 'lots/ventes/:id', component: SalePage },
       { path: 'achats', component: PurchasesPage },

@@ -19,6 +19,11 @@ export type FeedConsumptionContext = {
   readonly placementOrderLines: readonly OrderLineId[];
   readonly sold: readonly SoldBirds[];
   readonly strain: Strain | null;
+  /**
+   * Bags of feed left opened at the closing (X.2): their half not eaten, 25 kg each, leaves the day
+   * the last bag was opened (decision of 2026-11-12). None before the closing.
+   */
+  readonly openedFeedBagsLeft?: number;
 };
 
 export type FeedConsumption = {
@@ -55,6 +60,10 @@ export function feedConsumption(events: readonly JournalEvent[], context: FeedCo
   }
   for (const { soldOn, quantity } of context.sold) add(leaving, campaignDay(context.placementDay, soldOn), quantity);
 
+  // The bag left opened is the last one opened: its half not eaten leaves that day.
+  const lastBagDay = Math.max(...bags.keys());
+  const notEaten = (context.openedFeedBagsLeft ?? 0) / 2;
+
   /** Grams eaten per bird from the first day to `lastDay` included; `null` while no chick is received by then. */
   const eatenTo = (lastDay: number): number | null => {
     const days = [...new Set([...received.keys(), ...leaving.keys(), ...bags.keys()])].filter((day) => day <= lastDay).sort((a, b) => a - b);
@@ -65,7 +74,7 @@ export function feedConsumption(events: readonly JournalEvent[], context: FeedCo
       // The birds alive on a day: received up to it included, less those that left on the days before.
       alive += received.get(day) ?? 0;
       anyReceived ||= received.has(day);
-      const opened = bags.get(day) ?? 0;
+      const opened = (bags.get(day) ?? 0) - (day === lastBagDay ? notEaten : 0);
       if (opened > 0 && alive > 0) eaten += (opened * BAG_WEIGHT) / alive;
       alive -= leaving.get(day) ?? 0;
     }
