@@ -43,7 +43,11 @@ const tiers = (): CounterpartyView[] => [
   { id: uuid(33), kind: 'Customer', name: 'Ramasseur', face: 'hen', archived: false },
   { id: uuid(34), kind: 'Supplier', name: 'Ancien', face: 'truck', archived: true },
 ];
+// The farm's « Frais financiers » type, only where a test needs it: the fees a payer's transfer cost (R.4).
+const FRAIS = uuid(46);
+let extraTypes: CostTypeView[] = [];
 const types = (): CostTypeView[] => [
+  ...extraTypes,
   { id: uuid(41), category: 'Feed', name: 'Aliment', behaviour: 'Variable', orderable: true, archived: false },
   { id: SALAIRE, category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', orderable: false, archived: false },
   { id: EAU, category: 'Utilities', name: 'Eau et électricité', behaviour: 'Variable', orderable: false, archived: false },
@@ -72,7 +76,7 @@ const salaire = (): CostView => ({
   history: [{ id: uuid(302), recordedAt: '2026-11-12T07:00:00.000Z', recordedBy: LE_GERANT, spentOn: '2026-11-12', amount: 45_000, payment: { kind: 'ToPay', counterpartyId: OUSMANE } }],
 });
 const argent = (fields: Partial<CampaignMoneyView> = {}): CampaignMoneyView => ({ campaignId: BANDE, currency: 'XOF', committed: 957_500, liveCount: 997, costPerBird: 1030, costs: [eau(), salaire()], ...fields });
-const RECORDED = ['cost-what', 'cost-how-much', 'cost-category-utilities', 'cost-category-labour', 'money-amount', 'money-francs', 'cost-paid', 'cost-to-pay', 'confirm', 'committed', 'cost-per-bird', 'cost-per-bird-unknown', 'written-thanks', 'number-1000', 'number-2000', 'number-12', 'number-42', 'number-500', 'number-30', 'number-957'];
+const RECORDED = ['cost-what', 'cost-how-much', 'cost-category-utilities', 'cost-category-labour', 'cost-category-feed', 'money-amount', 'money-francs', 'cost-paid', 'cost-to-pay', 'cost-paid-by-other', 'confirm', 'committed', 'cost-per-bird', 'cost-per-bird-unknown', 'written-thanks', 'number-100', 'number-1000', 'number-2000', 'number-12', 'number-42', 'number-500', 'number-30', 'number-957'];
 
 describe('Les dépenses, au bureau', () => {
   let http: HttpTestingController;
@@ -151,6 +155,7 @@ describe('Les dépenses, au bureau', () => {
   const said = () => heard.flat();
 
   beforeEach(() => {
+    extraTypes = [];
     localStorage.clear();
     localStorage.setItem('yaar.session', JSON.stringify({ token, expiresAt: '2099-01-01T00:00:00.000Z', role: 'admin', account: { name: 'Bassirou', avatar: 'baobab', language: 'fr' } }));
     const click = HTMLInputElement.prototype.click;
@@ -231,6 +236,67 @@ describe('Les dépenses, au bureau', () => {
       expect(all('.creditor').map(text)).toEqual(['Sedima', 'Ousmane']);
       await tap('.next');
       expect(text(element().querySelector('.refusal'))).toContain('Choisis à qui tu dois');
+    });
+
+    // Spec: backlog R.4 — payé par un tiers (décisions du 2026-11-12).
+    it('« Payé par quelqu’un d’autre » se range derrière « Plus de détails » : tout tiers en usage, client compris, jamais un archivé', async () => {
+      const { tap, keys, all, element } = await ouvre('/admin/achats/depense');
+      await tap('.type:nth-child(1)');
+      await keys('1', '0', '0', '000');
+
+      expect(text(element().querySelector('.payer-more summary'))).toBe('Plus de détails : payé par quelqu’un d’autre');
+      expect(all('.payer').map(text)).toEqual(['Sedima', 'Ousmane', 'Ramasseur']);
+    });
+
+    it('payé par l’acheteur : la relecture le dit, à l’écran et à la voix ; Oui envoie la dépense « payée par » lui', async () => {
+      const { tap, keys, element, sent, refresh } = await ouvre('/admin/achats/depense');
+      await tap('.type:nth-child(1)');
+      await keys('1', '0', '0', '000');
+      await tap('.payer:nth-child(3)');
+      expect(element().querySelector<HTMLInputElement>('.status .choice:nth-child(1) input')?.checked).toBe(false);
+      await tap('.next');
+
+      expect(text(element().querySelector('.receipt-card .how'))).toBe('payé par Ramasseur pour toi');
+      await vi.waitFor(() => expect(heard).toContainEqual(expect.arrayContaining(['fr/cost-paid-by-other'])));
+      await tap('.confirm');
+      expect((await sent('POST', '/api/v1/costs')).request.body).toEqual(expect.objectContaining({ amount: 100_000, payment: { kind: 'PaidBy', counterpartyId: uuid(33) } }));
+      await refresh();
+    });
+
+    it('ses frais pris en charge : la case dit qu’ils se déduisent de ce qu’il doit ; ils partent comme une dépense « Frais financiers » payée par lui', async () => {
+      extraTypes = [{ id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false }];
+      const { tap, keys, type, element, sent } = await ouvre('/admin/achats/depense');
+      await tap('.type:nth-child(2)');
+      await keys('1', '0', '0', '000');
+      expect(element().querySelector('input[name=fee]')).toBeNull();
+      await tap('.payer:nth-child(3)');
+
+      expect(text(element().querySelector('app-fee-field'))).toContain('Frais de transfert payés par Ramasseur, à ta charge');
+      await type('input[name=fee]', '1000');
+      await tap('.next');
+      expect(text(element().querySelector('.receipt-card .fee-words'))).toBe('et 1 000 F de frais, à ta charge');
+      await tap('.confirm');
+
+      const cost = await sent('POST', '/api/v1/costs');
+      expect(cost.request.body).toEqual(expect.objectContaining({ amount: 100_000, payment: { kind: 'PaidBy', counterpartyId: uuid(33) } }));
+      cost.flush(null, { status: 201, statusText: 'Created' });
+      let fee: TestRequest | undefined;
+      await vi.waitFor(() => {
+        fee = http.match((request) => request.method === 'POST' && request.url === '/api/v1/costs')[0] ?? fee;
+        expect(fee).toBeDefined();
+      });
+      expect(fee?.request.body).toEqual(expect.objectContaining({ costTypeId: FRAIS, amount: 1_000, note: 'Frais de transfert — Aliment payé par Ramasseur', payment: { kind: 'PaidBy', counterpartyId: uuid(33) } }));
+    });
+
+    it('rechoisir « Payé » oublie le tiers', async () => {
+      const { tap, keys, element } = await ouvre('/admin/achats/depense');
+      await tap('.type:nth-child(1)');
+      await keys('1', '0', '0', '000');
+      await tap('.payer:nth-child(3)');
+      await tap('.status .choice:nth-child(1) input');
+      await tap('.next');
+
+      expect(text(element().querySelector('.receipt-card .how'))).toBe('payé aujourd’hui');
     });
 
     it('la relecture montre le montant en billets, la voix relit d’office : la catégorie, le montant, payé ; Non revient au montant sans rien perdre', async () => {

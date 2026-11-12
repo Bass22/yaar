@@ -1797,6 +1797,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Il couvre l'exclusion de l'optimisation de batterie (Tecno, Infinix, Itel)
 - [ ] Il couvre la création des comptes et la configuration du site
 
+### Z.8 — Le diagramme des entités de la base · **S**
+> Spec : demande du fondateur du 2026-11-12 (« voir plus clairement le stockage en base ») · Zone : `docs/` · Dépend de : toutes les tranches de la V1 — à faire **à la fin de la V1**, quand le schéma est stable
+> Revue : le diagramme se lit sans connaître le code ; il dit ce que la base garde, pas comment l'API le calcule.
+
+- [ ] Chaque table de `apps/api/prisma/schema.prisma`, ses colonnes principales et ses liens (clés étrangères par élevage), en un diagramme lisible
+- [ ] Les tables en ajout seul (journal, argent, médias, demandes) se distinguent des tables qui se modifient
+- [ ] Une légende dit en français ce que chaque table garde, avec les mots du glossaire
+- [ ] Le diagramme est généré depuis le schéma, pour qu'il ne mente pas le jour où le schéma change
+
 ---
 
 ## Ordre et dépendances

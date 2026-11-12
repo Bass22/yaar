@@ -5,7 +5,7 @@ import type { PaymentMethodCode, RecordPaymentRequest } from '@contracts';
 import { recordPayment } from '@domain/finance';
 import type { CurrencyCode } from '@kit';
 import { Pictogram } from '../../ui/pictogram';
-import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from '../money/transfer-fee';
+import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, takesFee, TransferFees } from '../money/transfer-fee';
 import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
 
@@ -57,7 +57,7 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
       @if (order.payments.length > 0) {
         <ul class="paid-list" aria-label="Paiements déjà faits">
           @for (payment of order.payments; track payment.id) {
-            <li><span>{{ dayWords(payment.paidOn) }}</span>&ngsp;<span>{{ methodWords[payment.method] }}</span>&ngsp;<strong>{{ money(payment.amount) }}</strong></li>
+            <li><span>{{ dayWords(payment.paidOn) }}</span>&ngsp;<span>{{ methodWords[payment.method] }}{{ payment.paidBy === null ? '' : ', payé par ' + nameOf(payment.paidBy) }}</span>&ngsp;<strong>{{ money(payment.amount) }}</strong></li>
           }
         </ul>
       }
@@ -87,7 +87,19 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
             }
           </div>
         </fieldset>
-        <app-fee-field [method]="method()" [available]="feeType() !== null" [(value)]="fee" />
+        <!-- Paid by someone else (R.4): rare, so behind « Plus de détails ». -->
+        <details class="payer-more" [open]="payerId() !== ''">
+          <summary>Plus de détails : payé par quelqu’un d’autre</summary>
+          <div class="payers">
+            @for (one of payers(); track one.id) {
+              <button type="button" class="payer" [class.chosen]="one.id === payerId()" (click)="payerId.set(one.id === payerId() ? '' : one.id)">
+                <app-pictogram [picto]="faceOf(one.face)" [decorative]="true" />
+                <span>{{ one.name }}</span>
+              </button>
+            }
+          </div>
+        </details>
+        <app-fee-field [method]="method()" [payer]="mobileMoney() ? payerName() : null" [available]="feeType() !== null" [(value)]="fee" />
 
         @if (problem(); as problem) {
           <p class="refusal" role="alert"><app-pictogram picto="cross" [decorative]="true" /> {{ problem }}</p>
@@ -148,6 +160,15 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
     }
     .method:has(input:focus-visible) { outline: 4px solid var(--color-blue); outline-offset: 2px; }
     input:focus-visible, button:focus-visible, a:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
+    .payer-more { padding: 8px 12px; border: 2px dashed var(--color-card-edge); border-radius: 4px; }
+    .payer-more summary { min-block-size: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 700; color: var(--color-earth); }
+    .payers { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-block: 8px; }
+    .payer {
+      display: grid; justify-items: center; gap: 4px; min-block-size: 88px; padding: 8px 4px; cursor: pointer; background: var(--color-shell);
+      border: 3px solid var(--color-card-edge); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard-sm); color: var(--color-earth); font: 700 0.95rem var(--font-hand);
+    }
+    .payer app-pictogram { inline-size: 40px; block-size: 40px; }
+    .payer.chosen { border-color: var(--color-pasture); background: var(--color-pasture-light); }
     .refusal { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-inline-start: 5px solid var(--color-alert); background: var(--color-alert-light); color: var(--color-alert); font-weight: 700; }
     .refusal app-pictogram { inline-size: 24px; block-size: 24px; flex: none; }
     /* Always in sight, above the bar of five: the one action of the page. */
@@ -192,6 +213,11 @@ export class PaymentPage {
   protected readonly fee = signal('');
   private readonly feeId = crypto.randomUUID();
   protected readonly feeType = computed(() => feeTypeOf(this.purchases.activeCostTypes()));
+  /** Someone else who paid the order for the farm (R.4): any counterparty in use but its supplier. */
+  protected readonly payerId = signal('');
+  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived && one.id !== this.order()?.supplierId));
+  protected readonly mobileMoney = computed(() => takesFee(this.method()));
+  protected readonly payerName = computed(() => (this.payerId() === '' ? null : this.nameOf(this.payerId())));
   private readonly fees = inject(TransferFees);
 
   constructor() {
@@ -200,6 +226,14 @@ export class PaymentPage {
 
   protected money(amount: number): string {
     return amountWords(amount, this.order()?.currency ?? this.purchases.currency() ?? '');
+  }
+
+  protected nameOf(counterpartyId: string): string {
+    return this.purchases.counterpartyById().get(counterpartyId)?.name ?? 'un tiers';
+  }
+
+  protected faceOf(face: string): PictogramName {
+    return face as PictogramName;
   }
 
   protected dayWords(day: string): string {
@@ -216,11 +250,21 @@ export class PaymentPage {
     if (this.busy() || order === null) return;
     const method = this.method();
     if (method === null) return this.problem.set(WORDS.NoMethod ?? SERVER_ERROR);
-    const request: RecordPaymentRequest = { id: this.paymentId, paidOn: this.paidOn(), amount: numberOf(this.amount()), method };
+    const payer = this.payerId();
+    const request: RecordPaymentRequest = { id: this.paymentId, paidOn: this.paidOn(), amount: numberOf(this.amount()), method, ...(payer === '' ? {} : { paidBy: payer }) };
     // The same rule as the server's, so that a refusal is said before anything leaves.
     const judged = recordPayment({ ...request, orderId: order.id }, order.currency as CurrencyCode);
     if (!judged.ok) return this.problem.set(WORDS[judged.error.kind === 'InvalidId' ? 'ServerError' : judged.error.kind] ?? SERVER_ERROR);
-    const fee = feeCost({ id: this.feeId, typed: this.fee(), method, campaignId: order.campaignId, costTypeId: this.feeType(), on: request.paidOn, about: `paiement ${this.supplier()}` });
+    const fee = feeCost({
+      id: this.feeId,
+      typed: this.fee(),
+      method,
+      campaignId: order.campaignId,
+      costTypeId: this.feeType(),
+      on: request.paidOn,
+      about: payer === '' ? `paiement ${this.supplier()}` : `paiement ${this.supplier()} payé par ${this.payerName() ?? ''}`,
+      ...(payer === '' || !takesFee(method) ? {} : { paidBy: payer }),
+    });
     if (fee.kind === 'invalid') return this.problem.set(FEE_REFUSAL);
     this.busy.set(true);
     this.problem.set(null);

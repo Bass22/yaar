@@ -48,8 +48,9 @@ const CATEGORY_CLIP: Record<string, ScriptClip> = {
 export const amountPhrase = (amount: number): PhrasePart[] => [clip('money-amount'), number(amount), clip('money-francs')];
 
 /** The read-back before the Oui of an expense (screen 9): what for, how much, paid or owed. */
-export function expenseReadBack(category: string, amount: number, paid: boolean): PhrasePart[] {
-  return [clip(CATEGORY_CLIP[category] ?? 'cost-category-other'), ...amountPhrase(amount), clip(paid ? 'cost-paid' : 'cost-to-pay'), clip('confirm')];
+export function expenseReadBack(category: string, amount: number, paid: boolean | 'byOther'): PhrasePart[] {
+  const status = paid === 'byOther' ? 'cost-paid-by-other' : paid ? 'cost-paid' : 'cost-to-pay';
+  return [clip(CATEGORY_CLIP[category] ?? 'cost-category-other'), ...amountPhrase(amount), clip(status), clip('confirm')];
 }
 
 /**

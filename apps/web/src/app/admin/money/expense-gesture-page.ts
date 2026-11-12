@@ -17,6 +17,7 @@ import { Office } from '../office';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Banknotes } from './banknotes';
 import { CATEGORY_PICTO, expenseReadBack, Expenses, type ExpenseProblem } from './expenses';
+import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from './transfer-fee';
 
 type Step = 'what' | 'howMuch' | 'readBack';
 
@@ -51,7 +52,7 @@ const MAX_DIGITS = 9;
  */
 @Component({
   selector: 'app-expense-gesture-page',
-  imports: [Banknotes, Keypad, Pictogram, RouterLink, SpeakerButton, Stamp],
+  imports: [Banknotes, FeeField, Keypad, Pictogram, RouterLink, SpeakerButton, Stamp],
   providers: [Expenses],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -87,10 +88,10 @@ const MAX_DIGITS = 9;
         <app-banknotes [amount]="amount()" />
         <app-keypad [thousands]="true" (digit)="typeDigit($event)" (erase)="eraseDigit()" />
         <div class="status" role="radiogroup" aria-label="Payé ou à payer ?">
-          <label class="choice" [class.on]="paid()"><input type="radio" name="paid" [checked]="paid()" (change)="paid.set(true)" /> <app-pictogram picto="round-check" [decorative]="true" /> Payé</label>
-          <label class="choice" [class.on]="!paid()"><input type="radio" name="paid" [checked]="!paid()" (change)="paid.set(false)" /> <app-pictogram picto="stamp-pending" [decorative]="true" /> À payer plus tard</label>
+          <label class="choice" [class.on]="paid() && payerId() === ''"><input type="radio" name="paid" [checked]="paid() && payerId() === ''" (change)="choosePaid(true)" /> <app-pictogram picto="round-check" [decorative]="true" /> Payé</label>
+          <label class="choice" [class.on]="!paid() && payerId() === ''"><input type="radio" name="paid" [checked]="!paid() && payerId() === ''" (change)="choosePaid(false)" /> <app-pictogram picto="stamp-pending" [decorative]="true" /> À payer plus tard</label>
         </div>
-        @if (!paid()) {
+        @if (!paid() && payerId() === '') {
           <p class="ask">À qui ?</p>
           <div class="creditors">
             @for (creditor of purchases.creditors(); track creditor.id) {
@@ -101,6 +102,19 @@ const MAX_DIGITS = 9;
             }
           </div>
         }
+        <!-- Paid by someone else (R.4): rare, so behind « Plus de détails », never in the way. -->
+        <details class="payer-more" [open]="payerId() !== ''">
+          <summary>Plus de détails : payé par quelqu’un d’autre</summary>
+          <div class="payers">
+            @for (one of payers(); track one.id) {
+              <button type="button" class="payer" [class.chosen]="one.id === payerId()" (click)="choosePayer(one.id)">
+                <app-pictogram [picto]="face(one.face)" [decorative]="true" />
+                <span>{{ one.name }}</span>
+              </button>
+            }
+          </div>
+          <app-fee-field [method]="null" [payer]="payerName()" [available]="feeType() !== null && !correcting()" [(value)]="fee" />
+        </details>
         @if (problem(); as problem) {
           <p class="refusal" role="alert"><app-pictogram picto="cross" [decorative]="true" /> {{ problem }}</p>
         }
@@ -115,6 +129,11 @@ const MAX_DIGITS = 9;
           <p class="amount">{{ money(amount()) }}</p>
           <app-banknotes [amount]="amount()" />
           <p class="how">{{ statusWords() }}</p>
+          @if (feeOf(); as fee) {
+            @if (fee.kind === 'cost') {
+              <p class="fee-words">et {{ money(fee.request.amount) }} de frais, à ta charge</p>
+            }
+          }
           <app-speaker-button class="listen" [phrase]="readBack()" label="Écouter" />
         </section>
         <details class="details" [open]="detailsOpen()" (toggle)="detailsOpen.set($any($event.target).open)">
@@ -155,14 +174,17 @@ const MAX_DIGITS = 9;
     h1 { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font: 700 1.3rem var(--font-hand); color: var(--color-earth); }
     h1 app-pictogram { inline-size: 34px; block-size: 34px; flex: none; }
     .types { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
-    .type, .creditor {
+    .payer-more { margin: 12px 0 0; padding: 8px 12px; border: 2px dashed var(--color-card-edge); border-radius: 4px; }
+    .payer-more summary { min-block-size: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 700; color: var(--color-earth); }
+    .payers { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin-block: 8px 12px; }
+    .type, .creditor, .payer {
       display: grid; justify-items: center; align-content: center; gap: 6px; min-block-size: 96px; padding: 8px 4px; cursor: pointer;
       background: var(--color-shell); border: 3px solid var(--color-card-edge); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard-sm);
       font: 700 0.95rem var(--font-hand); color: var(--color-earth); text-align: center;
     }
-    .type:nth-child(even), .creditor:nth-child(even) { border-radius: var(--radius-wobble-2); }
-    .type app-pictogram, .creditor app-pictogram { inline-size: 44px; block-size: 44px; }
-    .type.chosen, .creditor.chosen { border-color: var(--color-pasture); background: var(--color-pasture-light); }
+    .type:nth-child(even), .creditor:nth-child(even), .payer:nth-child(even) { border-radius: var(--radius-wobble-2); }
+    .type app-pictogram, .creditor app-pictogram, .payer app-pictogram { inline-size: 44px; block-size: 44px; }
+    .type.chosen, .creditor.chosen, .payer.chosen { border-color: var(--color-pasture); background: var(--color-pasture-light); }
     .amount { margin: 4px 0 8px; text-align: center; font: 700 2.4rem var(--font-hand); color: var(--color-ink); font-variant-numeric: tabular-nums; }
     app-banknotes { margin-block-end: 12px; }
     .status { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 8px; }
@@ -250,6 +272,15 @@ export class ExpenseGesturePage {
   /** Paid is chosen for the admin (screen 8); « à payer » asks to whom. */
   protected readonly paid = signal(true);
   protected readonly creditorId = signal('');
+  /** Someone else who paid for the farm (R.4): any counterparty in use; empty when the farm pays or owes. */
+  protected readonly payerId = signal('');
+  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived));
+  protected readonly payerName = computed(() => (this.payerId() === '' ? null : (this.purchases.counterpartyById().get(this.payerId())?.name ?? 'lui')));
+  /** The payer's transfer fees the farm takes on (R.4): taken off what it owes; and their expense's identifier. */
+  protected readonly fee = signal('');
+  private readonly feeId = crypto.randomUUID();
+  protected readonly feeType = computed(() => feeTypeOf(this.purchases.activeCostTypes()));
+  private readonly fees = inject(TransferFees);
   protected readonly spentOn = linkedSignal(() => this.today());
   protected readonly note = signal('');
   protected readonly detailsOpen = signal(false);
@@ -264,11 +295,18 @@ export class ExpenseGesturePage {
   private readonly costId = crypto.randomUUID();
 
   protected readonly statusWords = computed(() => {
+    const payer = this.payerName();
+    if (payer !== null) return `payé par ${payer} pour toi`;
     if (this.paid()) return this.spentOn() === this.today() ? 'payé aujourd’hui' : `payé le ${dayWords(this.spentOn())}`;
     const creditor = this.purchases.counterpartyById().get(this.creditorId());
     return `à payer à ${creditor?.name ?? '…'}`;
   });
-  protected readonly readBack = computed(() => expenseReadBack(this.type()?.category ?? 'Other', this.amount(), this.paid()));
+  protected readonly readBack = computed(() => expenseReadBack(this.type()?.category ?? 'Other', this.amount(), this.payerId() === '' ? this.paid() : 'byOther'));
+  protected readonly feeOf = computed(() => {
+    const payer = this.payerName();
+    if (payer === null || this.correcting()) return null;
+    return feeCost({ id: this.feeId, typed: this.fee(), method: null, campaignId: this.lotId() === '' ? null : this.lotId(), costTypeId: this.feeType(), on: this.spentOn(), about: `${this.type()?.name ?? 'dépense'} payé par ${payer}`, paidBy: this.payerId() });
+  });
 
   constructor() {
     void this.purchases.load();
@@ -316,9 +354,21 @@ export class ExpenseGesturePage {
     this.digits.update((digits) => digits.slice(0, -1));
   }
 
+  protected choosePaid(paid: boolean): void {
+    this.paid.set(paid);
+    this.payerId.set('');
+    this.fee.set('');
+  }
+
+  protected choosePayer(id: string): void {
+    this.payerId.set(id);
+    this.paid.set(true);
+  }
+
   protected toReadBack(): void {
     if (this.amount() <= 0) return this.problem.set(WORDS.NoAmount ?? SERVER_ERROR);
-    if (!this.paid() && this.creditorId() === '') return this.problem.set(WORDS.NoCreditor ?? SERVER_ERROR);
+    if (this.payerId() === '' && !this.paid() && this.creditorId() === '') return this.problem.set(WORDS.NoCreditor ?? SERVER_ERROR);
+    if (this.feeOf()?.kind === 'invalid') return this.problem.set(FEE_REFUSAL);
     this.problem.set(null);
     this.step.set('readBack');
     void this.voice.say(this.readBack());
@@ -365,7 +415,7 @@ export class ExpenseGesturePage {
       spentOn: this.spentOn(),
       amount: this.amount(),
       note: this.note().trim() === '' ? null : this.note(),
-      payment: this.paid() ? { kind: 'Paid' } : { kind: 'ToPay', counterpartyId: this.creditorId() },
+      payment: this.payerId() !== '' ? { kind: 'PaidBy', counterpartyId: this.payerId() } : this.paid() ? { kind: 'Paid' } : { kind: 'ToPay', counterpartyId: this.creditorId() },
       receipt: this.keptReceipt(),
     };
     // The same rule as the server's, so that a refusal is said before anything leaves.
@@ -382,6 +432,9 @@ export class ExpenseGesturePage {
       }
       const problem = await this.expenses.save({ ...request, receipt }, this.correcting() ? this.sourceId : null);
       if (problem !== null) return this.problem.set(WORDS[problem] ?? SERVER_ERROR);
+      // The payer's fees after the expense they come with: also taken off what it owes (R.4).
+      const fee = this.feeOf();
+      if (fee?.kind === 'cost' && !(await this.fees.keep(fee.request))) return this.problem.set(WORDS.StorageUnavailable ?? SERVER_ERROR);
       this.stamped.set(true);
       void this.voice.say([clip('written-thanks')]);
       await this.router.navigate(['../depenses'], { relativeTo: this.route, queryParams: { lot: this.lotId() } });
@@ -403,8 +456,9 @@ export class ExpenseGesturePage {
   private fillFrom(source: CostView): void {
     this.typeId.set(source.costTypeId);
     this.digits.set(String(source.amount));
-    this.paid.set(source.payment.kind === 'Paid');
+    this.paid.set(source.payment.kind !== 'ToPay');
     this.creditorId.set(source.payment.kind === 'ToPay' ? source.payment.counterpartyId : '');
+    this.payerId.set(source.payment.kind === 'PaidBy' ? source.payment.counterpartyId : '');
     this.note.set(source.note ?? '');
     if (this.correcting()) {
       this.spentOn.set(source.spentOn);

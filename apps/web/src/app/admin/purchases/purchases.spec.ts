@@ -452,6 +452,43 @@ describe('Les achats, au bureau', () => {
       expect(http.match((request) => request.method === 'POST' && request.url === '/api/v1/costs')).toEqual([]);
     });
 
+    // Spec: backlog R.4 — une commande payée par un tiers (décisions du 2026-11-12).
+    it('« Plus de détails » : payé par quelqu’un d’autre — tout tiers en usage, sauf le fournisseur de la commande', async () => {
+      const { all, element } = await ouvre(PAGE, [recue()]);
+
+      expect(text(element().querySelector('.payer-more summary'))).toBe('Plus de détails : payé par quelqu’un d’autre');
+      expect(all('.payer').map(text)).toEqual(['Touba Avicole', 'Ramasseur']);
+    });
+
+    it('payée par l’acheteur, par Wave, ses frais à ta charge : le paiement nomme qui a payé ; les frais partent « payés par » lui', async () => {
+      const { tap, type, sent, element } = await ouvre(PAGE, [recue()]);
+
+      await tap('.payer:nth-child(2)');
+      await tap('.method-wave input');
+      expect(text(element().querySelector('app-fee-field'))).toContain('Frais Wave payés par Ramasseur, à ta charge');
+      await type('input[name=fee]', '2000');
+      await tap('form .go');
+
+      const payment = await sent('POST', `/api/v1/orders/${uuid(1)}/payments`);
+      expect(payment.request.body).toEqual(expect.objectContaining({ amount: 500_000, method: 'Wave', paidBy: uuid(34) }));
+      payment.flush(null, { status: 201, statusText: 'Created' });
+      expect((await sent('POST', '/api/v1/costs')).request.body).toEqual(expect.objectContaining({ amount: 2_000, note: 'Frais Wave — paiement Sedima payé par Ramasseur', payment: { kind: 'PaidBy', counterpartyId: uuid(34) } }));
+    });
+
+    it('payée par un tiers en espèces : aucune case « Frais »', async () => {
+      const { tap, element } = await ouvre(PAGE, [recue()]);
+
+      await tap('.payer:nth-child(2)');
+      await tap('.method-cash input');
+      expect(element().querySelector('input[name=fee]')).toBeNull();
+    });
+
+    it('un paiement déjà fait par un tiers le dit dans la liste', async () => {
+      const { all } = await ouvre(PAGE, [recue({ payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: uuid(34) }] })]);
+
+      expect(all('.paid-list li').map(text)).toEqual(['13/10/2026 Wave, payé par Ramasseur 400 000 F']);
+    });
+
     // Spec: backlog P.7 — un paiement saisi sans réseau est gardé sur l'appareil, et part au retour du réseau, une seule fois.
     it('sans réseau, le paiement est gardé et la carte dit « paiement en attente d’envoi » ; au retour du réseau, le même paiement repart', async () => {
       const { tap, sent, element, soon } = await ouvre(PAGE, [recue()]);

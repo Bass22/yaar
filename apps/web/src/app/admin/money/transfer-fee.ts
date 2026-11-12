@@ -28,9 +28,15 @@ export function feeCost(fee: {
   readonly on: string;
   /** What the transfer was: « paiement Sedima », « vente Moussa ». */
   readonly about: string;
+  /**
+   * Someone else who paid for the farm (R.4), and whose fees the farm takes on: the fee is then
+   * « paid by » it, taken off what it owes — whatever the way, since an expense has none.
+   */
+  readonly paidBy?: string;
 }): TransferFee {
   const typed = fee.typed.trim();
-  if (!takesFee(fee.method) || fee.campaignId === null || fee.costTypeId === null || typed === '' || /^0+$/.test(typed)) return { kind: 'none' };
+  const applies = takesFee(fee.method) || fee.paidBy !== undefined;
+  if (!applies || fee.campaignId === null || fee.costTypeId === null || typed === '' || /^0+$/.test(typed)) return { kind: 'none' };
   if (!/^\d+$/.test(typed) || !Number.isSafeInteger(Number(typed))) return { kind: 'invalid' };
   return {
     kind: 'cost',
@@ -40,8 +46,8 @@ export function feeCost(fee: {
       costTypeId: fee.costTypeId,
       spentOn: fee.on,
       amount: Number(typed),
-      note: `Frais ${MOBILE_MONEY[fee.method as PaymentMethodCode] ?? ''} — ${fee.about}`,
-      payment: { kind: 'Paid' },
+      note: `Frais ${(fee.method === null ? undefined : MOBILE_MONEY[fee.method]) ?? 'de transfert'} — ${fee.about}`,
+      payment: fee.paidBy === undefined ? { kind: 'Paid' } : { kind: 'PaidBy', counterpartyId: fee.paidBy },
       receipt: null,
     },
   };
@@ -69,9 +75,13 @@ export const FEE_REFUSAL = 'Les frais : des francs entiers, ou rien si c’est l
   template: `
     @if (shown()) {
       <label class="fee">
-        <span>Frais {{ methodWords() }} payés par toi</span>
+        @if (payer(); as payer) {
+          <span>Frais {{ methodWords() || 'de transfert' }} payés par {{ payer }}, à ta charge</span>
+        } @else {
+          <span>Frais {{ methodWords() }} payés par toi</span>
+        }
         <input name="fee" type="number" inputmode="numeric" min="0" step="1" [value]="value()" (input)="value.set(valueOf($event))" />
-        <small>Laisse vide si c’est l’autre qui paie les frais.</small>
+        <small>{{ payer() === null ? 'Laisse vide si c’est l’autre qui paie les frais.' : 'Ils se déduisent de ce qu’il doit. Laisse vide s’ils restent à sa charge.' }}</small>
       </label>
     }
   `,
@@ -90,9 +100,11 @@ export class FeeField {
   readonly method = input<PaymentMethodCode | null>(null);
   /** False where no fee can be written: no « Frais financiers » type, or no flock to carry it. */
   readonly available = input(true);
+  /** The name of someone else who paid for the farm (R.4): its fees, taken on, whatever the way. */
+  readonly payer = input<string | null>(null);
   readonly value = model('');
 
-  protected readonly shown = computed(() => this.available() && takesFee(this.method()));
+  protected readonly shown = computed(() => this.available() && (takesFee(this.method()) || this.payer() !== null));
   protected readonly methodWords = computed(() => {
     const method = this.method();
     return method === null ? '' : (MOBILE_MONEY[method] ?? '');

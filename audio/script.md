@@ -94,6 +94,9 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `already-written-many` | Morts déjà écrits pour ce jour : *nombre*. | Au-delà de 20 — **composé** | |
 | `deaths-in-addition-1` … `-20` | Tes 1 mort, c'est en plus ? … Tes 20 morts, c'est en plus ? | Juste après le rappel, à la place de « C'est bien ça ? » — **de 1 à 20** (pour 1 : « Ton mort, c'est en plus ? ») | |
 | `deaths-in-addition-many` | Tes morts, c'est en plus ? | Au-delà de 20 : le nombre vient d'être dit | |
+| `deaths-show` | Tu montres les morts ? Appuie sur l'appareil photo. Sinon, appuie sur « pas de photo ». | Relecture des morts : les deux Oui (K.6) | |
+| `deaths-photo-advice` | Prends en photo tous les morts, dans un endroit bien éclairé. | L'appareil photo s'ouvre pour les morts (K.6, consigne du fondateur) | |
+| `deaths-camera-refused` | L'appareil photo ne s'ouvre pas. Les morts sont écrits sans photo. | L'appareil refuse : la déclaration s'écrit « pas de photo » | |
 
 ## 4. Déclarer un sac ouvert
 
@@ -232,6 +235,7 @@ Le gérant qui ne lit pas entend la relecture avant tout Oui d'argent (`bureau-a
 | `money-francs` | francs. | Après un nombre d'argent | |
 | `cost-paid` | Payé. | Relecture d'une dépense payée | |
 | `cost-to-pay` | À payer plus tard. | Relecture d'une dépense à payer | |
+| `cost-paid-by-other` | Payé par quelqu'un d'autre pour toi. | Relecture d'une dépense ou d'un paiement payé par un tiers (R.4) | |
 | `committed` | Engagé à date : *nombre* francs. | Bouton d'écoute de l'engagé — **composé** | |
 | `cost-per-bird` | Coût par poulet : *nombre* francs. | Bouton d'écoute du coût par poulet — **composé** | |
 | `cost-per-bird-unknown` | Le coût par poulet n'est pas encore connu : les poussins ne sont pas encore comptés. | Coût par poulet absent | |
@@ -283,4 +287,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 463 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 467 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

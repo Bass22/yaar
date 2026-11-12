@@ -33,6 +33,7 @@ export type ScriptClip =
   | 'cost-category-utilities'
   | 'cost-how-much'
   | 'cost-paid'
+  | 'cost-paid-by-other'
   | 'cost-per-bird'
   | 'cost-per-bird-unknown'
   | 'cost-to-pay'
