@@ -1571,15 +1571,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## V — Suivi
 
-### V.1 — La consommation d'aliment · **M**
+### V.1 — La consommation d'aliment · **M** ✅ (domaine ; l'écran vient avec V.3)
 > Spec : CdC « Suivi » · Zone : `packages/domain/src/journal/feed-consumption.ts`
 > Dépend de : C.5, N.4 · Revue : la formule, avec un effectif qui baisse en cours de bande.
 
-- [ ] La consommation déclarée vaut sacs ouverts × poids du sac ÷ effectif
-- [ ] Elle se donne par jour et en cumul
-- [ ] Elle se compare à la table de la souche, au même âge
-- [ ] L'indice de consommation vaut l'aliment consommé ÷ les kilos produits
-- [ ] Sans pesée validée, l'indice est absent, pas zéro
+> Livrée le 2026-11-12, aucune dépendance ajoutée, domaine seul. Décisions du fondateur du 2026-11-12, écrites d'abord au CdC (« La consommation d'aliment ») : **un sac pèse 50 kg** (`BAG_WEIGHT`, pour tout élevage) ; **le cumul par poulet est la somme des jours** — chaque jour, sacs ouverts × 50 kg ÷ vivants de ce jour (reçus jusqu'à ce jour compris, moins morts, pertes et ventes des jours d'avant), arrondi au gramme à la fin ; **pas de chiffre par jour** ; **l'indice sur la dernière pesée validée** (cumul jusqu'à son jour ÷ sa moyenne, au millième), face à l'indice du guide. `feedConsumption(journal, contexte)` : sacs comptés, cumul (absent tant qu'aucun poussin n'est reçu), cible de la souche au même âge et écart signé (absents avant J7 et après J49), indice. Les ventes y entrent comme un jour et un nombre (`SoldBirds`), jamais un montant : `domain/journal` n'importe pas `domain/finance`. Les sacs d'un jour sans vivants connus ne comptent pas dans le cumul. **Reste pour V.3** : la lecture au serveur (journal de la bande, ventes, lignes de poussins) et l'affichage.
+
+- [x] La consommation déclarée vaut sacs ouverts × poids du sac ÷ effectif
+- [x] Elle se donne en cumul (somme des jours) ; pas de chiffre par jour (décision du fondateur du 2026-11-12 : les sacs ne s'ouvrent pas au rythme du repas)
+- [x] Elle se compare à la table de la souche, au même âge
+- [x] L'indice de consommation vaut l'aliment consommé ÷ les kilos produits (par poulet : cumul ÷ poids moyen de la dernière pesée validée)
+- [x] Sans pesée validée, l'indice est absent, pas zéro
 
 ### V.2 — La courbe de poids contre la souche · **M** ✅
 > Spec : CdC « Suivi » ; `bureau-admin.html` (graphe poids) · Zone : `apps/web/src/app/admin/tracking/weight-chart/`

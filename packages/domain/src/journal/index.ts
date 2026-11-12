@@ -43,6 +43,7 @@ export {
   type DeclarationPolicyContext,
   type SiteStaff,
 } from './declaration-policy';
+export { BAG_WEIGHT, feedConsumption, type FeedConsumption, type FeedConsumptionContext, type SoldBirds } from './feed-consumption';
 export {
   CampaignId,
   JournalEventId,
