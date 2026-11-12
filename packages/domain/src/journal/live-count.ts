@@ -45,3 +45,9 @@ export const computeLiveCount = (events: readonly JournalEvent[], context: LiveC
   const sold = context.sold ?? 0;
   return { received, deaths, losses, sold, liveCount: received - deaths - losses - sold };
 };
+
+/**
+ * The mortality of a flock (V.3): deaths ÷ chicks received, to the thousandth. Losses that are not
+ * deaths and birds sold play no part. `null` while no chick is received: absent, never zero.
+ */
+export const mortality = (count: LiveCount): number | null => (count.received > 0 ? Math.round((count.deaths / count.received) * 1000) / 1000 : null);

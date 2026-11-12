@@ -13,6 +13,7 @@ import { MorePage } from './more/more-page';
 import { SaleGesturePage } from './sales/sale-gesture-page';
 import { SalePage } from './sales/sale-page';
 import { SalesPage } from './sales/sales-page';
+import { TrackingPage } from './tracking/tracking-page';
 import { WeighingsPage } from './weighings/weighings-page';
 import { OfficeShell } from './shell/office-shell';
 
@@ -29,6 +30,7 @@ export const adminRoutes: Route[] = [
       { path: 'lots/ouvrir', component: OpenCampaignPage },
       { path: 'lots/ventes', component: SalesPage },
       { path: 'lots/pesees', component: WeighingsPage },
+      { path: 'lots/suivi', component: TrackingPage },
       { path: 'lots/vente', component: SaleGesturePage },
       { path: 'lots/ventes/:id', component: SalePage },
       { path: 'achats', component: PurchasesPage },

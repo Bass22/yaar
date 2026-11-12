@@ -71,7 +71,8 @@ export {
   type JournalEvent,
   type LossType,
 } from './journal-event';
-export { computeLiveCount, type LiveCount, type LiveCountContext } from './live-count';
+export { halvesOf, recordLeftovers, type Leftover, type LeftoverInput, type LeftoverRefusal } from './leftovers';
+export { computeLiveCount, mortality, type LiveCount, type LiveCountContext } from './live-count';
 export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';

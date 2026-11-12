@@ -5,7 +5,7 @@ import { BusinessDay } from './business-day';
 import { CampaignId, JournalEventId, OrderLineId, SiteId, TaskId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
 import { CounterDeclaration, Declaration, Retraction, type EventEnvelope, type Fact, type JournalEvent } from './journal-event';
-import { computeLiveCount } from './live-count';
+import { computeLiveCount, mortality } from './live-count';
 import { Quantity } from './quantity';
 
 // Spec: Cahier des charges — « En-tête et contexte » (compteur de vivants) ; « Architecture des
@@ -247,6 +247,39 @@ describe('Vivants', () => {
           expect(vivants(journal)).toEqual({ received, deaths, losses, sold: 0, liveCount: received - deaths - losses });
         }),
       );
+    });
+  });
+
+  // Spec: backlog V.3 ; cahier des charges « L'onglet Suivi d'un lot » — la mortalité
+  describe('la mortalité', () => {
+    it('vaut les morts ÷ les poussins reçus, au millième : 62 morts sur 1 000 = 0,062', () => {
+      // Given 1 000 poussins reçus, 62 morts
+      const journal = [declare(1, recus(1000)), declare(2, morts(62))];
+
+      expect(mortality(vivants(journal))).toBe(0.062);
+    });
+
+    it('les pertes qui ne sont pas des morts et les ventes n’y comptent pas', () => {
+      // Given 1 000 reçus, 10 morts, 30 manquants, 5 donnés, 2 volés, 400 vendus
+      const journal = [declare(1, recus(1000)), declare(2, morts(10)), declare(3, manquants(30)), declare(4, donnes(5)), declare(5, voles(2))];
+      const compte = computeLiveCount(journal, { campaignId: LA_BANDE, placementOrderLines: [LIGNE_POUSSINS], sold: 400 });
+
+      // Then 10 ÷ 1 000 = 0,01
+      expect(mortality(compte)).toBe(0.01);
+    });
+
+    it('s’arrondit au millième le plus proche : 1 mort sur 3 = 0,333 ; 2 sur 3 = 0,667', () => {
+      expect(mortality(vivants([declare(1, recus(3)), declare(2, morts(1))]))).toBe(0.333);
+      expect(mortality(vivants([declare(1, recus(3)), declare(2, morts(2))]))).toBe(0.667);
+    });
+
+    it('sans poussin reçu, la mortalité est absente, pas zéro — même avec des morts déclarés', () => {
+      expect(mortality(vivants([]))).toBeNull();
+      expect(mortality(vivants([declare(1, morts(3))]))).toBeNull();
+    });
+
+    it('zéro mort sur des poussins reçus : zéro, calculé', () => {
+      expect(mortality(vivants([declare(1, recus(500))]))).toBe(0);
     });
   });
 });

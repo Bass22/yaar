@@ -103,6 +103,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/campaigns/:id/money',
       // Admin only: the sales of a campaign, revenue, cashed in, margin, average price (W.3).
       'GET /api/v1/campaigns/:id/sales',
+      // Admin only: the « Suivi » of a lot — cost per bird, mortality, feed, curve, sales from the first (V.3).
+      'GET /api/v1/campaigns/:id/tracking',
       // Admin only: the real weight curve and the weighings waiting for validation (T.5).
       'GET /api/v1/campaigns/:id/weighings',
       'GET /api/v1/caretaker/context',

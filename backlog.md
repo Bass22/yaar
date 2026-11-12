@@ -82,6 +82,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Une vente diminue-t-elle le compteur de vivants vu par le gardien ?~~ ✅ tranché le 2026-11-12 : oui, les poulets vendus sortent des vivants ; le restant à vendre = les vivants. Prix par tête ou au kilo, au choix à chaque vente ; l'acheteur paie tout, une partie ou rien sur le moment, le reste est une créance | CdC « Les ventes » | ~~W.1~~ |
 | ~~Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale)~~ ✅ tranché le 2026-11-07 : la balance n'est pas modélisée — un poids est un entier de grammes positif, saisi tel que lu (le gardien peut le taper), sans capacité ; la forme de la saisie se décide avec `/designer` | CdC « Demande de pesée » | ~~T.3~~ |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
+| Le demi-sac entamé laissé à la clôture sort-il de la consommation d'aliment de la bande (−25 kg) ? Aujourd'hui non | CdC « Les restes et le bilan » | Rien ; affine V.1 |
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
 | Correspondance des onglets Excel vers les événements | CdC « Points ouverts » | Z.6 |
@@ -1594,14 +1595,17 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Sans pesée validée, seule la courbe cible s'affiche
 - [x] Le graphe se lit à 360 px de large
 
-### V.3 — Les indicateurs du suivi · **M**
+### V.3 — Les indicateurs du suivi · **M** ✅ (page « Suivi » depuis les lots)
 > Spec : CdC « Suivi » (KPI) · Zone : `apps/web/src/app/admin/tracking/`
 > Dépend de : V.1, P.4 · Revue : un indicateur sans donnée reste vide.
 
-- [ ] L'onglet montre le coût par poulet, la mortalité et les jours écoulés sur les jours prévus
-- [ ] La consommation s'affiche en journalier et en cumul, face à la souche
-- [ ] Un indicateur sans donnée s'affiche à blanc
-- [ ] Marge, prix moyen et restant à vendre n'apparaissent qu'à partir de la première vente
+> Livrée le 2026-11-12, aucune dépendance ajoutée, aucune table. Règles écrites d'abord au CdC (« L'onglet Suivi d'un lot »), d'après l'onglet Suivi de `bureau-admin.html` (pas de nouvelle maquette). **La mortalité** (`mortality`, `domain/journal`) : morts ÷ poussins reçus, au millième — pertes et ventes n'y comptent pas ; absente sans poussin reçu ; sans couleur d'alerte tant que le seuil n'est pas fixé (O.4). `GET /api/v1/campaigns/:id/tracking` (admin ; 404 hors de l'élevage) recalcule tout : coût par poulet (P.1), reçus, morts, mortalité, jour J au fuseau du site sur la durée prévue, aliment (V.1, les ventes passées au domaine comme des jours et des nombres), courbe (V.2), ventes dès la première. `TrackingPage` (`lots/suivi`, lien « Le suivi » dans les lots) : trois chiffres en tête, le graphe du poids, l'aliment (cumul, écart en grammes et en %, indice en vert s'il bat le guide, orange sinon, sacs comptés), les ventes ; un tiret à la place d'un chiffre sans donnée ; hors réseau, la dernière lecture et sa date, ou un message si rien n'a été lu. **Pas fait ici** : le bouton d'écoute sur ces chiffres (CdC « Un bureau pour ceux qui ne lisent pas ») — il demande de nouvelles phrases au script audio ; à faire dans une tranche à part avant les pilotes. Le graphe reste aussi sur la page des pesées.
+
+- [x] L'onglet montre le coût par poulet, la mortalité et les jours écoulés sur les jours prévus
+- [x] La consommation s'affiche en cumul face à la souche, avec l'indice (pas de chiffre par jour : décision du 2026-11-12, V.1)
+- [x] Un indicateur sans donnée s'affiche à blanc
+- [x] Marge, prix moyen et restant à vendre n'apparaissent qu'à partir de la première vente
+- [ ] Le bouton d'écoute sur chaque chiffre du suivi — nouvelles phrases au script audio, tranche à part
 
 ### V.4 — Prédire les pertes d'ici la fin de la bande · **M** · ⚠
 > Spec : demande du fondateur du 2026-11-12 (« prédire les pertes d'ici la fin de campagne ») · à spécifier avant découpage : quelle méthode (rythme des 7 derniers jours prolongé, courbe des bandes passées de l'élevage, table de la souche), et ce qu'elle remplace (les 7 % par défaut du coût par poulet, P.1).
@@ -1647,15 +1651,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## X — Clôture de campagne
 
-### X.1 — Les restes et le bilan · **M** · 🧪
+### X.1 — Les restes et le bilan · **M** · 🧪 ✅ (domaine ; saisie, écriture et écran avec X.2)
 > Spec : CdC « Clôture de campagne » · Zone : `packages/domain/src/finance/closing-report.ts`, `packages/domain/src/journal/leftovers.ts`
 > Dépend de : W.1, V.1 · Revue : le bilan d'un jeu d'essai, recalculé à la main.
 
-- [ ] Les restes se saisissent en sacs entiers et en demi-sac entamé
-- [ ] Les restes se transfèrent à la campagne suivante du site
-- [ ] Le bilan donne : poussins, pertes, coûts, revenus, coût par poulet, bénéfice
-- [ ] Le bilan porte un commentaire libre
-- [ ] Le bilan se recalcule à l'identique depuis les écritures
+> Décisions du fondateur (2026-11-12) : restes de tout ce qui se commande (pas les poussins) ; valeur au prix moyen payé dans la bande, qui sort de la bande close et entre dans celle qui reçoit ; l'admin choisit la bande qui reçoit (même site, pas close) ; coût par poulet et prix de vente moyen sur les poussins reçus. Reste ouvert : retirer le demi-sac entamé de la consommation (V.1) ?
+
+- [x] Les restes se saisissent en sacs entiers et en demi-sac entamé
+- [x] Les restes se transfèrent à la bande que l'admin choisit, du même site (leur valeur sort de la bande close et entre dans l'autre)
+- [x] Le bilan donne : poussins, pertes, coûts, revenus, coût par poulet, bénéfice
+- [x] Le bilan donne le prix de vente moyen par poussin reçu, face au coût par poulet
+- [x] Le bilan porte un commentaire libre
+- [x] Le bilan se recalcule à l'identique depuis les écritures
 
 ### X.2 — Clôturer une campagne · **M**
 > Spec : CdC « Clôture de campagne » · Zone : `apps/api/src/campaigns/closing/`, `apps/web/src/app/admin/closing/`

@@ -23,3 +23,4 @@ export type { CounterpartyLedgerView, LedgerEntryView, LedgerSourceView, LedgerV
 export type { RecordSaleRequest, SalePricingView, SaleReceiptRequest, SaleRefusal, SaleRefusalCode, SalesView, SaleView } from './sales';
 export type { CaretakerWeighingRequest, RecordWeighingRequest, WeighingsView, WeighingToValidate } from './journal';
 export type { DeathPhotosView } from './journal';
+export type { TrackingView } from './tracking';

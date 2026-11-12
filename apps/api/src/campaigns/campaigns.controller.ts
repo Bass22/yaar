@@ -1,10 +1,12 @@
-import { BadRequestException, Body, ConflictException, Controller, HttpCode, HttpStatus, Inject, NotFoundException, Post } from '@nestjs/common';
-import type { Clock, Result } from '@kit';
-import type { CampaignOpeningRefusal, OpenCampaignRequest } from '@contracts';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post } from '@nestjs/common';
+import { unwrap, type Clock, type Result } from '@kit';
+import { TenantId } from '@domain/journal';
+import type { CampaignOpeningRefusal, OpenCampaignRequest, TrackingView } from '@contracts';
 import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { openCampaign } from './open-campaign';
+import { campaignTracking } from './tracking';
 
 // The campaigns of the farm (O.2): opened by the admin, in the tenant transaction of the request.
 @Roles('admin')
@@ -20,6 +22,14 @@ export class CampaignsController {
   async open(@CurrentSession() session: Session, @Body() body: unknown): Promise<void> {
     const request = openRequestOf(body);
     answer(await this.prisma.runInTenant(session.tenantId, (tx) => openCampaign(tx, session, request, this.clock.now())));
+  }
+
+  /** The « Suivi » of a lot (V.3): money is in it, so the admin only. */
+  @Get(':id/tracking')
+  async tracking(@CurrentSession() session: Session, @Param('id') id: string): Promise<TrackingView> {
+    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignTracking(tx, unwrap(TenantId(session.tenantId)), id, this.clock.now()));
+    if (view === null) throw new NotFoundException();
+    return view;
   }
 }
 

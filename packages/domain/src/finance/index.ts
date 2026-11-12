@@ -52,3 +52,16 @@ export {
 export { costEntries, ledgerOf, orderEntries, settlementEntries, type CounterpartyBalance, type LedgerEntry, type LedgerSource } from './ledger';
 export { recordSettlement, SETTLEMENT_DIRECTIONS, type Settlement, type SettlementContext, type SettlementDirection, type SettlementId, type SettlementInput, type SettlementRefusal } from './settlement';
 export { recordSale, recordSaleReceipt, saleAmount, saleEntries, salesSummary, type Sale, type SaleContext, type SaleId, type SaleInput, type SalePricing, type SaleReceipt, type SaleReceiptId, type SaleReceiptInput, type SaleRefusal, type SalesSummary } from './sale';
+export {
+  closingReport,
+  leftoverValues,
+  transferLeftovers,
+  type ClosingInput,
+  type ClosingRefusal,
+  type ClosingReport,
+  type LeftoverTransfer,
+  type LeftoverValue,
+  type ReceivedStock,
+  type TransferContext,
+  type TransferRefusal,
+} from './closing-report';
