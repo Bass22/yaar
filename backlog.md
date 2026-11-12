@@ -1418,18 +1418,20 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les soldes viennent de l'API ; l'écran n'additionne rien
 - [x] Le sens se voit sans lire : flèche rouge de toi vers le tiers, verte vers toi ; le tiers a son visage et la voix dit son nom enregistré, avec le montant (écran 10 de `bureau-admin-v2.html`) — le nom à la voix attend N.3b
 
-### R.4 — Payé par un tiers (l'avance d'un collaborateur, l'acheteur qui paie un coût) · **M**
+### R.4 — Payé par un tiers (l'avance d'un collaborateur, l'acheteur qui paie un coût) · **M** ✅
 > Spec : CdC « payé par AS » ; demande du fondateur du 2026-11-12 (« un acheteur de poulets me rembourse en payant directement des coûts de ma campagne ») · Zone : `packages/domain/src/finance/ledger.ts`, écrans d'une dépense et du paiement d'une commande
 > Dépend de : R.1, P.4, W.1 · Revue : une dette interne se trace comme les autres ; à faire après les ventes à crédit.
 > Proposé le 2026-11-12, **validé par le fondateur le même jour** (avec la case frais déduits des créances) : une dépense, ou le paiement d'une commande, peut être « payé par » un tiers désigné sur sa tuile (collaborateur, acheteur, autre fournisseur) au lieu de l'élevage. Le coût compte dans l'engagé comme d'habitude ; le fournisseur payé ne réclame plus rien ; le tiers qui a payé reçoit une écriture « − montant » dans son grand livre : la créance d'un acheteur baisse, ou l'élevage doit l'avance au collaborateur.
 > **À l'écran** (2026-11-12) : le chemin principal ne change pas (Payé / À payer plus tard) ; « Payé par un tiers… » se range derrière « Plus de détails », pour ne pas induire en erreur le gérant qui n'en a pas besoin ; pas de réglage par élevage ; quand il sert, la relecture le dit, à l'écran et à la voix.
 
-- [ ] Un coût « payé par » un collaborateur crée une dette envers lui
-- [ ] Le coût compte dans l'engagé dès sa saisie
-- [ ] Rembourser le collaborateur solde sa dette
-- [ ] Un acheteur qui paie un coût de la bande voit sa créance baisser d'autant ; s'il paie plus que sa dette, l'élevage lui doit la différence
-- [ ] Le tiers qui a payé se désigne sur sa tuile, à la saisie de la dépense ou du paiement
-- [ ] Les frais de transfert que le tiers a payés, pris en charge par l'élevage, se déduisent aussi de ce qu'il doit et deviennent une dépense « Frais financiers » de la bande (validé par le fondateur le 2026-11-12)
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Domaine : `CostPayment` gagne `PaidBy` (tout tiers en usage, client compris) ; un paiement de commande peut porter `paidBy` ; au grand livre, le tiers qui a payé reçoit « − montant » (`Cost` avec `paidBy`, `OrderPaidBy`), le fournisseur est payé comme d'habitude. Base : `cost_payment_kind` gagne `PaidBy` (la contrainte `costs_payment_shape` l'autorise à nommer son tiers), `payments.paid_by_id` (clé étrangère par élevage). Serveur : refuse le fournisseur qui se paierait lui-même (`PaidBySupplier`), un tiers archivé ou inconnu ; le même paiement avec un autre tiers est un autre contenu (409). Le grand livre lit les dépenses par la même fonction que les dépenses (une copie supprimée). Bureau : dépense et paiement de commande, « Plus de détails : payé par quelqu'un d'autre » → tuiles ; la case frais « payés par X, à ta charge » (pour une commande, avec Wave/OM) écrit une dépense « Frais financiers » payée par X ; la relecture le dit (« payé par Ramasseur pour toi », clip `cost-paid-by-other`) ; la liste des paiements d'une commande dit qui a payé.
+
+- [x] Un coût « payé par » un collaborateur crée une dette envers lui
+- [x] Le coût compte dans l'engagé dès sa saisie
+- [x] Rembourser le collaborateur solde sa dette
+- [x] Un acheteur qui paie un coût de la bande voit sa créance baisser d'autant ; s'il paie plus que sa dette, l'élevage lui doit la différence
+- [x] Le tiers qui a payé se désigne sur sa tuile, à la saisie de la dépense ou du paiement
+- [x] Les frais de transfert que le tiers a payés, pris en charge par l'élevage, se déduisent aussi de ce qu'il doit et deviennent une dépense « Frais financiers » de la bande (validé par le fondateur le 2026-11-12)
 
 ## S — Budget et échéances
 

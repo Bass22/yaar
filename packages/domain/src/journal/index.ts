@@ -62,6 +62,7 @@ export {
   isRetraction,
   LOSS_TYPES,
   Retraction,
+  type DeathEvidence,
   type DeliveryNote,
   type EventEnvelope,
   type EventType,

@@ -29,6 +29,9 @@ export type EventEnvelope = {
 };
 
 /** The paper handed over by the driver: photographed, or declared missing. */
+/** Whether the caretaker showed the dead (K.6): photographed, with the photo's fingerprint, or no photo — an answer, never an oversight. */
+export type DeathEvidence = { readonly kind: 'Photographed'; readonly media: MediaFingerprint } | { readonly kind: 'NoPhoto' };
+
 export type DeliveryNote =
   | { readonly kind: 'Photographed'; readonly media: MediaFingerprint }
   | { readonly kind: 'NoPaper' };
@@ -46,7 +49,12 @@ export type LossType = (typeof LOSS_TYPES)[number];
  * caretaker phone. The list changes by addition only: a field keeps its meaning forever.
  */
 export type Fact =
-  | { readonly type: 'Death'; readonly quantity: Quantity }
+  | {
+      readonly type: 'Death';
+      readonly quantity: Quantity;
+      /** The caretaker's answer, photo or not (K.6, added): absent when it was never asked — not « no photo ». */
+      readonly deathEvidence?: DeathEvidence;
+    }
   | { readonly type: 'BagOpened'; readonly quantity: Quantity }
   /** The explicit zero: nothing was lost that day. */
   | { readonly type: 'NoLoss' }
@@ -127,6 +135,7 @@ function envelopeOf(envelope: EventEnvelope): EventEnvelope {
 export function factOf(fact: Fact): Fact {
   switch (fact.type) {
     case 'Death':
+      return { type: fact.type, quantity: fact.quantity, ...(fact.deathEvidence === undefined ? {} : { deathEvidence: deathEvidenceOf(fact.deathEvidence) }) };
     case 'BagOpened':
       return { type: fact.type, quantity: fact.quantity };
     case 'NoLoss':
@@ -183,4 +192,15 @@ function deliveryNoteOf(note: DeliveryNote): DeliveryNote {
 
 function outOfSchema(what: string, value: never): never {
   throw new TypeError(`Unknown ${what}: ${JSON.stringify(value)}`);
+}
+
+function deathEvidenceOf(evidence: DeathEvidence): DeathEvidence {
+  switch (evidence.kind) {
+    case 'Photographed':
+      return Object.freeze({ kind: evidence.kind, media: evidence.media });
+    case 'NoPhoto':
+      return Object.freeze({ kind: evidence.kind });
+    default:
+      return outOfSchema('death evidence', evidence);
+  }
 }

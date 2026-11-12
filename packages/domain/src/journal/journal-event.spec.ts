@@ -213,6 +213,19 @@ describe('Événement du journal', () => {
       expect(Declaration(signeParLeGardien(), withAverage)).not.toHaveProperty('average');
     });
 
+    it('des morts peuvent porter la réponse du gardien (K.6, champ ajouté) : photographiés, avec l’empreinte, ou pas de photo ; sans réponse, le champ est absent', () => {
+      const photographies = Declaration(signeParLeGardien(), { ...facts.Death, deathEvidence: { kind: 'Photographed', media: empreinte('d') } });
+      const sansPhoto = Declaration(signeParLeGardien(), { ...facts.Death, deathEvidence: { kind: 'NoPhoto' } });
+      const sansReponse = Declaration(signeParLeGardien(), facts.Death);
+
+      expect(photographies).toMatchObject({ quantity: 3, deathEvidence: { kind: 'Photographed', media: 'd'.repeat(64) } });
+      expect(sansPhoto).toMatchObject({ deathEvidence: { kind: 'NoPhoto' } });
+      expect(sansReponse).not.toHaveProperty('deathEvidence');
+      expect(() => {
+        (photographies as unknown as { deathEvidence: { kind: string } }).deathEvidence.kind = 'NoPhoto';
+      }).toThrow(TypeError);
+    });
+
     it('une pesée peut porter la photo de la balance pour chaque poids (T.6, champ ajouté) ; sans photo, le champ est absent, jamais vide', () => {
       // When
       const photos = ['1', '2', '3', '4', '5'].map(empreinte);
