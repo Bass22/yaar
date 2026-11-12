@@ -19,8 +19,13 @@ export interface RecordSettlementRequest {
 export type LedgerSourceView =
   | { readonly kind: 'OrderReceived'; readonly orderId: string }
   | { readonly kind: 'OrderPayment'; readonly orderId: string; readonly method: PaymentMethodCode }
-  | { readonly kind: 'Cost'; readonly costId: string }
-  | { readonly kind: 'Settlement'; readonly method: PaymentMethodCode; readonly direction: SettlementDirectionCode };
+  /** What someone paid on an order for the farm (R.4). */
+  | { readonly kind: 'OrderPaidBy'; readonly orderId: string; readonly method: PaymentMethodCode }
+  /** A cost owed to it — or, `paidBy`, that it paid for the farm (R.4). */
+  | { readonly kind: 'Cost'; readonly costId: string; readonly paidBy?: true }
+  | { readonly kind: 'Settlement'; readonly method: PaymentMethodCode; readonly direction: SettlementDirectionCode }
+  | { readonly kind: 'Sale'; readonly saleId: string }
+  | { readonly kind: 'SaleReceipt'; readonly saleId: string; readonly method: PaymentMethodCode };
 
 export interface LedgerEntryView {
   /** `YYYY-MM-DD`. */

@@ -9,7 +9,7 @@ const models = Prisma.dmmf.datamodel.models;
 
 describe('Schéma de la base', () => {
   it("les modèles tenant, utilisateur, site, affectation, campagne, événement du journal, trace d'audit, déclaration refusée, tiers, type de coût, commande et ligne de commande existent", () => {
-    expect(models.map((model) => model.name).sort()).toEqual(['AuditEvent', 'Campaign', 'Cost', 'CostType', 'Counterparty', 'JournalEvent', 'Media', 'OrderLine', 'Payment', 'PurchaseOrder', 'RefusedEvent', 'Settlement', 'Site', 'SiteAssignment', 'Tenant', 'User']);
+    expect(models.map((model) => model.name).sort()).toEqual(['AuditEvent', 'Campaign', 'Cost', 'CostType', 'Counterparty', 'JournalEvent', 'Media', 'OrderLine', 'Payment', 'PurchaseOrder', 'RefusedEvent', 'Sale', 'SaleReceipt', 'Settlement', 'Site', 'SiteAssignment', 'Tenant', 'User', 'WeighingRequest']);
   });
 
   it('tout modèle porte `tenant_id` — sauf le tenant, dont l’identifiant est le tenant', () => {

@@ -1,11 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
+import { IDBFactory } from 'fake-indexeddb';
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { CaretakerContext, CounterpartyView, LedgerView } from '@contracts';
+import type { CaretakerCampaign, CaretakerContext, CostTypeView, CounterpartyView, LedgerView } from '@contracts';
 import { provideHeardVoice } from '../../../core/audio/testing';
 import { CLOCK } from '../../../core/clock';
+import { OfficeQueue } from '../../../core/outbox/office-queue';
+import { OFFICE_QUEUE } from '../../office-sync';
 import { adminRoutes } from '../../admin.routes';
 
 // Spec: backlog R.3 — l'écran « Qui doit quoi » ; cahier des charges « Le grand livre » (2026-11-12) ;
@@ -24,7 +27,13 @@ const NOW = new Date('2026-11-12T08:00:00.000Z');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-const contexte = (): CaretakerContext => ({ chef: null, sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-12', primaryCaretakerId: null, campaigns: [] }] });
+// The running flocks, none unless a test places some: a settlement belongs to none of them (P.8).
+let lots: CaretakerCampaign[] = [];
+const bande = (rank: number, campaignDay: number): CaretakerCampaign => ({ campaignId: uuid(rank), placementDay: '2026-10-01', campaignDay, liveCount: 1000, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' });
+const contexte = (): CaretakerContext => ({ chef: null, sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-12', primaryCaretakerId: null, campaigns: lots }] });
+// The farm's « Frais financiers » type: what a Wave or Orange Money fee is written as (P.8).
+const FRAIS = uuid(45);
+const types = (): CostTypeView[] => [{ id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false }];
 const tiers = (): CounterpartyView[] => [
   { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
   { id: OUSMANE, kind: 'Collaborator', name: 'Ousmane', face: 'caretaker', archived: false },
@@ -60,7 +69,7 @@ describe('« Qui doit quoi », au bureau', () => {
     const voice = provideHeardVoice(RECORDED);
     heard = voice.heard;
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }, ...voice.providers],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }, { provide: OFFICE_QUEUE, useFactory: () => OfficeQueue.open(new IDBFactory()) }, ...voice.providers],
     });
     http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
@@ -70,7 +79,7 @@ describe('« Qui doit quoi », au bureau', () => {
       http.match('/api/v1/caretaker/context').forEach((request) => request.flush(contexte()));
       http.match('/api/v1/orders').forEach((request) => request.flush([]));
       http.match('/api/v1/counterparties').forEach((request) => request.flush(tiers()));
-      http.match('/api/v1/cost-types').forEach((request) => request.flush([]));
+      http.match('/api/v1/cost-types').forEach((request) => request.flush(types()));
       http.match('/api/v1/reference-data').forEach((request) => request.flush({ currency: 'XOF', costCategories: [], lossTypes: [], strains: [] }));
       http.match('/api/v1/ledger').forEach((request) => request.flush(ledger));
       harness.detectChanges();
@@ -109,6 +118,7 @@ describe('« Qui doit quoi », au bureau', () => {
   const text = (node: Element | null | undefined) => node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 
   beforeEach(() => {
+    lots = [];
     localStorage.clear();
     localStorage.setItem('yaar.session', JSON.stringify({ token, expiresAt: '2099-01-01T00:00:00.000Z', role: 'admin', account: { name: 'Bassirou', avatar: 'baobab', language: 'fr' } }));
   });
@@ -189,6 +199,64 @@ describe('« Qui doit quoi », au bureau', () => {
       await vi.waitFor(() => expect(heard.flat()).toContain('fr/settle-to'));
     });
 
+    // Spec: backlog P.8 — les frais Wave et Orange Money d'un règlement (décisions du 2026-11-12).
+    it('par Wave, avec deux lots en cours : la case « Frais » et le choix du lot qui les porte, aucun choisi d’avance', async () => {
+      lots = [bande(4, 30), bande(5, 9)];
+      const { tap, element, all } = await ouvre(`/admin/tiers/${OUSMANE}`);
+
+      await tap('.method-wave input');
+      expect(element().querySelector('input[name=fee]')).not.toBeNull();
+      expect(all('.fee-lot').map(text)).toEqual(['Poulailler Nord · Jour 30', 'Poulailler Nord · Jour 9']);
+    });
+
+    it('sans lot en cours, aucune case « Frais » : rien ne pourrait les porter', async () => {
+      const { tap, element } = await ouvre(`/admin/tiers/${OUSMANE}`);
+
+      await tap('.method-wave input');
+      expect(element().querySelector('input[name=fee]')).toBeNull();
+    });
+
+    it('des frais avec plusieurs lots : il faut choisir le lot ; puis le règlement garde son montant, et les frais partent comme une dépense payée de ce lot', async () => {
+      lots = [bande(4, 30), bande(5, 9)];
+      const { tap, type, sent, element } = await ouvre(`/admin/tiers/${OUSMANE}`);
+      await type('input[name=amount]', '20000');
+      await tap('.method-wave input');
+      await type('input[name=fee]', '200');
+
+      await tap('.go');
+      expect(text(element().querySelector('.refusal'))).toContain('Choisis le lot qui porte les frais');
+
+      await tap('.fee-lot:nth-of-type(2) input');
+      await tap('.go');
+      const settlement = await sent();
+      expect(settlement.request.body).toEqual(expect.objectContaining({ amount: 20_000, method: 'Wave' }));
+      settlement.flush(null, { status: 201, statusText: 'Created' });
+      let fee: TestRequest | undefined;
+      await vi.waitFor(() => {
+        fee = http.match((request) => request.method === 'POST' && request.url === '/api/v1/costs')[0] ?? fee;
+        expect(fee).toBeDefined();
+      });
+      expect(fee?.request.body).toEqual(expect.objectContaining({ campaignId: uuid(5), costTypeId: FRAIS, spentOn: '2026-11-12', amount: 200, note: 'Frais Wave — règlement Ousmane', payment: { kind: 'Paid' } }));
+    });
+
+    it('un seul lot en cours : il porte les frais d’office, sans choix à faire', async () => {
+      lots = [bande(4, 30)];
+      const { tap, type, sent, all } = await ouvre(`/admin/tiers/${OUSMANE}`);
+      await type('input[name=amount]', '20000');
+      await tap('.method-orange input');
+      await type('input[name=fee]', '150');
+      expect(all('.fee-lot')).toEqual([]);
+
+      await tap('.go');
+      (await sent()).flush(null, { status: 201, statusText: 'Created' });
+      let fee: TestRequest | undefined;
+      await vi.waitFor(() => {
+        fee = http.match((request) => request.method === 'POST' && request.url === '/api/v1/costs')[0] ?? fee;
+        expect(fee).toBeDefined();
+      });
+      expect(fee?.request.body).toEqual(expect.objectContaining({ campaignId: uuid(4), amount: 150, note: 'Frais Orange Money — règlement Ousmane' }));
+    });
+
     it('la règle du domaine refuse avant tout envoi : sans moyen, un montant nul', async () => {
       const { tap, type, element } = await ouvre(`/admin/tiers/${OUSMANE}`);
 
@@ -201,16 +269,20 @@ describe('« Qui doit quoi », au bureau', () => {
       expect(http.match((request) => request.method === 'POST')).toEqual([]);
     });
 
-    it('sans réseau, rien n’est réglé et il le dit ; réessayer renvoie le même règlement', async () => {
-      const { tap, sent, element } = await ouvre(`/admin/tiers/${OUSMANE}`);
+    // Spec: backlog P.7 — un règlement saisi sans réseau attend sur l'appareil et repart, une seule fois.
+    it('sans réseau, le règlement est gardé et dit « en attente d’envoi » ; au retour du réseau, le même règlement repart', async () => {
+      const { tap, sent, element, refresh } = await ouvre(`/admin/tiers/${OUSMANE}`);
 
       await tap('.method-wave input');
       await tap('.go');
       const first = await sent();
       first.error(new ProgressEvent('error'));
-      await vi.waitFor(() => expect(text(element().querySelector('.refusal'))).toContain('Pas de réseau'));
+      await vi.waitFor(async () => {
+        await refresh();
+        expect(text(element().querySelector('app-office-pending li'))).toBe('Règlement de 45 000 F en attente d’envoi');
+      });
 
-      await tap('.go');
+      globalThis.dispatchEvent(new Event('online'));
       const again = await sent();
       expect((again.request.body as { id: string }).id).toBe((first.request.body as { id: string }).id);
     });

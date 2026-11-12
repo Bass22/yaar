@@ -60,6 +60,7 @@ enum JournalEventType {
   Loss
   Delivery
   Weighing
+  WeighingValidated
   TaskDone
   VoiceMessage
   Photo
@@ -89,6 +90,9 @@ model Tenant {
   media           Media[]
   costs           Cost[]
   settlements     Settlement[]
+  sales           Sale[]
+  saleReceipts    SaleReceipt[]
+  weighingRequests WeighingRequest[]
 
   @@map("tenants")
 }
@@ -193,6 +197,8 @@ model Campaign {
   purchaseOrders PurchaseOrder[]
 
   costs Cost[]
+  sales Sale[]
+  weighingRequests WeighingRequest[]
   @@unique([tenantId, id])
   @@index([tenantId, siteId])
   @@map("campaigns")
@@ -297,6 +303,9 @@ enum AuditAction {
   CostRecorded
   CostRevised
   SettlementRecorded
+  SaleRecorded
+  SaleReceiptRecorded
+  WeighingRequested
 
   @@map("audit_action")
 }
@@ -353,6 +362,8 @@ model Counterparty {
 
   costs Cost[]
   settlements Settlement[]
+  paymentsMade Payment[] @relation("PaymentPaidBy")
+  sales Sale[]
   @@unique([tenantId, id])
   @@map("counterparties")
 }
@@ -446,12 +457,15 @@ model Payment {
   // In the smallest unit of the order's currency: never a float (rule 7).
   amount     Int
   method     PaymentMethod
+  // Someone else who paid for the farm (R.4); null when the farm paid.
+  paidById   String?       @map("paid_by_id") @db.Uuid
   // The admin who recorded it.
   recordedBy String        @map("recorded_by") @db.Uuid
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   order  PurchaseOrder @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  paidBy Counterparty? @relation("PaymentPaidBy", fields: [tenantId, paidById], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([tenantId, id])
   @@index([tenantId, orderId])
@@ -508,6 +522,8 @@ model Media {
 enum CostPaymentKind {
   Paid
   ToPay
+  // Paid for the farm by someone else (R.4): `counterparty_id` names who.
+  PaidBy
 
   @@map("cost_payment_kind")
 }
@@ -570,4 +586,76 @@ model Settlement {
   @@unique([tenantId, id])
   @@index([tenantId, counterpartyId])
   @@map("settlements")
+}
+
+enum SalePricingKind {
+  PerBird
+  PerKilo
+
+  @@map("sale_pricing_kind")
+}
+
+// A sale of birds of a campaign (W.1): a money entry, added once and never updated nor deleted.
+// Its amount is computed by the domain and kept for reading; the price stays as it was set.
+model Sale {
+  tenantId     String          @map("tenant_id") @db.Uuid
+  id           String          @id @db.Uuid
+  campaignId   String          @map("campaign_id") @db.Uuid
+  buyerId      String          @map("buyer_id") @db.Uuid
+  soldOn       DateTime        @map("sold_on") @db.Date
+  birds        Int
+  pricingKind  SalePricingKind @map("pricing_kind")
+  // Per bird: the price of a head; per kilo: the price of a kilo — whole units of the currency (rule 7).
+  unitPrice    Int             @map("unit_price")
+  // Per kilo only: the weight weighed, in whole grams.
+  grams        Int?
+  amount       Int
+  recordedBy   String          @map("recorded_by") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  campaign Campaign      @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  buyer    Counterparty  @relation(fields: [tenantId, buyerId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  receipts SaleReceipt[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, campaignId])
+  @@map("sales")
+}
+
+// Money received for a sale (W.1): added once, never updated nor deleted.
+model SaleReceipt {
+  tenantId   String        @map("tenant_id") @db.Uuid
+  id         String        @id @db.Uuid
+  saleId     String        @map("sale_id") @db.Uuid
+  paidOn     DateTime      @map("paid_on") @db.Date
+  amount     Int
+  method     PaymentMethod
+  recordedBy String        @map("recorded_by") @db.Uuid
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sale   Sale   @relation(fields: [tenantId, saleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, saleId])
+  @@map("sale_receipts")
+}
+
+// The chef asks for a weighing of a flock, on a day (T.2). Added once; answered by a weighing of
+// the journal that names it — nothing is stored about that, it is read from the journal.
+model WeighingRequest {
+  tenantId     String   @map("tenant_id") @db.Uuid
+  id           String   @id @db.Uuid
+  campaignId   String   @map("campaign_id") @db.Uuid
+  requestedFor DateTime @map("requested_for") @db.Date
+  requestedBy  String   @map("requested_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  campaign Campaign @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, campaignId])
+  @@map("weighing_requests")
 }

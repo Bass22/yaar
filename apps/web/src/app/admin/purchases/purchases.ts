@@ -2,10 +2,12 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { CounterpartyFaceCode, CounterpartyView, CostTypeView, DraftOrderRequest, OrderRefusalCode, OrderView, RecordPaymentRequest, ReferenceData } from '@contracts';
+import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
+import { OfficeSync, recall, remember } from '../office-sync';
 
 /** What can go wrong with a purchase, said in words by the screens. */
-export type PurchaseProblem = OrderRefusalCode | 'NoSupplier' | 'NoLot' | 'InvalidName' | 'NoNetwork' | 'ServerError';
+export type PurchaseProblem = OrderRefusalCode | 'NoSupplier' | 'NoLot' | 'InvalidName' | 'NoNetwork' | 'ServerError' | 'StorageUnavailable';
 
 /**
  * The office's purchases (Q.5): its orders, its suppliers and its orderable cost types, read from
@@ -15,6 +17,8 @@ export type PurchaseProblem = OrderRefusalCode | 'NoSupplier' | 'NoLot' | 'Inval
 export class Purchases {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly office = inject(OfficeSync);
+  private readonly clock = inject(CLOCK);
 
   readonly orders = signal<readonly OrderView[]>([]);
   private readonly counterparties = signal<readonly CounterpartyView[]>([]);
@@ -37,29 +41,40 @@ export class Purchases {
   /** Whom a cost may be owed to (P.1): a supplier or a collaborator still in use, never a customer. */
   readonly creditors = computed(() => this.counterparties().filter((counterparty) => counterparty.kind !== 'Customer' && !counterparty.archived));
 
+  /** When the figures shown were read; without network, the last reading kept on the device (P.7). */
+  readonly readAt = signal<string | null>(null);
+
   async load(): Promise<void> {
+    const urls = ['/api/v1/orders', '/api/v1/counterparties', '/api/v1/cost-types', '/api/v1/reference-data'] as const;
+    const userId = this.userId();
     try {
       const [orders, counterparties, costTypes, referenceData] = await Promise.all([
-        this.get<OrderView[]>('/api/v1/orders'),
-        this.get<CounterpartyView[]>('/api/v1/counterparties'),
-        this.get<CostTypeView[]>('/api/v1/cost-types'),
-        this.get<ReferenceData>('/api/v1/reference-data'),
+        this.get<OrderView[]>(urls[0]),
+        this.get<CounterpartyView[]>(urls[1]),
+        this.get<CostTypeView[]>(urls[2]),
+        this.get<ReferenceData>(urls[3]),
       ]);
-      this.currency.set(referenceData.currency);
-      this.orders.set(orders);
-      this.counterparties.set(counterparties);
-      this.costTypes.set(costTypes);
+      const at = this.clock.now();
+      [orders, counterparties, costTypes, referenceData].forEach((value, index) => remember(userId, urls[index] ?? '', value, at));
+      this.show(orders, counterparties, costTypes, referenceData, at.toISOString());
       this.unreachable.set(false);
     } catch {
+      const [orders, counterparties, costTypes, referenceData] = [recall<OrderView[]>(userId, urls[0]), recall<CounterpartyView[]>(userId, urls[1]), recall<CostTypeView[]>(userId, urls[2]), recall<ReferenceData>(userId, urls[3])];
+      if (orders !== null && counterparties !== null && costTypes !== null && referenceData !== null) {
+        this.show(orders.value, counterparties.value, costTypes.value, referenceData.value, orders.readAt);
+      }
       this.unreachable.set(true);
     } finally {
       this.loaded.set(true);
     }
   }
 
-  /** A supplier created on the spot, while writing an order (decision of 2026-11-09). */
-  async createSupplier(name: string, face: CounterpartyFaceCode): Promise<{ readonly supplier: CounterpartyView } | { readonly problem: PurchaseProblem }> {
-    const supplier: CounterpartyView = { id: crypto.randomUUID(), kind: 'Supplier', name: name.trim(), face, archived: false };
+  /** The buyers a sale is made to (W.3): customers still in use. */
+  readonly customers = computed(() => this.counterparties().filter((counterparty) => counterparty.kind === 'Customer' && !counterparty.archived));
+
+  /** A supplier created on the spot, while writing an order (decision of 2026-11-09) — or a buyer, while writing a sale (W.3). */
+  async createSupplier(name: string, face: CounterpartyFaceCode, kind: 'Supplier' | 'Customer' = 'Supplier'): Promise<{ readonly supplier: CounterpartyView } | { readonly problem: PurchaseProblem }> {
+    const supplier: CounterpartyView = { id: crypto.randomUUID(), kind, name: name.trim(), face, archived: false };
     const problem = await this.send('POST', '/api/v1/counterparties', { id: supplier.id, kind: supplier.kind, name: supplier.name, face });
     if (problem !== null) return { problem };
     this.counterparties.update((all) => [...all, supplier]);
@@ -78,9 +93,25 @@ export class Purchases {
     return problem;
   }
 
-  /** A payment of an order (Q.9). Sent again with the same identifier, the server keeps it once. */
-  pay(orderId: string, request: RecordPaymentRequest): Promise<PurchaseProblem | null> {
-    return this.send('POST', `/api/v1/orders/${orderId}/payments`, request);
+  /**
+   * A payment of an order (Q.9), kept on the device first and sent when the network allows (P.7);
+   * the server keeps it once. `StorageUnavailable` when the device cannot keep it.
+   */
+  async pay(orderId: string, request: RecordPaymentRequest): Promise<PurchaseProblem | null> {
+    return (await this.office.keep('payment', `/api/v1/orders/${orderId}/payments`, { ...request }, orderId)) ? null : 'StorageUnavailable';
+  }
+
+  private show(orders: OrderView[], counterparties: CounterpartyView[], costTypes: CostTypeView[], referenceData: ReferenceData, readAt: string): void {
+    this.currency.set(referenceData.currency);
+    this.orders.set(orders);
+    this.counterparties.set(counterparties);
+    this.costTypes.set(costTypes);
+    this.readAt.set(readAt);
+  }
+
+  private userId(): string {
+    const session = this.auth.session();
+    return session.status === 'none' ? '' : session.userId;
   }
 
   private headers(): HttpHeaders {

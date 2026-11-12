@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { CounterpartyLedgerView } from '@contracts';
 import { clip, number, type PhrasePart } from '../../../core/audio/phrase';
 import { Pictogram } from '../../../ui/pictogram';
 import { SpeakerButton } from '../../../ui/speaker-button';
+import { FiguresAge } from '../../figures-age';
+import { OfficePending } from '../../office-pending';
+import { OfficeSync } from '../../office-sync';
 import { amountWords, Purchases } from '../../purchases/purchases';
 import { Banknotes } from '../banknotes';
 import { balancePhrase, Ledger } from './ledger';
@@ -15,14 +18,13 @@ import { balancePhrase, Ledger } from './ledger';
 // amount in notes. A settled counterparty carries no arrow. Touching a line opens its ledger.
 @Component({
   selector: 'app-ledger-page',
-  imports: [Banknotes, Pictogram, RouterLink, SpeakerButton],
+  imports: [Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton],
   providers: [Ledger],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="coin" [decorative]="true" /> Qui doit quoi</h1>
-    @if (ledger.unreachable()) {
-      <p class="refusal" role="alert"><app-pictogram picto="sync-cloud" [decorative]="true" /> Pas de réseau : les soldes ne se lisent pas.</p>
-    }
+    <app-figures-age [readAt]="ledger.readAt()" [stale]="ledger.unreachable()" />
+    <app-office-pending [kinds]="['settlement', 'payment', 'cost']" />
     @if (ledger.view(); as view) {
       <section class="totals" aria-label="En tout">
         <div class="total you-owe">
@@ -112,9 +114,14 @@ export class LedgerPage {
   protected readonly abs = Math.abs;
   private readonly currency = computed(() => this.ledger.view()?.currency ?? this.purchases.currency() ?? '');
 
+  private readonly officeSync = inject(OfficeSync);
+
   constructor() {
-    void this.ledger.load();
     void this.purchases.load();
+    effect(() => {
+      this.officeSync.revision();
+      untracked(() => void this.ledger.load());
+    });
   }
 
   protected money(amount: number): string {

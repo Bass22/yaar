@@ -153,6 +153,17 @@ describe('Qui a le droit de déclarer', () => {
     });
   });
 
+  describe('la validation d’une pesée (T.5)', () => {
+    it('le gardien, même titulaire, ne valide pas une pesée ; l’admin la valide', () => {
+      const validation = { type: 'WeighingValidated' as const, weighingId: unwrap(JournalEventId('00000000-0000-4000-8000-000000000203')) };
+      const byOusmane = Declaration(signePar(OUSMANE), validation);
+      const byAdmin = Declaration(signePar(LE_GERANT), validation);
+
+      expect(authorizeDeclaration(byOusmane, { author: gardien(OUSMANE), site: lEquipeDuSite() })).toEqual({ ok: false, error: { kind: 'ValidationByAdminOnly' } });
+      expect(authorizeDeclaration(byAdmin, { author: admin(), site: lEquipeDuSite() })).toEqual({ ok: true, value: byAdmin });
+    });
+  });
+
   describe('dans le doute', () => {
     it("un rôle qui n'est ni admin ni collaborateur ne déclare jamais, même inscrit dans l'équipe du site", () => {
       // Given un investisseur (lecture seule) inscrit par erreur comme remplaçant, puis comme titulaire

@@ -57,15 +57,16 @@ export class OrdersController {
   }
 }
 
-// Whitelist at the border: the four fields, each of its type — never an order, a farm or an author.
+// Whitelist at the border: the four fields and who paid (R.4), each of its type — never an order, a farm or an author.
 function paymentOf(body: unknown): RecordPaymentRequest {
   const valid =
     isObject(body) &&
-    hasExactly(body, ['id', 'paidOn', 'amount', 'method']) &&
+    (hasExactly(body, ['id', 'paidOn', 'amount', 'method']) || hasExactly(body, ['id', 'paidOn', 'amount', 'method', 'paidBy'])) &&
     typeof body['id'] === 'string' &&
     typeof body['paidOn'] === 'string' &&
     typeof body['amount'] === 'number' &&
-    typeof body['method'] === 'string';
+    typeof body['method'] === 'string' &&
+    (body['paidBy'] === undefined || body['paidBy'] === null || typeof body['paidBy'] === 'string');
   if (!valid) {
     throw new BadRequestException({ kind: 'InvalidRequest' });
   }

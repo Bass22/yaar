@@ -65,7 +65,18 @@ export type Refusal =
   /** A delivery names an order line the farm does not have in this campaign (Q.7). */
   | { readonly kind: 'UnknownOrderLine' }
   /** A delivery on a draft, or on a closed order: only an announced order not closed receives (Q.1, Q.7). */
-  | { readonly kind: 'OrderNotReceiving' };
+  | { readonly kind: 'OrderNotReceiving' }
+  /** A weighing is exactly five weights (T.1). */
+  | { readonly kind: 'NotFiveWeights' }
+  /** The photos of a weighing are one per weight, or none (T.6). */
+  | { readonly kind: 'WeighingPhotosMismatch' }
+  /** A weighing answers a request of its campaign (T.2). */
+  | { readonly kind: 'UnknownWeighingRequest' }
+  /** A validation names a weighing of its campaign, not taken back (T.5). */
+  | { readonly kind: 'UnknownWeighing' }
+  | { readonly kind: 'WeighingAlreadyValidated' }
+  /** Only the admin validates a weighing (T.5). */
+  | { readonly kind: 'ValidationByAdminOnly' };
 
 export type RefusalKind = Refusal['kind'];
 

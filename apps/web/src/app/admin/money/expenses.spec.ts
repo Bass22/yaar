@@ -1,4 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
+import { IDBFactory } from 'fake-indexeddb';
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -6,6 +7,8 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import type { CampaignMoneyView, CaretakerContext, CostView, CounterpartyView, CostTypeView } from '@contracts';
 import { provideHeardVoice } from '../../core/audio/testing';
 import { CLOCK } from '../../core/clock';
+import { OfficeQueue } from '../../core/outbox/office-queue';
+import { OFFICE_QUEUE, OfficeSync } from '../office-sync';
 import { REDUCE_PHOTO } from '../../core/media/reduce-photo';
 import { adminRoutes } from '../admin.routes';
 
@@ -32,7 +35,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 
 const contexte = (): CaretakerContext => ({
   chef: null,
-  sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-11-01', campaignDay: 11, liveCount: 997, journal: [], deliveries: [] }] }],
+  sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-11-01', campaignDay: 11, liveCount: 997, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' }] }],
 });
 const tiers = (): CounterpartyView[] => [
   { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
@@ -83,7 +86,7 @@ describe('Les dépenses, au bureau', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: 'admin', children: adminRoutes }]),
-        { provide: CLOCK, useValue: { now: () => NOW } },
+        { provide: CLOCK, useValue: { now: () => NOW } }, { provide: OFFICE_QUEUE, useFactory: () => OfficeQueue.open(new IDBFactory()) },
         { provide: REDUCE_PHOTO, useValue: async () => RECU },
         ...voice.providers,
       ],
@@ -195,7 +198,7 @@ describe('Les dépenses, au bureau', () => {
 
       await tap('.cost .pay');
       const request = await sent('POST', `/api/v1/costs/${uuid(302)}/revisions`);
-      expect(request.request.body).toEqual({ id: expect.stringMatching(UUID), campaignId: BANDE, costTypeId: SALAIRE, spentOn: '2026-11-12', amount: 45_000, note: null, payment: { kind: 'Paid' }, receipt: null });
+      expect(request.request.body).toEqual({ id: expect.stringMatching(UUID), campaignId: BANDE, costTypeId: SALAIRE, spentOn: '2026-11-12', amount: 45_000, note: null, payment: { kind: 'Paid' }, receipt: null, recordedAt: NOW.toISOString() });
     });
   });
 
@@ -252,7 +255,7 @@ describe('Les dépenses, au bureau', () => {
       await tap('.confirm');
       const request = await sent('POST', '/api/v1/costs');
 
-      expect(request.request.body).toEqual({ id: expect.stringMatching(UUID), campaignId: BANDE, costTypeId: EAU, spentOn: '2026-11-12', amount: 12_500, note: null, payment: { kind: 'Paid' }, receipt: null });
+      expect(request.request.body).toEqual({ id: expect.stringMatching(UUID), campaignId: BANDE, costTypeId: EAU, spentOn: '2026-11-12', amount: 12_500, note: null, payment: { kind: 'Paid' }, receipt: null, recordedAt: NOW.toISOString() });
       request.flush(null, { status: 201, statusText: 'Created' });
       await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe(`/admin/achats/depenses?lot=${BANDE}`));
     });
@@ -296,7 +299,8 @@ describe('Les dépenses, au bureau', () => {
       expect(request.request.body).toMatchObject({ note: 'Facture SDE', receipt: fingerprint });
     });
 
-    it('sans réseau, rien n’est enregistré et il le dit ; réessayer renvoie la même dépense', async () => {
+    // Spec: backlog P.7 — une dépense saisie sans réseau est gardée avec son identifiant, se distingue à l'écran, et part au retour du réseau une seule fois.
+    it('sans réseau, la dépense est gardée sur l’appareil et la liste la dit « en attente d’envoi » ; au retour du réseau, la même dépense repart', async () => {
       const { tap, keys, sent, element } = await ouvre('/admin/achats/depense');
 
       await tap('.type:nth-child(3)');
@@ -305,11 +309,70 @@ describe('Les dépenses, au bureau', () => {
       await tap('.confirm');
       const first = await sent('POST', '/api/v1/costs');
       first.error(new ProgressEvent('error'));
-      await vi.waitFor(() => expect(text(element().querySelector('.refusal'))).toContain('Pas de réseau'));
+      await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe(`/admin/achats/depenses?lot=${BANDE}`));
+      await vi.waitFor(() => expect(text(element().querySelector('app-office-pending li'))).toBe('Dépense de 1 000 F en attente d’envoi'));
 
-      await tap('.confirm');
+      globalThis.dispatchEvent(new Event('online'));
       const again = await sent('POST', '/api/v1/costs');
       expect((again.request.body as { id: string }).id).toBe((first.request.body as { id: string }).id);
+    });
+
+    it('une fois la dépense reçue par le serveur, la liste du lot relit ses chiffres ; une dépense en attente d’un autre lot ne s’y montre pas', async () => {
+      const { tap, keys, sent, element, refresh } = await ouvre('/admin/achats/depense');
+
+      await tap('.type:nth-child(3)');
+      await keys('1', '000');
+      await tap('.next');
+      await tap('.confirm');
+      await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe(`/admin/achats/depenses?lot=${BANDE}`));
+      // The office reads the lot's money, then the cost reaches the server: the money is read again.
+      http.match(`/api/v1/campaigns/${BANDE}/money`).forEach((request) => request.flush(argent()));
+      (await sent('POST', '/api/v1/costs')).flush(null, { status: 201, statusText: 'Created' });
+      await vi.waitFor(async () => {
+        await settle();
+        expect(http.match(`/api/v1/campaigns/${BANDE}/money`).length).toBeGreaterThan(0);
+      });
+
+      // An entry of another lot waits on the device: it is not this lot's.
+      const queue = await TestBed.inject(OFFICE_QUEUE);
+      await queue?.keep(LE_GERANT, 'cost', '/api/v1/costs', { id: uuid(901), amount: 7_000 }, uuid(5));
+      await TestBed.inject(OfficeSync).dismiss('none');
+      await refresh();
+      expect(element().querySelectorAll('app-office-pending li')).toHaveLength(0);
+    });
+
+    it('refusée par le serveur, la dépense reste visible avec son motif, jusqu’à « J’ai vu »', async () => {
+      const { tap, keys, sent, element, refresh } = await ouvre('/admin/achats/depense');
+
+      await tap('.type:nth-child(3)');
+      await keys('1', '000');
+      await tap('.next');
+      await tap('.confirm');
+      (await sent('POST', '/api/v1/costs')).flush({ kind: 'CampaignClosed' }, { status: 400, statusText: 'Bad Request' });
+      await vi.waitFor(async () => {
+        await refresh();
+        expect(text(element().querySelector('app-office-pending li.refused'))).toContain('refusé : le lot est clos');
+      });
+
+      await tap('app-office-pending .seen');
+      await vi.waitFor(async () => {
+        await refresh();
+        expect(element().querySelector('app-office-pending li')).toBeNull();
+      });
+    });
+
+    it('chaque écran dit de quand datent ses chiffres ; sans réseau, la dernière lecture reste, avec son jour et son heure', async () => {
+      const { element } = await ouvre('/admin/achats/depenses');
+
+      expect(text(element().querySelector('app-figures-age'))).toMatch(/^Chiffres de \d+ h \d\d$/);
+    });
+
+    it('l’accueil et les lots disent aussi de quand datent leurs chiffres', async () => {
+      for (const url of ['/admin/accueil', '/admin/lots']) {
+        TestBed.resetTestingModule();
+        const { element } = await ouvre(url);
+        expect(text(element().querySelector('app-figures-age'))).toMatch(/^Chiffres de \d+ h \d\d$/);
+      }
     });
   });
 

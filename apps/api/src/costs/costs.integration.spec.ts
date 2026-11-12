@@ -206,6 +206,23 @@ describe('Les coûts, au bureau', () => {
     expect((await traceOf(uuid(301))).map(({ action }) => action)).toEqual(['CostRecorded', 'CostRevised']);
   });
 
+  it('une dépense mise en file porte sa date de saisie, lue sur l’appareil : la dernière écrite fait foi d’après elle, pas d’après son arrivée (P.7)', async () => {
+    expect((await ecrit({ ...unCout(370, { amount: 1_000 }), recordedAt: '2026-11-11T08:00:00.000Z' })).status).toBe(201);
+    // Written at 09:00 on the device, received first; written at 08:30, received second.
+    expect((await corrige(uuid(370), { ...unCout(371, { amount: 3_000 }), recordedAt: '2026-11-11T09:00:00.000Z' })).status).toBe(201);
+    expect((await corrige(uuid(370), { ...unCout(372, { amount: 2_000 }), recordedAt: '2026-11-11T08:30:00.000Z' })).status).toBe(201);
+
+    const cost = (await argent()).costs.find(({ id }) => id === uuid(370));
+    expect(cost?.amount).toBe(3_000);
+    expect(cost?.history.map(({ id, recordedAt }) => [id, recordedAt])).toEqual([
+      [uuid(370), '2026-11-11T08:00:00.000Z'],
+      [uuid(372), '2026-11-11T08:30:00.000Z'],
+      [uuid(371), '2026-11-11T09:00:00.000Z'],
+    ]);
+    const malDatee = await ecrit({ ...unCout(373), recordedAt: 'hier' });
+    expect([malDatee.status, await kindOf(malDatee)]).toEqual([400, 'InvalidInstant']);
+  });
+
   it('« à payer » → payé en une seule contre-écriture', async () => {
     expect((await corrige(uuid(302), unCout(312, { costTypeId: SALAIRE, amount: 45_000, spentOn: '2026-11-12', payment: { kind: 'Paid' } }))).status).toBe(201);
 

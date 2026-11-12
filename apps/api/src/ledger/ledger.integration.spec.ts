@@ -200,6 +200,50 @@ describe('« Qui doit quoi », au bureau', () => {
     expect(await db.superuser.settlement.count({ where: { id: { in: [710, 711, 712, 713, 714, 715, 716].map(uuid) } } })).toBe(0);
   });
 
+  // Spec: backlog R.4 — payé par un tiers, et ses frais pris en charge (décisions du 2026-11-12).
+  describe('payé par un tiers', () => {
+    const depense = (rank: number, amount: number, counterpartyId: string) =>
+      call('POST', 'costs', { id: uuid(rank), campaignId: BANDE, costTypeId: ALIMENT, spentOn: '2026-11-11', amount, note: null, payment: { kind: 'PaidBy', counterpartyId }, receipt: null });
+    const paie = (rank: number, fields: Record<string, unknown> = {}) => call('POST', `orders/${uuid(20)}/payments`, { id: uuid(rank), paidOn: '2026-11-11', amount: 20_000, method: 'Wave', paidBy: RAMASSEUR, ...fields });
+
+    it('un acheteur paie une dépense de la bande et ses frais, pris en charge : sa créance baisse de 100 000 + 1 000 F ; la dépense compte dans l’engagé', async () => {
+      const avant = (await soldeDe(RAMASSEUR)) ?? 0;
+      const engageAvant = ((await (await call('GET', `campaigns/${BANDE}/money`)).json()) as { committed: number }).committed;
+
+      expect((await depense(710, 100_000, RAMASSEUR)).status).toBe(201);
+      expect((await depense(711, 1_000, RAMASSEUR)).status).toBe(201);
+
+      expect(await soldeDe(RAMASSEUR)).toBe(avant - 101_000);
+      expect((await livre()).counterparties.find((line) => line.counterpartyId === RAMASSEUR)?.entries).toEqual(
+        expect.arrayContaining([{ on: '2026-11-11', amount: -100_000, source: { kind: 'Cost', costId: uuid(710), paidBy: true } }]),
+      );
+      expect(((await (await call('GET', `campaigns/${BANDE}/money`)).json()) as { committed: number }).committed).toBe(engageAvant + 101_000);
+    });
+
+    it('un acheteur paie une commande : la dette envers Sedima baisse de 20 000 F, la créance de l’acheteur aussi ; tracé ; renvoyé, compté une fois', async () => {
+      const sedima = (await soldeDe(SEDIMA)) ?? 0;
+      const acheteur = (await soldeDe(RAMASSEUR)) ?? 0;
+
+      expect((await paie(720)).status).toBe(201);
+      expect((await paie(720)).status).toBe(200);
+
+      expect(await soldeDe(SEDIMA)).toBe(sedima + 20_000);
+      expect(await soldeDe(RAMASSEUR)).toBe(acheteur - 20_000);
+      expect((await livre()).counterparties.find((line) => line.counterpartyId === RAMASSEUR)?.entries).toEqual(
+        expect.arrayContaining([{ on: '2026-11-11', amount: -20_000, source: { kind: 'OrderPaidBy', orderId: uuid(20), method: 'Wave' } }]),
+      );
+      const order = ((await (await call('GET', 'orders')).json()) as { id: string; payments: { id: string; paidBy?: string | null }[] }[]).find((one) => one.id === uuid(20));
+      expect(order?.payments.find((one) => one.id === uuid(720))?.paidBy).toBe(RAMASSEUR);
+    });
+
+    it('le même paiement avec un autre tiers est refusé (409) ; le fournisseur lui-même, un tiers archivé ou inconnu : refusés (400)', async () => {
+      expect((await paie(720, { paidBy: OUSMANE_TIERS })).status).toBe(409);
+      const refus = [await paie(721, { paidBy: SEDIMA }), await paie(722, { paidBy: ANCIEN }), await paie(723, { paidBy: uuid(99) }), await depense(724, 1_000, ANCIEN)];
+      expect(refus.map((response) => response.status)).toEqual([400, 400, 400, 400]);
+      expect(await Promise.all(refus.slice(0, 3).map(kindOf))).toEqual(['PaidBySupplier', 'CounterpartyArchived', 'UnknownCounterparty']);
+    });
+  });
+
   it("le grand livre d'un autre élevage ne se voit pas", async () => {
     expect((await livre(tokenOf(GERANT_DE_B, TENANT_B, 'admin'))).counterparties).toEqual([]);
   });

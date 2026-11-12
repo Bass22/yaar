@@ -79,7 +79,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | ~~Coût par poulet à date : engagé ÷ vivants ou ÷ effectif mis en place ? Et quel arrondi ?~~ ✅ tranché le 2026-11-12 : engagé ÷ `min(vivants, reçus × 93 %)` — 7 % de pertes prévues par défaut, le réel dès qu'il les dépasse —, arrondi au franc le plus proche ; absent tant que les vivants sont inconnus | CdC « Les dépenses » | ~~P.1~~ |
 | Champs de saisie propres à chaque type de coût | CdC « Points ouverts » | P.6 |
 | ~~Un règlement supérieur à la dette : refusé, ou il crée une créance ?~~ ✅ tranché le 2026-11-12 : accepté, il crée une créance (le tiers doit la différence) | CdC « Commandes » | ~~R.2~~ |
-| Une vente diminue-t-elle le compteur de vivants vu par le gardien ? | CdC (non précisé) | W.1 |
+| ~~Une vente diminue-t-elle le compteur de vivants vu par le gardien ?~~ ✅ tranché le 2026-11-12 : oui, les poulets vendus sortent des vivants ; le restant à vendre = les vivants. Prix par tête ou au kilo, au choix à chaque vente ; l'acheteur paie tout, une partie ou rien sur le moment, le reste est une créance | CdC « Les ventes » | ~~W.1~~ |
 | ~~Modèles de balance à répliquer (0–5 kg, 0–10 kg, digitale)~~ ✅ tranché le 2026-11-07 : la balance n'est pas modélisée — un poids est un entier de grammes positif, saisi tel que lu (le gardien peut le taper), sans capacité ; la forme de la saisie se décide avec `/designer` | CdC « Demande de pesée » | ~~T.3~~ |
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
@@ -1232,16 +1232,31 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 ### P.6 — ⏸ Champs propres à chaque type de coût · ⚠
 > Spec : CdC « Points ouverts » · à spécifier avant découpage.
 
-### P.7 — Les écritures de l'admin attendent le réseau · **M** · 🔒 · 🧪
+### P.7 — Les écritures de l'admin attendent le réseau · **M** · 🔒 · 🧪 ✅ (la vente et la déclaration à la place du gardien suivront leurs écrans)
 > Spec : Archi, décisions postérieures « Admin hors-ligne » ; CdC « Architecture des données & hors-ligne » · Zone : `apps/web/src/app/core/outbox/`, `apps/web/src/app/admin/`
 > Dépend de : P.4, G.4 · Revue : ce que l'appareil de l'admin garde en clair ; aucune écriture perdue ni doublée.
 
-- [ ] Un coût saisi sans réseau est enregistré sur l'appareil avant tout appel, avec son identifiant
-- [ ] Il part au retour du réseau, une seule fois, même si l'envoi est rejoué
-- [ ] Une écriture en attente se distingue à l'écran de celles que le serveur a reçues
-- [ ] Chaque écran du bureau dit de quand datent ses chiffres
-- [ ] Une écriture refusée par le serveur reste visible avec son motif, jamais perdue en silence
-- [ ] Les écritures en attente ne sortent jamais vers le cahier d'un gardien qui utiliserait le même appareil
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Règles écrites d'abord dans l'architecture (§5 « La file du bureau »). `OfficeQueue` (`core/outbox/office-queue.ts`, base `yaar-office`, à part de l'outbox du cahier) garde une dépense, un paiement de commande ou un règlement **avant tout appel**, avec l'identifiant créé au bureau ; une dépense porte sa **date de saisie lue sur l'appareil** (le serveur l'accepte désormais, la dernière écrite fait foi d'après elle). `OfficeSync` envoie dans l'ordre d'écriture, sous le compte de l'auteur, après chaque saisie, à l'ouverture et au retour du réseau ; reçu (201 ou 200) → retiré de l'appareil ; sans réponse → gardé, repart identique ; refusé (400, 404, 409) → gardé avec son motif, jamais renvoyé, jusqu'à « J'ai vu ». Les écrans (`OfficePending`) disent « en attente d'envoi » à l'horloge et « refusé : motif » ; la carte d'une commande dit « paiement en attente d'envoi ». **Chaque écran du bureau dit de quand datent ses chiffres** (`FiguresAge` : « Chiffres de 14 h 05 » ; sans réseau, la dernière lecture gardée par compte, « chiffres du 12/11 à 14 h 05 »). Le cahier du gardien ne lit ni la file ni ce cache.
+> **Écarts** : la photo d'un reçu demande le réseau (la dépense, elle, part sans) ; la vente rejoindra la file avec W.3, la déclaration à la place du gardien avec son écran.
+
+- [x] Un coût saisi sans réseau est enregistré sur l'appareil avant tout appel, avec son identifiant
+- [x] Il part au retour du réseau, une seule fois, même si l'envoi est rejoué
+- [x] Une écriture en attente se distingue à l'écran de celles que le serveur a reçues
+- [x] Chaque écran du bureau dit de quand datent ses chiffres
+- [x] Une écriture refusée par le serveur reste visible avec son motif, jamais perdue en silence
+- [x] Les écritures en attente ne sortent jamais vers le cahier d'un gardien qui utiliserait le même appareil
+
+### P.8 — Les frais Wave et Orange Money · **M** ✅
+> Spec : CdC « Les frais Wave et Orange Money » (décisions du 2026-11-12) · Zone : `apps/web/src/app/admin/` (paiement, règlement, vente, encaissement)
+> Dépend de : Q.9, R.2, W.3, P.1, P.7 · Revue : les frais ne touchent jamais le solde du tiers.
+
+> Livrée le 2026-11-12, aucune dépendance ajoutée, rien de changé au serveur : des frais sont une dépense payée comme une autre. `admin/money/transfer-fee.ts` : `takesFee` (Wave, Orange Money), `feeTypeOf` (le type « Frais financiers » en usage), `feeCost` (vide ou zéro : rien ; pas des francs entiers : refusé ; sinon la dépense payée, même jour, note « Frais Wave — paiement Sedima »), `FeeField` (« Frais Wave payés par toi », « Laisse vide si c'est l'autre qui paie les frais »), `TransferFees` (la dépense part par la file du bureau, après son transfert). Sur le paiement d'une commande (sa bande), un règlement (le lot choisi, d'office s'il est seul ; pas de case sans lot en cours), une vente payée sur le moment (dite dans la relecture ; rien à crédit) et un encaissement (sa bande).
+
+- [x] Wave ou Orange Money choisi : une case « Frais » facultative ; espèces : aucune
+- [x] Des frais tapés s'écrivent comme une dépense payée de la bande, type « Frais financiers », même jour, avec une note d'où ils viennent
+- [x] Le paiement, le règlement ou l'encaissement garde son montant entier
+- [x] Un règlement fait choisir la bande des frais parmi les lots en cours
+- [x] Hors-ligne, les frais partent en file d'attente avec leur paiement
 
 ## Q — Commandes et réceptions
 
@@ -1350,7 +1365,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] « Pas de papier » termine la réception sans blocage
 - [x] Le PV est rangé comme pièce justificative et rattaché à la réception
 
-### Q.9 — Payer une commande · **M** ✅ (sauf la file d'attente hors-ligne, P.7)
+### Q.9 — Payer une commande · **M** ✅
 > Spec : CdC « paiements découplés et multiples » ; `bureau-admin.html` (règlements) · Zone : `apps/api/src/orders/`, `apps/web/src/app/admin/purchases/`
 > Dépend de : Q.5 · Revue : un paiement ne touche pas l'engagé.
 
@@ -1358,7 +1373,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 > **Non fait ici** : la file d'attente hors-ligne du bureau (P.7) — payer demande le réseau ; la contre-écriture d'un paiement erroné ; l'engagé n'existe pas encore (P.1) : le test garde que le facturable ne bouge pas.
 
 - [x] L'admin enregistre un paiement : date, montant, moyen (espèces, Wave, Orange Money)
-- [ ] Hors-ligne, le paiement part en file d'attente et s'affiche « en attente » (P.7) — attend P.7
+- [x] Hors-ligne, le paiement part en file d'attente et s'affiche « en attente » (P.7)
 - [x] Plusieurs paiements partiels se cumulent
 - [x] Un paiement avant toute réception est accepté
 - [x] L'engagé ne change pas quand un paiement est enregistré
@@ -1366,18 +1381,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## R — Grand livre des tiers
 
-### R.1 — Les soldes se déduisent des écritures · **M** · 🧪 ✅ (sauf les soldes en nature, W.1)
+### R.1 — Les soldes se déduisent des écritures · **M** · 🧪 ✅
 > Spec : CdC « Qui doit quoi » · Zone : `packages/domain/src/finance/ledger.ts`
 > Dépend de : Q.3, P.1 · Revue : les deux sens du solde ; aucun solde stocké.
 
 > Livrée le 2026-11-12, aucune dépendance ajoutée. Règles écrites d'abord au CdC (« Le grand livre »). `domain/finance/ledger.ts` : `orderEntries` (le facturable d'une commande en dette, chacun de ses paiements une fois), `costEntries` (une dépense à payer, tant qu'elle n'est pas passée en payée), `settlementEntries`, `ledgerOf` — le solde signé de chaque tiers est la somme de ses écritures, quel que soit leur ordre (propriété) ; rien n'est stocké.
-> **Non fait ici** : les soldes en nature (prêts de poulets) arrivent avec les ventes (W.1) ; ils seront tenus à part des francs.
+> Les soldes en nature (prêts de poulets) sont **abandonnés** : pas nécessaires (décision du fondateur, 2026-11-12).
 
 - [x] Reçu et non payé : tu dois au fournisseur
 - [x] Payé et non reçu : le fournisseur te doit
 - [x] Un coût direct « à payer » crée une dette envers le tiers choisi
 - [x] Le solde d'un tiers est la somme de ses écritures, quel que soit leur ordre (property-based)
-- [ ] Les soldes en nature restent distincts des soldes en francs — attend W.1
+- [x] ~~Les soldes en nature restent distincts des soldes en francs~~ — abandonné le 2026-11-12 : pas de prêt de poulets
 
 ### R.2 — Régler en une ou plusieurs fois · **S** · 🧪 ✅
 > Spec : CdC « règlements partiels » · Zone : `packages/domain/src/finance/settlement.ts`
@@ -1403,10 +1418,10 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les soldes viennent de l'API ; l'écran n'additionne rien
 - [x] Le sens se voit sans lire : flèche rouge de toi vers le tiers, verte vers toi ; le tiers a son visage et la voix dit son nom enregistré, avec le montant (écran 10 de `bureau-admin-v2.html`) — le nom à la voix attend N.3b
 
-### R.4 — Payé par un tiers (l'avance d'un collaborateur, l'acheteur qui paie un coût) · **S**
+### R.4 — Payé par un tiers (l'avance d'un collaborateur, l'acheteur qui paie un coût) · **M**
 > Spec : CdC « payé par AS » ; demande du fondateur du 2026-11-12 (« un acheteur de poulets me rembourse en payant directement des coûts de ma campagne ») · Zone : `packages/domain/src/finance/ledger.ts`, écrans d'une dépense et du paiement d'une commande
 > Dépend de : R.1, P.4, W.1 · Revue : une dette interne se trace comme les autres ; à faire après les ventes à crédit.
-> Proposé le 2026-11-12, **à valider par le fondateur** : une dépense, ou le paiement d'une commande, peut être « payé par » un tiers désigné sur sa tuile (collaborateur, acheteur, autre fournisseur) au lieu de l'élevage. Le coût compte dans l'engagé comme d'habitude ; le fournisseur payé ne réclame plus rien ; le tiers qui a payé reçoit une écriture « − montant » dans son grand livre : la créance d'un acheteur baisse, ou l'élevage doit l'avance au collaborateur.
+> Proposé le 2026-11-12, **validé par le fondateur le même jour** (avec la case frais déduits des créances) : une dépense, ou le paiement d'une commande, peut être « payé par » un tiers désigné sur sa tuile (collaborateur, acheteur, autre fournisseur) au lieu de l'élevage. Le coût compte dans l'engagé comme d'habitude ; le fournisseur payé ne réclame plus rien ; le tiers qui a payé reçoit une écriture « − montant » dans son grand livre : la créance d'un acheteur baisse, ou l'élevage doit l'avance au collaborateur.
 > **À l'écran** (2026-11-12) : le chemin principal ne change pas (Payé / À payer plus tard) ; « Payé par un tiers… » se range derrière « Plus de détails », pour ne pas induire en erreur le gérant qui n'en a pas besoin ; pas de réglage par élevage ; quand il sert, la relecture le dit, à l'écran et à la voix.
 
 - [ ] Un coût « payé par » un collaborateur crée une dette envers lui
@@ -1414,6 +1429,7 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Rembourser le collaborateur solde sa dette
 - [ ] Un acheteur qui paie un coût de la bande voit sa créance baisser d'autant ; s'il paie plus que sa dette, l'élevage lui doit la différence
 - [ ] Le tiers qui a payé se désigne sur sa tuile, à la saisie de la dépense ou du paiement
+- [ ] Les frais de transfert que le tiers a payés, pris en charge par l'élevage, se déduisent aussi de ce qu'il doit et deviennent une dépense « Frais financiers » de la bande (validé par le fondateur le 2026-11-12)
 
 ## S — Budget et échéances
 
@@ -1446,54 +1462,77 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## T — Pesées
 
-### T.1 — Une pesée, sa moyenne et sa validation · **M** · 🧪
+### T.1 — Une pesée, sa moyenne et sa validation · **M** · 🧪 ✅
 > Spec : CdC « Demande de pesée », « Suivi » · Zone : `packages/domain/src/journal/weighing.ts`
 > Dépend de : C.1, B.2 · Revue : seules les pesées validées alimentent la courbe.
 
-- [ ] Une pesée porte cinq poids
-- [ ] Sa moyenne se calcule depuis les poids, elle ne se stocke pas
-- [ ] Une pesée de moins de cinq poids est refusée
-- [ ] Une pesée déclarée attend la validation de l'admin
-- [ ] Un poids corrigé par l'admin laisse le poids d'origine au journal
-- [ ] La courbe réelle ne retient que les pesées validées
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Règles écrites d'abord au CdC (« Les pesées »). `domain/journal/weighing.ts` : `validateWeighing` (exactement cinq poids), `averageWeight` (au gramme le plus proche, jamais écrite), `weightBounds` (T.3), `validateWeighingValidation`, `weightCurve` (validées seules, poids tels qu'ils comptent, annulées exclues). La validation est **un nouveau fait du journal** (`WeighingValidated`, ajouté au schéma par ajout, réservé à l'admin, définitif) : la correction d'un poids est une contre-déclaration, le poids d'origine reste.
 
-### T.2 — Demander une pesée · **M**
+- [x] Une pesée porte cinq poids
+- [x] Sa moyenne se calcule depuis les poids, elle ne se stocke pas
+- [x] Une pesée de moins de cinq poids est refusée
+- [x] Une pesée déclarée attend la validation de l'admin
+- [x] Un poids corrigé par l'admin laisse le poids d'origine au journal
+- [x] La courbe réelle ne retient que les pesées validées
+
+### T.2 — Demander une pesée · **M** ✅
 > Spec : CdC « Demande de pesée » (planifiée par l'admin) · Zone : `apps/api/src/weighings/`, contexte du gardien
 > Dépend de : T.1, F.3 · Revue : la carte suit la demande, rien de plus.
 
-- [ ] L'admin planifie une demande de pesée pour un site et une date
-- [ ] À cette date, la carte pesée apparaît dans le contexte du gardien
-- [ ] Une fois la pesée déclarée, la carte disparaît
-- [ ] Sans demande, aucune carte
+> Livrée le 2026-11-12. Table `weighing_requests` (lecture et ajout seulement, RLS forcée), `POST /api/v1/weighing-requests` (admin ; bande en cours ; aujourd'hui ou plus tard au fuseau du site ; doublon 200, autre contenu 409 ; tracé `WeighingRequested`). Une pesée doit répondre à une demande de sa bande (`UnknownWeighingRequest`). Le contexte du gardien porte les demandes ouvertes à partir de leur jour, et la souche de la bande ; le téléphone ferme la carte dès qu'une pesée y répond, même pas encore envoyée. La demande est demandée **pour une bande**, pas pour un site (une bande vit sur un site).
 
-### T.3 — Saisir un poids en grammes · **M** · ⚠
+- [x] L'admin planifie une demande de pesée pour un site et une date
+- [x] À cette date, la carte pesée apparaît dans le contexte du gardien
+- [x] Une fois la pesée déclarée, la carte disparaît
+- [x] Sans demande, aucune carte
+
+### T.3 — Saisir un poids en grammes · **M** ✅ (à éprouver sur un téléphone d'entrée de gamme)
 > Spec : CdC « Demande de pesée » ; `journal-gardien.html` (`#cadran`, à revoir) · Zone : `packages/design-system/`
 > Dépend de : H.3, B.2 · Revue : simple pour un gardien qui ne lit pas forcément.
 > Reformulée le 2026-11-07 : la balance n'est pas modélisée (décision du fondateur) ; le cadran qui répliquait le modèle de balance du site est abandonné.
 
+> Livrée le 2026-11-12. `ScaleDisplay` : l'écran gris-vert d'une balance digitale (deux jetons ajoutés), chiffres entrés par la droite, cinq au plus, gomme ; rien de pré-rempli. Bornes (décision du fondateur du 2026-11-12) : de la moitié au double de la cible Cobb 500 au jour J ; hors bornes, l'afficheur rougit et la voix dit « Ce poids paraît faux… » ; « Garder ce poids » le prend quand même. Le serveur ne vérifie pas les bornes. Pas encore éprouvé sur un Tecno.
+
 - [x] La forme de la saisie est choisie avec `/designer` — le 2026-11-07 : l'afficheur d'une balance digitale, recopié chiffre par chiffre (entrée par la droite), relu par la voix ; aucun poids pré-rempli (`journal-gardien-entree.html`)
-- [ ] Le poids saisi est un entier de grammes positif ; aucune capacité de balance ne le borne
-- [ ] La saisie borne le poids selon le type d'animal (un poulet de chair ne pèse pas 18 kg), pour rattraper une faute de frappe : **côté écran seulement** pour le moment, le serveur ne la vérifie pas (décision du 2026-11-07) ; les bornes viennent du référentiel de l'espèce ou de la souche
+- [x] Le poids saisi est un entier de grammes positif ; aucune capacité de balance ne le borne
+- [x] La saisie borne le poids selon le type d'animal (un poulet de chair ne pèse pas 18 kg), pour rattraper une faute de frappe : **côté écran seulement** pour le moment, le serveur ne la vérifie pas (décision du 2026-11-07) ; les bornes viennent du référentiel de l'espèce ou de la souche
 - [ ] La saisie se fait au doigt sans ralentir sur un téléphone d'entrée de gamme
 
-### T.4 — Le gardien pèse cinq poulets · **M** · 🧪
+### T.4 — Le gardien pèse cinq poulets · **M** · 🧪 ✅
 > Spec : CdC « Demande de pesée » ; `journal-gardien.html` (`.slots`) · Zone : `apps/web/src/app/caretaker/weighing/`
 > Dépend de : T.3, T.2, K.1 · Revue : la consigne anti-biais est dite.
 
-- [ ] La consigne vocale demande des poulets pris dans des coins différents
-- [ ] Chaque poids saisi remplit une case, et la voix le relit
-- [ ] Toucher une case remplie permet de la corriger avant l'envoi
-- [ ] L'envoi n'est possible qu'avec cinq poids
-- [ ] La pesée part dans l'outbox avec ses cinq poids
+> Livrée le 2026-11-12. `WeighingCard` dans le cahier, sous la carte livraison : « Le chef demande : pèse 5 poulets » → « Je pèse » dit la consigne puis « Poulet 1 » → cinq cases ; chaque poids pris est relu (« 1 kilo 820 grammes »), « C'est noté. Poulet suivant. » ; toucher une case la reprend ; « Envoyer » avec cinq poids seulement → l'outbox, hors-ligne compris ; tampon et « C'est envoyé ». Aucun nouveau clip : ceux du script §9 suffisent.
 
-### T.5 — L'admin valide une pesée · **M**
+- [x] La consigne vocale demande des poulets pris dans des coins différents
+- [x] Chaque poids saisi remplit une case, et la voix le relit
+- [x] Toucher une case remplie permet de la corriger avant l'envoi
+- [x] L'envoi n'est possible qu'avec cinq poids
+- [x] La pesée part dans l'outbox avec ses cinq poids
+
+### T.5 — L'admin valide une pesée · **M** ✅ (page à part, en attendant l'inbox)
 > Spec : CdC « inbox du poulailler » (pesées à valider) ; `bureau-admin.html` (inbox) · Zone : `apps/api/src/weighings/`, `apps/web/src/app/admin/day/inbox/`
 > Dépend de : T.4, O.4 · Revue : la moyenne affichée pendant la correction vient de `domain/journal`.
 
-- [ ] Une pesée déclarée apparaît dans l'inbox
-- [ ] L'admin corrige un poids au clavier ; la moyenne suit en direct
-- [ ] Valider retire la pesée de l'inbox et l'ajoute à la courbe
-- [ ] La validation est tracée avec son auteur
+> Livrée le 2026-11-12, **hors de l'inbox** (décision du fondateur : O.4 est bloquée) : page « Les pesées » depuis les lots (`lots/pesees`). Demander une pesée (aujourd'hui, demain) ; les demandes pas encore faites ; chaque pesée à valider avec ses cinq poids au clavier, la moyenne recalculée par `domain/journal` pendant la frappe et la cible de la souche ; « Valider » écrit en ligne (le réseau est demandé) la contre-déclaration si un poids a changé, puis la validation ; un refus se dit ; la courbe réelle avec la cible. `GET /api/v1/campaigns/:id/weighings` (admin). Elle rejoindra l'inbox avec O.4.
+
+- [x] Une pesée déclarée apparaît dans l'inbox
+- [x] L'admin corrige un poids au clavier ; la moyenne suit en direct
+- [x] Valider retire la pesée de l'inbox et l'ajoute à la courbe
+- [x] La validation est tracée avec son auteur
+
+### T.6 — La photo de la balance, avant chaque poids · **M** · 🧪 ✅ (à éprouver sur le terrain)
+> Spec : CdC « Les pesées » (photo obligatoire, décisions du 2026-11-12) · Zone : `packages/domain/src/journal/weighing.ts`, `apps/web/src/app/caretaker/weighing/`, `apps/web/src/app/admin/weighings/`, `apps/api/src/media/`
+> Dépend de : T.4, T.5, M.1 · Revue : la photo prime ; le journal n'évolue que par ajout (champ facultatif).
+
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Le fait `Weighing` gagne un champ facultatif `photos` (une empreinte par poids, même ordre, gelé ; absent quand il n'y en a pas — `WeighingPhotosMismatch` sinon). Le serveur le décode, le vérifie à la déclaration comme à la correction, et laisse l'admin lire une photo citée par une pesée. Cahier : pour chaque poulet, « Photo de la balance » d'abord (consigne vocale), puis la photo s'affiche au-dessus de l'afficheur et le poids se recopie depuis elle ; sans photo ni afficheur ni pavé ; l'appareil qui refuse se dit (« Sans photo, pas de pesée. Appelle le chef. ») ; reprendre une case reprend sa photo ; à l'envoi, les cinq photos vont dans la file des médias (preuve opérationnelle), puis la pesée. L'afficheur reprend la balance du fondateur (photo du 2026-11-12) : panneau sombre, étiquette « WEIGHT (kg) », écran vert, le poids écrit avec un point. Bureau : chaque photo à côté de son poids, la correction garde les photos. Un poids hors des bornes de la souche s'affiche en rouge au bureau, sans bloquer. La balance du poulailler ne pèse pas sous 200 g : laissé de côté pour le moment (fondateur, 2026-11-12). 3 clips audio ajoutés (463).
+
+- [x] Une pesée peut porter ses photos : une par poids, dans le même ordre (champ facultatif du journal) ; un autre nombre est refusé
+- [x] Pour chaque poulet, le gardien photographie d'abord la balance, puis recopie le poids que montre la photo
+- [x] Sans photo, pas de poids ; l'appareil photo qui ne s'ouvre pas se dit
+- [x] Les photos partent par la file des médias, comme preuve opérationnelle
+- [x] Au bureau, chaque photo s'affiche à côté de son poids ; une correction garde les photos
+- [x] L'afficheur reprend l'écran vert de la balance du poulailler, le poids écrit avec un point
 
 ## U — L'inbox du poulailler
 
@@ -1564,33 +1603,39 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## W — Ventes
 
-### W.1 — Une vente, sa créance et la marge · **M** · ⚠ · 🧪
+### W.1 — Une vente, sa créance et la marge · **M** · 🧪 ✅
 > Spec : CdC « Ventes », « Analytics » (marge en direct) · Zone : `packages/domain/src/finance/sale.ts`
 > Dépend de : R.1, C.5 · Revue : la marge attendue, calculée à la main dans les tests.
 
-- [ ] Une vente porte une date, une quantité, un prix unitaire, un acheteur et un statut payé ou à crédit
-- [ ] Une vente à crédit crée une créance sur l'acheteur
-- [ ] Un prêt de poulets crée un solde en nature
-- [ ] La marge en direct vaut l'encaissé moins l'engagé
-- [ ] Le prix de vente moyen et le restant à vendre se recalculent à chaque vente
-- [ ] Avant la première vente, marge et prix moyen sont absents
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Décisions du fondateur écrites d'abord au CdC (« Les ventes ») : une vente retire ses poulets des vivants ; prix **par tête ou au kilo**, au choix à chaque vente ; l'acheteur paie tout, une partie ou rien sur le moment, le reste est une créance. `domain/finance/sale.ts` : `recordSale` (client non archivé, au moins un poulet, prix ≥ 1 F, poids en grammes entiers, jamais dans le futur ; montant calculé — au kilo, grammes × prix ÷ 1 000 arrondi au franc), `recordSaleReceipt`, `saleEntries` (au grand livre, l'acheteur doit la vente, chaque encaissement une fois la diminue), `salesSummary` (chiffre d'affaires, encaissé, **marge = encaissé − engagé**, prix moyen ; absents avant la première vente). `computeLiveCount` retire les poulets vendus (`sold`), sans les compter comme des pertes.
 
-### W.2 — 🎨 Maquetter l'écran des ventes · **S**
+- [x] Une vente porte une date, une quantité, un prix unitaire, un acheteur et un statut payé ou à crédit
+- [x] Une vente à crédit crée une créance sur l'acheteur
+- [x] ~~Un prêt de poulets crée un solde en nature~~ — abandonné le 2026-11-12
+- [x] La marge en direct vaut l'encaissé moins l'engagé
+- [x] Le prix de vente moyen et le restant à vendre se recalculent à chaque vente
+- [x] Avant la première vente, marge et prix moyen sont absents
+
+### W.2 — 🎨 Maquetter l'écran des ventes · **S** ✅ (l'écran réel tient lieu de maquette : à valider par le fondateur)
 > Spec : CdC « Ventes (écran à maquetter sur le même modèle) » · Zone : maquette HTML
 > Dépend de : — · Revue : la maquette, à valider avant W.3.
 
-- [ ] La maquette couvre la saisie d'une vente, la liste et le prêt de poulets
-- [ ] Elle reprend les composants de l'onglet Argent
+> 2026-11-12 : pas de maquette HTML à part — l'écran réel de W.3 a été construit dans le langage de l'onglet Argent (geste à qui → combien → payé → Oui, billets, relecture d'office, tuiles des moyens) et regardé à 360 px ; **il est à valider par le fondateur**, et s'ajustera.
 
-### W.3 — Saisir une vente · **M** · 🔒
+- [x] La maquette couvre la saisie d'une vente et la liste (pas de prêt de poulets : décision du 2026-11-12) — l'écran réel, à valider
+- [x] Elle reprend les composants de l'onglet Argent
+
+### W.3 — Saisir une vente · **M** · 🔒 ✅ (écran à valider)
 > Spec : CdC « Ventes » · Zone : `apps/api/src/sales/`, `apps/web/src/app/admin/sales/`
 > Dépend de : W.1, W.2, P.4 · Revue : réservé à l'admin ; la créance apparaît dans « Qui doit quoi ».
 
-- [ ] L'admin enregistre une vente payée ou à crédit, par le même geste que P.4 : quoi → combien → Oui, relecture vocale d'office
-- [ ] Hors-ligne, la vente part en file d'attente et s'affiche « en attente » (P.7)
-- [ ] Une vente à crédit apparaît chez l'acheteur dans « Qui doit quoi »
-- [ ] Le restant à vendre diminue de la quantité vendue
-- [ ] Un collaborateur reçoit un refus sur toute route de ventes
+> Livrée le 2026-11-12, aucune dépendance ajoutée. Tables `sales` et `sale_receipts` (lecture et ajout seulement, RLS forcée ; une vente au kilo porte son poids, par tête jamais). `POST /api/v1/sales` (montant calculé au serveur, jamais reçu du client ; ce qui est payé sur le moment dans la même écriture ; doublon 200, autre contenu 409 ; bande close refusée ; tracé `SaleRecorded`), `POST /api/v1/sales/:id/receipts` (tracé), `GET /api/v1/campaigns/:id/sales` (chiffre d'affaires, encaissé, marge, prix moyen, reste à vendre = vivants, chaque vente et ses encaissements). Le grand livre compte les ventes ; les vivants du gardien baissent des poulets vendus (un nombre seulement). Bureau : « Les ventes » depuis les lots ; la liste ; le geste (à qui, avec « Nouvel acheteur » sur place → combien de poulets, par poulet ou au kilo, montant du domaine en billets → tout, une partie ou rien → relecture dite d'office → Oui) ; une vente ouverte dit ce qu'elle vaut, le reçu, le reste, et « Encaisser ». Vente et encaissements passent par la file du bureau (P.7). 9 phrases au script audio.
+
+- [x] L'admin enregistre une vente payée ou à crédit, par le même geste que P.4 : quoi → combien → Oui, relecture vocale d'office
+- [x] Hors-ligne, la vente part en file d'attente et s'affiche « en attente » (P.7)
+- [x] Une vente à crédit apparaît chez l'acheteur dans « Qui doit quoi »
+- [x] Le restant à vendre diminue de la quantité vendue
+- [x] Un collaborateur reçoit un refus sur toute route de ventes
 
 ## X — Clôture de campagne
 

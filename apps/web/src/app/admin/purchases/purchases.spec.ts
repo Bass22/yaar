@@ -1,10 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
+import { IDBFactory } from 'fake-indexeddb';
 import { HttpTestingController, provideHttpClientTesting, type TestRequest } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import type { CaretakerContext, CounterpartyView, CostTypeView, DraftOrderRequest, OrderView } from '@contracts';
 import { CLOCK } from '../../core/clock';
+import { OfficeQueue } from '../../core/outbox/office-queue';
+import { OFFICE_QUEUE } from '../office-sync';
 import { adminRoutes } from '../admin.routes';
 
 // Spec: backlog Q.5 — l'éditeur de commande ; cahier des charges « Commandes » (au bureau, en
@@ -28,7 +31,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 const contexte = (): CaretakerContext => ({
   chef: null,
-  sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-10-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-10-01', campaignDay: 11, liveCount: null, journal: [], deliveries: [] }] }],
+  sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-10-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-10-01', campaignDay: 11, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' }] }],
 });
 const tiers = (): CounterpartyView[] => [
   { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
@@ -36,11 +39,14 @@ const tiers = (): CounterpartyView[] => [
   { id: uuid(33), kind: 'Supplier', name: 'Ancien fournisseur', face: 'truck', archived: true },
   { id: uuid(34), kind: 'Customer', name: 'Ramasseur', face: 'hen', archived: false },
 ];
+// The farm's type of the « Frais financiers » category: what a Wave or Orange Money fee is written as (P.8).
+const FRAIS = uuid(45);
 const types = (): CostTypeView[] => [
   { id: ALIMENT, category: 'Feed', name: 'Aliment', behaviour: 'Variable', orderable: true, archived: false },
   { id: POUSSINS, category: 'Chicks', name: 'Poussins', behaviour: 'Variable', orderable: true, archived: false },
   { id: uuid(43), category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', orderable: false, archived: false },
   { id: uuid(44), category: 'Processing', name: 'Déplumage', behaviour: 'Variable', orderable: false, archived: true },
+  { id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false },
 ];
 const uneCommande = (fields: Partial<OrderView> = {}): OrderView => ({
   id: uuid(1),
@@ -65,7 +71,7 @@ describe('Les achats, au bureau', () => {
 
   const ouvre = async (url: string, orders: OrderView[] = [uneCommande()]) => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }, { provide: OFFICE_QUEUE, useFactory: () => OfficeQueue.open(new IDBFactory()) }],
     });
     http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
@@ -295,7 +301,7 @@ describe('Les achats, au bureau', () => {
         status: 'Received',
         billable: 900_000,
         paid: 400_000,
-        payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave' }],
+        payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: null }],
         lines: [
           { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, received: 20 },
           { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, received: 1000 },
@@ -374,13 +380,80 @@ describe('Les achats, au bureau', () => {
     });
 
     it('payé plus que le facturable : la page dit que le fournisseur doit à l’élevage', async () => {
-      const { element } = await ouvre(PAGE, [recue({ paid: 950_000, payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 950_000, method: 'Cash' }] })]);
+      const { element } = await ouvre(PAGE, [recue({ paid: 950_000, payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 950_000, method: 'Cash', paidBy: null }] })]);
 
       expect(text(element().querySelector('.balance'))).toContain('Sedima te doit 50 000 F');
       expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('');
     });
 
-    it('sans réseau, rien n’est payé et il le dit ; réessayer renvoie le même paiement, jamais un second', async () => {
+    // Spec: backlog P.8 — les frais Wave et Orange Money (décisions du 2026-11-12).
+    it('Wave ou Orange Money choisi : une case « Frais » apparaît, vide ; en espèces, aucune', async () => {
+      const { tap, element } = await ouvre(PAGE, [recue()]);
+      const fee = () => element().querySelector<HTMLInputElement>('input[name=fee]');
+
+      expect(fee()).toBeNull();
+      await tap('.method-wave input');
+      expect(fee()?.value).toBe('');
+      expect(text(element().querySelector('app-fee-field'))).toContain('Frais Wave payés par toi');
+      await tap('.method-orange input');
+      expect(text(element().querySelector('app-fee-field'))).toContain('Frais Orange Money payés par toi');
+      await tap('.method-cash input');
+      expect(fee()).toBeNull();
+    });
+
+    it('des frais tapés : le paiement garde son montant entier, puis les frais partent comme une dépense payée de la bande, « Frais financiers », le même jour', async () => {
+      const { tap, type, sent } = await ouvre(PAGE, [recue()]);
+
+      await tap('.method-wave input');
+      await type('input[name=fee]', '5000');
+      await tap('form .go');
+      const payment = await sent('POST', `/api/v1/orders/${uuid(1)}/payments`);
+      expect(payment.request.body).toEqual(expect.objectContaining({ amount: 500_000, method: 'Wave' }));
+      payment.flush(null, { status: 201, statusText: 'Created' });
+      const fee = await sent('POST', '/api/v1/costs');
+      expect(fee.request.body).toEqual({
+        id: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
+        campaignId: BANDE,
+        costTypeId: FRAIS,
+        spentOn: '2026-10-12',
+        amount: 5_000,
+        note: 'Frais Wave — paiement Sedima',
+        payment: { kind: 'Paid' },
+        receipt: null,
+        recordedAt: expect.any(String),
+      });
+    });
+
+    it('les frais vont à la bande de la commande, même quand ce n’est pas le premier lot', async () => {
+      const AUTRE_BANDE = uuid(9);
+      const { tap, type, sent } = await ouvre(PAGE, [recue({ campaignId: AUTRE_BANDE })]);
+
+      await tap('.method-wave input');
+      await type('input[name=fee]', '5000');
+      await tap('form .go');
+      (await sent('POST', `/api/v1/orders/${uuid(1)}/payments`)).flush(null, { status: 201, statusText: 'Created' });
+      expect((await sent('POST', '/api/v1/costs')).request.body).toEqual(expect.objectContaining({ campaignId: AUTRE_BANDE }));
+    });
+
+    it('des frais vides ou à zéro : aucune dépense ; des frais qui ne sont pas des francs entiers sont refusés avant tout envoi', async () => {
+      const { tap, type, sent, element, refresh } = await ouvre(PAGE, [recue()]);
+
+      await tap('.method-wave input');
+      await type('input[name=fee]', '12.5');
+      await tap('form .go');
+      expect(text(element().querySelector('.refusal'))).toContain('Les frais : des francs entiers, ou rien');
+      expect(http.match((request) => request.method === 'POST')).toEqual([]);
+
+      await type('input[name=fee]', '0');
+      await tap('form .go');
+      (await sent('POST', `/api/v1/orders/${uuid(1)}/payments`)).flush(null, { status: 201, statusText: 'Created' });
+      await refresh();
+      await refresh();
+      expect(http.match((request) => request.method === 'POST' && request.url === '/api/v1/costs')).toEqual([]);
+    });
+
+    // Spec: backlog P.7 — un paiement saisi sans réseau est gardé sur l'appareil, et part au retour du réseau, une seule fois.
+    it('sans réseau, le paiement est gardé et la carte dit « paiement en attente d’envoi » ; au retour du réseau, le même paiement repart', async () => {
       const { tap, sent, element, soon } = await ouvre(PAGE, [recue()]);
 
       await tap('.method-wave input');
@@ -388,10 +461,10 @@ describe('Les achats, au bureau', () => {
       const first = await sent('POST', `/api/v1/orders/${uuid(1)}/payments`);
       const id = (first.request.body as { id: string }).id;
       first.error(new ProgressEvent('error'));
-      await soon(() => expect(text(element().querySelector('.refusal'))).toContain('Pas de réseau'));
-      expect(TestBed.inject(Router).url).toBe(PAGE);
+      await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe('/admin/achats'));
+      await soon(() => expect(text(element().querySelector('.order .waiting'))).toContain('paiement en attente d’envoi'));
 
-      await tap('form .go');
+      globalThis.dispatchEvent(new Event('online'));
       const retried = await sent('POST', `/api/v1/orders/${uuid(1)}/payments`);
       expect((retried.request.body as { id: string }).id).toBe(id);
     });

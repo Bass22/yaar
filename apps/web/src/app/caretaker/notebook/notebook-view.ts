@@ -130,6 +130,19 @@ export function expectedDeliveriesOf(campaign: CaretakerCampaign, entries: reado
     .filter((line) => line.remaining > 0);
 }
 
+/**
+ * The weighings the chef asked for and nobody answered yet (T.2): the server's, less those a weighing
+ * kept on the phone answers — the card closes as soon as the weighing is written, offline too.
+ */
+export function weighingRequestsOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): CaretakerCampaign['weighingRequests'] {
+  const answered = new Set<string>();
+  for (const { state, payload } of entries) {
+    if (payload.campaignId !== campaign.campaignId || (state === 'sent' && payload.businessDate < oldestDay) || !('fact' in payload)) continue;
+    if (payload.fact.type === 'Weighing') answered.add(payload.fact.weighingRequestId);
+  }
+  return campaign.weighingRequests.filter(({ weighingRequestId }) => !answered.has(weighingRequestId));
+}
+
 /** A line of the day's journal, as written in the notebook. */
 export type NotebookLine = {
   readonly id: string;

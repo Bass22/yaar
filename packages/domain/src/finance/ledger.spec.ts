@@ -41,6 +41,7 @@ const costContext: CostContext = {
   counterparties: [
     { id: OUSMANE, kind: 'Collaborator', archived: false },
     { id: SEDIMA, kind: 'Supplier', archived: false },
+    { id: RAMASSEUR, kind: 'Customer', archived: false },
   ],
 };
 const salaire = (rank: number, fields: Partial<CostInput> = {}): CostInput => ({
@@ -103,6 +104,29 @@ describe('Les soldes se déduisent des écritures', () => {
 
     expect(soldeDe(OUSMANE, costEntries(effectiveCosts([dette])))).toEqual(signe(-45_000));
     expect(ledgerOf(costEntries(effectiveCosts([dette, payee])), XOF)).toEqual([]);
+  });
+
+  // Spec: backlog R.4 — payé par un tiers (décisions du 2026-11-12).
+  it('une dépense payée par un acheteur baisse sa créance d’autant, définitivement ; ses frais pris en charge aussi', () => {
+    // The buyer paid 100 000 F of feed for the farm, and 1 000 F of Wave fees the farm takes on.
+    const aliment = unwrap(recordCost(salaire(310, { amount: 100_000, payment: { kind: 'PaidBy', counterpartyId: RAMASSEUR } }), costContext));
+    const frais = unwrap(recordCost(salaire(311, { amount: 1_000, payment: { kind: 'PaidBy', counterpartyId: RAMASSEUR } }), costContext));
+
+    expect(soldeDe(RAMASSEUR, costEntries(effectiveCosts([aliment, frais])))).toEqual(signe(-101_000));
+    expect(costEntries(effectiveCosts([aliment])).map((entry) => entry.source)).toEqual([{ kind: 'Cost', costId: uuid(310), paidBy: true }]);
+  });
+
+  it('un paiement de commande fait par un tiers : la dette envers le fournisseur baisse, et le tiers qui a payé reçoit « − montant »', () => {
+    const parMoussa = unwrap(recordPayment({ id: uuid(520), orderId: uuid(20), paidOn: '2026-10-14', amount: 150_000, method: 'Wave', paidBy: RAMASSEUR }, XOF));
+    const entries = orderEntries(commande(), reçus(20), [parMoussa]);
+
+    // 20 × 17 500 = 350 000 F billable; 150 000 F paid by the buyer.
+    expect(soldeDe(SEDIMA, entries)).toEqual(signe(-200_000));
+    expect(soldeDe(RAMASSEUR, entries)).toEqual(signe(-150_000));
+  });
+
+  it('le tiers qui a payé une commande se désigne par un identifiant valide', () => {
+    expect(recordPayment({ id: uuid(521), orderId: uuid(20), paidOn: '2026-10-14', amount: 1, method: 'Cash', paidBy: 'Moussa' }, XOF)).toEqual({ ok: false, error: { kind: 'InvalidId', expected: 'CounterpartyId' } });
   });
 
   it('chaque tiers a sa ligne ; ses écritures sont datées, dans les deux sens', () => {

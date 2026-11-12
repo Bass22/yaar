@@ -1,6 +1,7 @@
 // The costs of a campaign at the office (P.3). Admin only: amounts never go to the caretaker.
 
-export type CostPaymentView = { readonly kind: 'Paid' } | { readonly kind: 'ToPay'; readonly counterpartyId: string };
+/** Paid by the farm; to pay to someone (P.1); or paid for the farm by someone (R.4). */
+export type CostPaymentView = { readonly kind: 'Paid' } | { readonly kind: 'ToPay' | 'PaidBy'; readonly counterpartyId: string };
 
 /** Body of POST /api/v1/costs, and of POST /api/v1/costs/:id/revisions (the cost written again whole). */
 export interface RecordCostRequest {
@@ -16,6 +17,8 @@ export interface RecordCostRequest {
   readonly payment: CostPaymentView;
   /** The fingerprint of the receipt's photo, sent first to /api/v1/media (P.5). */
   readonly receipt: string | null;
+  /** When it was written, on the device's clock (P.7): a cost from the office's queue carries it; without it, the server's. */
+  readonly recordedAt?: string;
 }
 
 /** One entry written for a cost: the first, or a counter-entry. */

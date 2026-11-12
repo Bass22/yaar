@@ -29,7 +29,7 @@ const token = (sub: string) => `e30.${btoa(JSON.stringify({ sub, tenant: TENANT 
 const NOW = new Date('2026-11-06T08:00:00.000Z');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: GRANDS, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], deliveries: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: GRANDS, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500', ...fields });
 const unSite = (fields: Partial<CaretakerSite> = {}): CaretakerSite => ({ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: OUSMANE, campaigns: [uneBande()], ...fields });
 const contexte = (...sites: CaretakerSite[]): CaretakerContext => ({ sites, chef: null });
 

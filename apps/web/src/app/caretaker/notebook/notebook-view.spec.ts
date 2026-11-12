@@ -2,7 +2,7 @@ import { unwrap } from '@kit';
 import { TimeZone, type BusinessDay } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerJournalLine, FactPayload } from '@contracts';
 import type { OutboxEntry, OutboxState } from '../../core/outbox/outbox';
-import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf } from './notebook-view';
+import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, weighingRequestsOf } from './notebook-view';
 
 // Spec: backlog J.1 (les bandes du site), J.2 (trois jours et leur mini-résumé), J.3 (le journal
 // du jour) ; cahier des charges « En-tête et contexte », « Journal du jour », « Rattrapage » ;
@@ -18,7 +18,7 @@ const HIER = '2026-11-05' as BusinessDay;
 const AUJOURDHUI = '2026-11-06' as BusinessDay;
 const where = { tenantId: TENANT, siteId: SITE };
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], deliveries: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500', ...fields });
 const uneLigne = (rank: number, fact: FactPayload, fields: Partial<CaretakerJournalLine> = {}): CaretakerJournalLine => ({
   id: uuid(rank),
   businessDate: HIER,
@@ -247,3 +247,19 @@ describe('Les livraisons encore attendues', () => {
   });
 });
 
+// Spec: backlog T.2 — une fois la pesée déclarée, la carte disparaît ; hors-ligne aussi, dès que le
+// téléphone l'a gardée.
+describe('Les demandes de pesée encore ouvertes', () => {
+  const AVANT_HIER = '2026-11-04' as BusinessDay;
+  const demandee = uneBande({ weighingRequests: [{ weighingRequestId: uuid(70), requestedFor: '2026-11-06' }] });
+  const pesee = (rank: number, request: string) => surLeTelephone(rank, { type: 'Weighing', weighingRequestId: request, weights: [1820, 1905, 1760, 1880, 1850] });
+
+  it('celles du serveur, tant qu’aucune pesée du téléphone n’y répond', () => {
+    expect(weighingRequestsOf(demandee, [], AVANT_HIER)).toEqual([{ weighingRequestId: uuid(70), requestedFor: '2026-11-06' }]);
+    expect(weighingRequestsOf(demandee, [pesee(1, uuid(99))], AVANT_HIER)).toHaveLength(1);
+  });
+
+  it('une pesée gardée sur le téléphone, même pas encore envoyée, ferme la carte', () => {
+    expect(weighingRequestsOf(demandee, [pesee(1, uuid(70))], AVANT_HIER)).toEqual([]);
+  });
+});

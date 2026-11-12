@@ -43,6 +43,8 @@ export interface OrderPaymentView {
   /** In whole units of the order's currency. */
   readonly amount: number;
   readonly method: PaymentMethodCode;
+  /** Who paid for the farm (R.4); `null` when the farm paid. */
+  readonly paidBy: string | null;
 }
 
 /** Body of POST /api/v1/orders/:id/payments (Q.9). The identifier is made at the office: sent twice, kept once. */
@@ -53,6 +55,8 @@ export interface RecordPaymentRequest {
   /** Whole units of the farm's currency, at least 1. */
   readonly amount: number;
   readonly method: PaymentMethodCode;
+  /** Someone else who paid for the farm (R.4): never the order's own supplier. Absent or null: the farm paid. */
+  readonly paidBy?: string | null;
 }
 
 export type OrderRefusalCode =
@@ -62,6 +66,7 @@ export type OrderRefusalCode =
   | 'OrderWithoutLines'
   | 'UnknownCounterparty'
   | 'NotASupplier'
+  | 'PaidBySupplier'
   | 'CounterpartyArchived'
   | 'UnknownCostType'
   | 'CostTypeNotOrderable'

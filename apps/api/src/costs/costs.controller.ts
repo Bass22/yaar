@@ -48,13 +48,13 @@ function requestOf(body: unknown): RecordCostRequest {
   const payment = isObject(body) ? body['payment'] : null;
   const valid =
     isObject(body) &&
-    hasExactly(body, ['id', 'campaignId', 'costTypeId', 'spentOn', 'amount', 'note', 'payment', 'receipt']) &&
+    (hasExactly(body, ['id', 'campaignId', 'costTypeId', 'spentOn', 'amount', 'note', 'payment', 'receipt']) || (hasExactly(body, ['id', 'campaignId', 'costTypeId', 'spentOn', 'amount', 'note', 'payment', 'receipt', 'recordedAt']) && typeof body['recordedAt'] === 'string')) &&
     ['id', 'campaignId', 'costTypeId', 'spentOn'].every((field) => typeof body[field] === 'string') &&
     typeof body['amount'] === 'number' &&
     (body['note'] === null || typeof body['note'] === 'string') &&
     (body['receipt'] === null || typeof body['receipt'] === 'string') &&
     isObject(payment) &&
-    ((hasExactly(payment, ['kind']) && payment['kind'] === 'Paid') || (hasExactly(payment, ['kind', 'counterpartyId']) && payment['kind'] === 'ToPay' && typeof payment['counterpartyId'] === 'string'));
+    ((hasExactly(payment, ['kind']) && payment['kind'] === 'Paid') || (hasExactly(payment, ['kind', 'counterpartyId']) && (payment['kind'] === 'ToPay' || payment['kind'] === 'PaidBy') && typeof payment['counterpartyId'] === 'string'));
   if (!valid) throw new BadRequestException({ kind: 'InvalidRequest' });
   return body as unknown as RecordCostRequest;
 }

@@ -8,7 +8,7 @@ import type { OutboxEntry } from '../../core/outbox/outbox';
 import { AuthService } from '../../core/session/auth';
 import { tenantOf } from '../../core/session/session-store';
 import { JournalSync, OUTBOX } from '../../core/sync/journal-sync';
-import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
+import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, weighingRequestsOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
 
 const CONTEXT_KEY = 'yaar.context';
 const MINUTE = 60_000;
@@ -98,6 +98,14 @@ export class Notebook {
     const oldest = this.days()[0];
     return campaign === null || oldest === undefined ? [] : expectedDeliveriesOf(campaign, this.entries(), oldest.day);
   });
+  /** The weighings asked for and not answered yet, by the server or the phone (T.2). */
+  readonly weighingRequests = computed(() => {
+    const campaign = this.campaignContext();
+    const oldest = this.days()[0];
+    return campaign === null || oldest === undefined ? [] : weighingRequestsOf(campaign, this.entries(), oldest.day);
+  });
+  /** The strain placed, read for the weighing bounds (T.3). */
+  readonly strain = computed(() => this.campaignContext()?.strain ?? null);
   /** The deaths already written on the chosen day, by anyone, `null` when none: what the voice reminds before the Oui (K.1). */
   readonly deathsWritten = computed(() => {
     const campaign = this.campaign();

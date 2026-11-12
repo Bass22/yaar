@@ -6,10 +6,12 @@ import type { CampaignMoneyView, CostRefusalCode, RecordCostRequest } from '@con
 import { clip, number, type PhrasePart } from '../../core/audio/phrase';
 import type { ScriptClip } from '../../core/audio/script-clips';
 import { fingerprintOf } from '../../core/outbox/media-queue';
+import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
+import { OfficeSync, recall, remember } from '../office-sync';
 
 /** What can go wrong with an expense, said in words by the screens. */
-export type ExpenseProblem = CostRefusalCode | 'NoType' | 'NoAmount' | 'NoCreditor' | 'NoLot' | 'ReceiptRefused' | 'NoNetwork' | 'ServerError';
+export type ExpenseProblem = CostRefusalCode | 'NoType' | 'NoAmount' | 'NoCreditor' | 'NoLot' | 'ReceiptRefused' | 'NoNetwork' | 'ServerError' | 'StorageUnavailable';
 
 /** The real object of each category of the base: what the admin recognises without reading (screen 7). To check in the field where marked. */
 export const CATEGORY_PICTO: Record<string, PictogramName> = {
@@ -58,22 +60,44 @@ export function expenseReadBack(category: string, amount: number, paid: boolean)
 export class Expenses {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly office = inject(OfficeSync);
+  private readonly clock = inject(CLOCK);
 
   readonly money = signal<CampaignMoneyView | null>(null);
   readonly unreachable = signal(false);
+  /** When the figures shown were read; without network, the last reading kept on the device (P.7). */
+  readonly readAt = signal<string | null>(null);
 
   async load(campaignId: string): Promise<void> {
+    const url = `/api/v1/campaigns/${campaignId}/money`;
+    const session = this.auth.session();
+    const userId = session.status === 'none' ? '' : session.userId;
     try {
-      this.money.set(await firstValueFrom(this.http.get<CampaignMoneyView>(`/api/v1/campaigns/${campaignId}/money`, { headers: this.headers() })));
+      const money = await firstValueFrom(this.http.get<CampaignMoneyView>(url, { headers: this.headers() }));
+      const at = this.clock.now();
+      remember(userId, url, money, at);
+      this.money.set(money);
+      this.readAt.set(at.toISOString());
       this.unreachable.set(false);
     } catch {
+      const kept = recall<CampaignMoneyView>(userId, url);
+      if (kept !== null) {
+        this.money.set(kept.value);
+        this.readAt.set(kept.readAt);
+      }
       this.unreachable.set(true);
     }
   }
 
-  /** A cost, or a counter-entry of the cost `corrects` (P.2): the cost written again whole. */
-  save(request: RecordCostRequest, corrects: string | null): Promise<ExpenseProblem | null> {
-    return this.send(corrects === null ? '/api/v1/costs' : `/api/v1/costs/${corrects}/revisions`, request);
+  /**
+   * A cost, or a counter-entry of the cost `corrects` (P.2): kept on the device first, with the
+   * instant it was written, and sent when the network allows (P.7). `StorageUnavailable` when the
+   * device cannot keep it.
+   */
+  async save(request: RecordCostRequest, corrects: string | null): Promise<ExpenseProblem | null> {
+    const url = corrects === null ? '/api/v1/costs' : `/api/v1/costs/${corrects}/revisions`;
+    const kept = await this.office.keep('cost', url, { ...request, recordedAt: request.recordedAt ?? this.clock.now().toISOString() }, request.campaignId);
+    return kept ? null : 'StorageUnavailable';
   }
 
   /** The receipt's photo, sent first to the media store (M.1) as a supporting document; its fingerprint, or why not. */
@@ -98,14 +122,4 @@ export class Expenses {
     return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
   }
 
-  private async send(url: string, body: unknown): Promise<ExpenseProblem | null> {
-    try {
-      await firstValueFrom(this.http.post(url, body, { headers: this.headers() }));
-      return null;
-    } catch (error) {
-      if (!(error instanceof HttpErrorResponse) || error.status === 0) return 'NoNetwork';
-      const kind = (error.error as { kind?: unknown } | null)?.kind;
-      return typeof kind === 'string' ? (kind as ExpenseProblem) : 'ServerError';
-    }
-  }
 }

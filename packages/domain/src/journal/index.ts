@@ -78,3 +78,4 @@ export type { Role } from './role';
 export { STRAINS, targetAt, type Species, type Strain, type StrainTarget } from './strain';
 export { validateDeclaration, type DeclarationContext } from './validate-declaration';
 export { Weight } from './weight';
+export { averageWeight, validateWeighing, validateWeighingValidation, weightBounds, weightCurve, WEIGHING_WEIGHTS, type WeighingTarget, type WeightPoint } from './weighing';

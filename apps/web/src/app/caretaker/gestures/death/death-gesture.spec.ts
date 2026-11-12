@@ -24,7 +24,7 @@ const token = `e30.${btoa(JSON.stringify({ sub: OUSMANE, tenant: TENANT })).repl
 const NOW = new Date('2026-11-06T08:00:00.000Z');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], deliveries: [], ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: BANDE, placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500', ...fields });
 const contexte = (bande: CaretakerCampaign = uneBande()): CaretakerContext => ({
   chef: null,
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: OUSMANE, campaigns: [bande] }],

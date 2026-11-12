@@ -15,6 +15,8 @@ export type Payment = {
   readonly paidOn: BusinessDay;
   readonly amount: Money;
   readonly method: PaymentMethod;
+  /** Who paid for the farm (R.4); absent when the farm paid. */
+  readonly paidBy?: string;
 };
 
 export type PaymentInput = {
@@ -24,10 +26,12 @@ export type PaymentInput = {
   /** In whole units of the farm's currency, at least 1. */
   readonly amount: number;
   readonly method: PaymentMethod;
+  /** Someone else who paid for the farm (R.4); absent or null: the farm paid. */
+  readonly paidBy?: string | null;
 };
 
 export type PaymentRefusal =
-  | { readonly kind: 'InvalidId'; readonly expected: 'PaymentId' | 'PurchaseOrderId' }
+  | { readonly kind: 'InvalidId'; readonly expected: 'PaymentId' | 'PurchaseOrderId' | 'CounterpartyId' }
   | { readonly kind: 'InvalidBusinessDay' }
   | { readonly kind: 'InvalidAmount' }
   | { readonly kind: 'UnknownPaymentMethod' };
@@ -42,7 +46,9 @@ export const recordPayment = (input: PaymentInput, currency: CurrencyCode): Resu
   const amount = Money.of(input.amount, currency);
   if (!amount.ok || amount.value.amount === 0) return err({ kind: 'InvalidAmount' });
   if (!(PAYMENT_METHODS as readonly string[]).includes(input.method)) return err({ kind: 'UnknownPaymentMethod' });
-  return ok(Object.freeze({ id: input.id as PaymentId, orderId: input.orderId as PurchaseOrderId, paidOn: paidOn.value, amount: amount.value, method: input.method }));
+  const paidBy = input.paidBy ?? null;
+  if (paidBy !== null && !CANONICAL_UUID.test(paidBy)) return err({ kind: 'InvalidId', expected: 'CounterpartyId' });
+  return ok(Object.freeze({ id: input.id as PaymentId, orderId: input.orderId as PurchaseOrderId, paidOn: paidOn.value, amount: amount.value, method: input.method, ...(paidBy === null ? {} : { paidBy }) }));
 };
 
 export type Billable = {

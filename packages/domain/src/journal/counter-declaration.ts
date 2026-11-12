@@ -70,6 +70,8 @@ function referenceOf(fact: Fact): string | null {
       return fact.orderLineId;
     case 'Weighing':
       return fact.weighingRequestId;
+    case 'WeighingValidated':
+      return fact.weighingId;
     case 'TaskDone':
       return fact.taskId;
     case 'VoiceMessage':

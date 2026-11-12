@@ -9,6 +9,8 @@ import {
   validateDeclaration,
   validateDeliveryTarget,
   validateRetraction,
+  validateWeighing,
+  validateWeighingValidation,
   type BusinessDay,
   type Campaign,
   type CampaignId,
@@ -19,6 +21,8 @@ import {
   type Refusal,
   type SiteStaff,
   type TimeZone,
+  type WeighingRequestId,
+  type WeighingTarget,
 } from '@domain/journal';
 import type { Session } from '../auth/session';
 import { decodeJournalEvent, type DecodingRefusal } from './decode-event';
@@ -45,6 +49,10 @@ export type IngestionPorts = {
   isRetracted(id: JournalEventId): Promise<boolean>;
   /** The order line a delivery names, with its campaign and its order's state; `null` when the farm has none. */
   orderLine(id: OrderLineId): Promise<DeliveryTarget | null>;
+  /** A request for a weighing, with its campaign; `null` when the farm has none (T.2). */
+  weighingRequest(id: WeighingRequestId): Promise<{ readonly campaignId: CampaignId } | null>;
+  /** What a validation names: its type, campaign, and whether it was taken back or already validated (T.5). */
+  weighingTarget(id: JournalEventId): Promise<WeighingTarget | null>;
   /** Every event written for that day of that campaign: declarations, corrections, retractions. */
   dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]>;
   /** Adds the event, with the device of the session. */
@@ -150,7 +158,9 @@ async function judge(event: JournalEvent, context: Parameters<typeof validateDec
     if (corrected === null) {
       return { ok: false, error: { kind: 'UnknownEvent' } };
     }
-    return validateCounterDeclaration(event, { ...context, corrected, correctedIsRetracted: await ports.isRetracted(corrected.id) });
+    const corrected$ = validateCounterDeclaration(event, { ...context, corrected, correctedIsRetracted: await ports.isRetracted(corrected.id) });
+    // A corrected weighing still weighs five birds (T.1).
+    return corrected$.ok && event.type === 'Weighing' ? validateWeighing(event.weights, event.photos) : corrected$;
   }
   const declared = validateDeclaration(event, context);
   if (!declared.ok) {
@@ -160,6 +170,17 @@ async function judge(event: JournalEvent, context: Parameters<typeof validateDec
   // correction keeps the line of what it corrects: a count is corrected even once the order is closed.
   if (event.type === 'Delivery') {
     return validateDeliveryTarget(event.campaignId, await ports.orderLine(event.orderLineId));
+  }
+  // A weighing is five weights answering a request of its campaign (T.1, T.2).
+  if (event.type === 'Weighing') {
+    const five = validateWeighing(event.weights, event.photos);
+    if (!five.ok) return five;
+    const request = await ports.weighingRequest(event.weighingRequestId);
+    return request !== null && request.campaignId === event.campaignId ? declared : { ok: false, error: { kind: 'UnknownWeighingRequest' } };
+  }
+  // A validation names a weighing of its campaign, not taken back nor validated yet (T.5).
+  if (event.type === 'WeighingValidated') {
+    return validateWeighingValidation(event.campaignId, await ports.weighingTarget(event.weighingId));
   }
   // Only "nothing lost" is judged against its day: no need to read the day for anything else.
   return event.type === 'NoLoss' ? validateAgainstDay(event, await ports.dayJournal(event.campaignId, event.businessDate)) : declared;

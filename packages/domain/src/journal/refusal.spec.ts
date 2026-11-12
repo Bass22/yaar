@@ -37,6 +37,12 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   InvalidPlannedDuration: { kind: 'InvalidPlannedDuration', value: 0 },
   UnknownOrderLine: { kind: 'UnknownOrderLine' },
   OrderNotReceiving: { kind: 'OrderNotReceiving' },
+  NotFiveWeights: { kind: 'NotFiveWeights' },
+  WeighingPhotosMismatch: { kind: 'WeighingPhotosMismatch' },
+  UnknownWeighingRequest: { kind: 'UnknownWeighingRequest' },
+  UnknownWeighing: { kind: 'UnknownWeighing' },
+  WeighingAlreadyValidated: { kind: 'WeighingAlreadyValidated' },
+  ValidationByAdminOnly: { kind: 'ValidationByAdminOnly' },
 };
 
 // Total function over the closed list: a reason added without its `case` fails the typecheck.
@@ -104,6 +110,18 @@ function explain(refusal: Refusal): string {
       return 'ligne de commande inconnue dans cette bande';
     case 'OrderNotReceiving':
       return 'commande en brouillon ou close : elle ne reçoit pas';
+    case 'NotFiveWeights':
+      return 'une pesée porte cinq poids';
+    case 'WeighingPhotosMismatch':
+      return 'une photo par poids, ou aucune';
+    case 'UnknownWeighingRequest':
+      return 'aucune demande de pesée de cette bande';
+    case 'UnknownWeighing':
+      return 'pesée inconnue dans cette bande';
+    case 'WeighingAlreadyValidated':
+      return 'pesée déjà validée';
+    case 'ValidationByAdminOnly':
+      return "seul l'admin valide une pesée";
     default:
       return assertNever(refusal);
   }

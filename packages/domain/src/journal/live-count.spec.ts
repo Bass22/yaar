@@ -61,7 +61,7 @@ describe('Vivants', () => {
       const journal = [declare(1, recus(510)), declare(2, morts(3)), declare(3, morts(2))];
 
       // Then 510 − (3 + 2) = 505
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 0, liveCount: 505 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 0, sold: 0, liveCount: 505 });
     });
 
     it("un bonus de l'écloserie augmente les vivants, un manque à la réception les diminue : l'effectif commandé ne compte pas", () => {
@@ -82,7 +82,7 @@ describe('Vivants', () => {
     });
 
     it("un cahier sans réception de poussins ne compte aucun animal reçu", () => {
-      expect(vivants([])).toEqual({ received: 0, deaths: 0, losses: 0, liveCount: 0 });
+      expect(vivants([])).toEqual({ received: 0, deaths: 0, losses: 0, sold: 0, liveCount: 0 });
     });
 
     it("seuls les événements de la campagne comptent : ceux de la bande précédente sont ignorés", () => {
@@ -94,7 +94,7 @@ describe('Vivants', () => {
       ];
 
       // Then 510 − 3 = 507
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 3, losses: 0, liveCount: 507 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 3, losses: 0, sold: 0, liveCount: 507 });
     });
   });
 
@@ -113,7 +113,7 @@ describe('Vivants', () => {
       const journal = [delivery, declare(2, manquants(4))];
 
       // Then 510 − 4 = 506, et la réception dit toujours 510
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 4, liveCount: 506 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 4, sold: 0, liveCount: 506 });
       expect(delivery).toMatchObject({ receivedQuantity: 510 });
     });
 
@@ -122,7 +122,14 @@ describe('Vivants', () => {
       const journal = [declare(1, recus(510)), declare(2, morts(5)), declare(3, manquants(4)), declare(4, donnes(6)), declare(5, voles(3))];
 
       // Then morts = 5 ; pertes = 4 + 6 + 3 = 13 ; vivants = 510 − 5 − 13 = 492
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 13, liveCount: 492 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 5, losses: 13, sold: 0, liveCount: 492 });
+    });
+
+    // Spec: backlog W.1 — une vente retire les poulets vendus des vivants (décision du fondateur, 2026-11-12).
+    it('les poulets vendus sortent des vivants, sans compter comme des pertes : 510 reçus, 5 morts, 200 vendus → 305', () => {
+      const journal = [declare(1, recus(510)), declare(2, { type: 'Death', quantity: quantite(5) })];
+
+      expect(computeLiveCount(journal, { campaignId: LA_BANDE, placementOrderLines: [LIGNE_POUSSINS], sold: 200 })).toEqual({ received: 510, deaths: 5, losses: 0, sold: 200, liveCount: 305 });
     });
 
     it("« rien perdu », une tâche faite ou un sac ouvert ne changent pas les vivants", () => {
@@ -133,7 +140,7 @@ describe('Vivants', () => {
         declare(4, { type: 'BagOpened', quantity: quantite(2) }),
       ];
 
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 0, liveCount: 510 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 0, sold: 0, liveCount: 510 });
     });
 
     it('des morts déclarés supérieurs aux vivants sont acceptés : les vivants passent sous zéro, jamais bridés', () => {
@@ -141,7 +148,7 @@ describe('Vivants', () => {
       const journal = [declare(1, recus(10)), declare(2, morts(12))];
 
       // Then 10 − 12 = −2 : le signe dit de combien on dépasse
-      expect(vivants(journal)).toEqual({ received: 10, deaths: 12, losses: 0, liveCount: -2 });
+      expect(vivants(journal)).toEqual({ received: 10, deaths: 12, losses: 0, sold: 0, liveCount: -2 });
     });
   });
 
@@ -153,7 +160,7 @@ describe('Vivants', () => {
       const journal = [delivery, deaths, corrige(3, deaths, morts(2)), corrige(4, delivery, recus(508))];
 
       // Then 508 − 2 = 506
-      expect(vivants(journal)).toEqual({ received: 508, deaths: 2, losses: 0, liveCount: 506 });
+      expect(vivants(journal)).toEqual({ received: 508, deaths: 2, losses: 0, sold: 0, liveCount: 506 });
     });
 
     it('une déclaration annulée ne compte plus : 3 morts annulés rendent 3 vivants', () => {
@@ -162,7 +169,7 @@ describe('Vivants', () => {
       const journal = [declare(1, recus(510)), deaths, Retraction(signe(3), deaths.id)];
 
       // Then 510 − 0 = 510
-      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 0, liveCount: 510 });
+      expect(vivants(journal)).toEqual({ received: 510, deaths: 0, losses: 0, sold: 0, liveCount: 510 });
     });
 
     it('une réception de poussins annulée ne met plus aucun poussin en place', () => {
@@ -237,7 +244,7 @@ describe('Vivants', () => {
           const deaths = sum(journal, (fact) => (fact.type === 'Death' ? fact.quantity : 0));
           const losses = sum(journal, (fact) => (fact.type === 'Loss' ? fact.quantity : 0));
 
-          expect(vivants(journal)).toEqual({ received, deaths, losses, liveCount: received - deaths - losses });
+          expect(vivants(journal)).toEqual({ received, deaths, losses, sold: 0, liveCount: received - deaths - losses });
         }),
       );
     });

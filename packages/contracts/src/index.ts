@@ -20,3 +20,5 @@ export type { ConfigureCounterpartyRequest, CounterpartyFaceCode, CounterpartyKi
 export type { DraftOrderRequest, OrderPaymentView, OrderRefusal, OrderRefusalCode, OrderStatusCode, OrderView, PaymentMethodCode, RecordPaymentRequest } from './orders';
 export type { CampaignMoneyView, CostEntryView, CostPaymentView, CostRefusal, CostRefusalCode, CostView, RecordCostRequest } from './costs';
 export type { CounterpartyLedgerView, LedgerEntryView, LedgerSourceView, LedgerView, RecordSettlementRequest, SettlementDirectionCode, SettlementRefusal, SettlementRefusalCode } from './ledger';
+export type { RecordSaleRequest, SalePricingView, SaleReceiptRequest, SaleRefusal, SaleRefusalCode, SalesView, SaleView } from './sales';
+export type { CaretakerWeighingRequest, RecordWeighingRequest, WeighingsView, WeighingToValidate } from './journal';

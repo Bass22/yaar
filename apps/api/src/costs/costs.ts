@@ -83,8 +83,8 @@ export async function campaignMoney(tx: Tx, tenantId: TenantId, campaignId: stri
   };
 }
 
-// The instant of writing is the server's: the office writes online (P.7 will bring the device's).
-const inputOf = (request: RecordCostRequest, now: Date): CostInput => ({ ...request, recordedAt: now.toISOString() });
+// The instant of writing is the device's when it says it (P.7, rule 2), the server's otherwise.
+const inputOf = (request: RecordCostRequest, now: Date): CostInput => ({ ...request, recordedAt: request.recordedAt ?? now.toISOString() });
 
 async function openCampaign(tx: Tx, campaignId: string): Promise<Result<{ siteId: string; timeZone: string }, CostRefusal>> {
   const campaign = /^[0-9a-f-]{36}$/.test(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { closedAt: true, site: { select: { id: true, timeZone: true } } } }) : null;
@@ -124,7 +124,7 @@ async function write(tx: Tx, admin: Session, entry: CostEntry): Promise<Result<v
         amount: entry.amount.amount,
         note: entry.note,
         paymentKind: entry.payment.kind,
-        counterpartyId: entry.payment.kind === 'ToPay' ? entry.payment.counterpartyId : null,
+        counterpartyId: entry.payment.kind === 'Paid' ? null : entry.payment.counterpartyId,
         receipt: entry.receipt,
         recordedAt: new Date(entry.recordedAt),
         recordedBy: admin.userId,
@@ -148,13 +148,13 @@ function sameCost(row: CostRow, entry: CostEntry): boolean {
     row.amount === entry.amount.amount &&
     row.note === entry.note &&
     row.paymentKind === entry.payment.kind &&
-    row.counterpartyId === (entry.payment.kind === 'ToPay' ? entry.payment.counterpartyId : null) &&
+    row.counterpartyId === (entry.payment.kind === 'Paid' ? null : entry.payment.counterpartyId) &&
     row.receipt === entry.receipt
   );
 }
 
 // A stored cost read back as the domain's: written once by the domain, so its values are valid.
-function entryOf(row: CostRow, currency: CurrencyCode): CostEntry {
+export function entryOf(row: CostRow, currency: CurrencyCode): CostEntry {
   const amount = unwrap(Money.of(row.amount, currency));
   return Object.freeze({
     id: row.id as CostId,
@@ -164,7 +164,7 @@ function entryOf(row: CostRow, currency: CurrencyCode): CostEntry {
     spentOn: row.spentOn.toISOString().slice(0, 10) as BusinessDay,
     amount,
     note: row.note,
-    payment: row.paymentKind === 'Paid' ? { kind: 'Paid' as const } : { kind: 'ToPay' as const, counterpartyId: row.counterpartyId as CounterpartyId },
+    payment: row.paymentKind === 'Paid' ? { kind: 'Paid' as const } : { kind: row.paymentKind, counterpartyId: row.counterpartyId as CounterpartyId },
     receipt: row.receipt,
     recordedAt: row.recordedAt.toISOString() as Instant,
   });

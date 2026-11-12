@@ -1,15 +1,19 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Pictogram } from '../../ui/pictogram';
 import { LotList } from '../lots/lot-list';
+import { FiguresAge } from '../figures-age';
 import { Office } from '../office';
 
 // The office's home (bureau-admin-v2.html): one line per running lot, then what waits for the
 // chef, the most urgent first. What waits arrives with O.4 (refusals, alerts) and U (the inbox).
 @Component({
   selector: 'app-home-page',
-  imports: [LotList, Pictogram],
+  imports: [FiguresAge, LotList, Pictogram],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (!office.unreachable()) {
+      <app-figures-age [readAt]="office.readAt()?.at ?? null" />
+    }
     <app-lot-list [lots]="office.lots()" />
     <h1><app-pictogram picto="bell" [decorative]="true" /> À traiter</h1>
     <p class="nothing"><app-pictogram picto="round-check" [decorative]="true" /> Rien à traiter pour l’instant.</p>

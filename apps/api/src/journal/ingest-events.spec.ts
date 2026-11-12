@@ -74,6 +74,12 @@ class FarmInMemory implements IngestionPorts {
   async orderLine(): Promise<null> {
     return null;
   }
+  async weighingRequest(): Promise<null> {
+    return null;
+  }
+  async weighingTarget(): Promise<null> {
+    return null;
+  }
   async dayJournal(campaignId: CampaignIdType, day: BusinessDay): Promise<readonly JournalEvent[]> {
     return this.journal.map((row) => row.event).filter((event) => event.campaignId === campaignId && event.businessDate === day);
   }

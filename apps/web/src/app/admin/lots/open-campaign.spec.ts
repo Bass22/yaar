@@ -161,7 +161,7 @@ describe('Ouvrir une bande, au bureau', () => {
     expect(body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), siteId: NORD, strain: 'Cobb500', plannedHeadcount: 1000, placementDay: '2026-11-06', plannedDuration: 45 });
     expect(request?.request.headers.get('Authorization')).toBe(`Bearer ${token}`);
     request?.flush(null, { status: 201, statusText: 'Created' });
-    const nouvelleBande = { campaignId: body.id, placementDay: '2026-11-06', campaignDay: 0, liveCount: null, journal: [], deliveries: [] };
+    const nouvelleBande = { campaignId: body.id, placementDay: '2026-11-06', campaignDay: 0, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' };
     await soon(() => {
       const reread = http.match('/api/v1/caretaker/context')[0];
       expect(reread).toBeDefined();

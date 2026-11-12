@@ -9,8 +9,13 @@ import type { Settlement, SettlementDirection } from './settlement';
 export type LedgerSource =
   | { readonly kind: 'OrderReceived'; readonly orderId: string }
   | { readonly kind: 'OrderPayment'; readonly orderId: string; readonly paymentId: string; readonly method: PaymentMethod }
-  | { readonly kind: 'Cost'; readonly costId: string }
-  | { readonly kind: 'Settlement'; readonly settlementId: string; readonly method: PaymentMethod; readonly direction: SettlementDirection };
+  /** Who paid an order for the farm (R.4): what it paid, owed back or taken off its debt. */
+  | { readonly kind: 'OrderPaidBy'; readonly orderId: string; readonly paymentId: string; readonly method: PaymentMethod }
+  /** A cost owed to it — or, `paidBy`, paid by it for the farm (R.4). */
+  | { readonly kind: 'Cost'; readonly costId: string; readonly paidBy?: true }
+  | { readonly kind: 'Settlement'; readonly settlementId: string; readonly method: PaymentMethod; readonly direction: SettlementDirection }
+  | { readonly kind: 'Sale'; readonly saleId: string }
+  | { readonly kind: 'SaleReceipt'; readonly saleId: string; readonly method: PaymentMethod };
 
 /**
  * One line of a counterparty's ledger (R.1): signed from the farm's side — above zero the
@@ -47,17 +52,25 @@ export function orderEntries(order: PurchaseOrder, received: ReadonlyMap<string,
     if (payment.orderId !== order.id || seen.has(payment.id)) continue;
     seen.add(payment.id);
     entries.push({ counterpartyId: order.supplierId, on: payment.paidOn, amount: SignedMoney.fromMoney(payment.amount), source: { kind: 'OrderPayment', orderId: order.id, paymentId: payment.id, method: payment.method } });
+    // Paid by someone else (R.4): the supplier is paid all the same, and the farm owes the payer as much.
+    if (payment.paidBy !== undefined) {
+      entries.push({ counterpartyId: payment.paidBy, on: payment.paidOn, amount: negated(payment.amount.amount, payment.amount.currency), source: { kind: 'OrderPaidBy', orderId: order.id, paymentId: payment.id, method: payment.method } });
+    }
   }
   return entries;
 }
 
-/** A cost still owed is a debt to the counterparty chosen; once paid, it no longer counts (P.1). */
+/**
+ * A cost still owed is a debt to the counterparty chosen; once paid, it no longer counts (P.1). A cost
+ * paid by someone else (R.4) is, for good, as much owed to it — or taken off what it owes.
+ */
 export function costEntries(costs: readonly CostHistory[]): LedgerEntry[] {
-  return costs.flatMap(({ id, current }) =>
-    current.payment.kind === 'ToPay'
-      ? [{ counterpartyId: current.payment.counterpartyId, on: current.spentOn, amount: negated(current.amount.amount, current.amount.currency), source: { kind: 'Cost' as const, costId: id } }]
-      : [],
-  );
+  return costs.flatMap(({ id, current }): LedgerEntry[] => {
+    const { payment } = current;
+    if (payment.kind === 'Paid') return [];
+    const amount = negated(current.amount.amount, current.amount.currency);
+    return [{ counterpartyId: payment.counterpartyId, on: current.spentOn, amount, source: payment.kind === 'PaidBy' ? { kind: 'Cost', costId: id, paidBy: true } : { kind: 'Cost', costId: id } }];
+  });
 }
 
 /** Money given to the counterparty lowers what you owe it; money received from it lowers what it owes you (R.2). Each once. */

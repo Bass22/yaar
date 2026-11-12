@@ -6,6 +6,8 @@ export type LiveCountContext = {
   readonly campaignId: CampaignId;
   /** The order lines that deliver the animals placed in the campaign: the journal cannot tell them from feed. */
   readonly placementOrderLines: readonly OrderLineId[];
+  /** Birds sold so far (W.1): they leave the flock without being losses. A number only — no amount. */
+  readonly sold?: number;
 };
 
 export type LiveCount = {
@@ -14,7 +16,9 @@ export type LiveCount = {
   readonly deaths: number;
   /** Losses that are not deaths: missing, given away, stolen. They never count as mortality. */
   readonly losses: number;
-  /** `received − deaths − losses`, signed and never clamped: below zero, more was declared lost than received. */
+  /** Birds sold: they left the flock (W.1). */
+  readonly sold: number;
+  /** `received − deaths − losses − sold`, signed and never clamped: below zero, more left than was received. */
   readonly liveCount: number;
 };
 
@@ -38,5 +42,6 @@ export const computeLiveCount = (events: readonly JournalEvent[], context: LiveC
       losses += fact.quantity;
     }
   }
-  return { received, deaths, losses, liveCount: received - deaths - losses };
+  const sold = context.sold ?? 0;
+  return { received, deaths, losses, sold, liveCount: received - deaths - losses - sold };
 };

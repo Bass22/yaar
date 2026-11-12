@@ -8,7 +8,11 @@ import type { CostTypeId, CounterpartyId } from './purchase-order';
 export type CostId = Brand<string, 'CostId'>;
 
 /** Paid, or owed to a counterparty — a supplier, or a collaborator for a salary (P.1). */
-export type CostPayment = { readonly kind: 'Paid' } | { readonly kind: 'ToPay'; readonly counterpartyId: CounterpartyId };
+export type CostPayment =
+  | { readonly kind: 'Paid' }
+  | { readonly kind: 'ToPay'; readonly counterpartyId: CounterpartyId }
+  /** Paid for the farm by someone else (R.4): an advance owed to it, or a buyer's debt lowered. Final. */
+  | { readonly kind: 'PaidBy'; readonly counterpartyId: CounterpartyId };
 
 /**
  * A cost of a campaign, as written: the first entry, or a counter-entry that replaces it whole
@@ -40,7 +44,7 @@ export type CostInput = {
   /** Whole units of the farm's currency, at least 1. */
   readonly amount: number;
   readonly note: string | null;
-  readonly payment: { readonly kind: 'Paid' } | { readonly kind: 'ToPay'; readonly counterpartyId: string };
+  readonly payment: { readonly kind: 'Paid' } | { readonly kind: 'ToPay' | 'PaidBy'; readonly counterpartyId: string };
   readonly receipt: string | null;
   readonly recordedAt: string;
 };
@@ -133,6 +137,8 @@ function paymentOf(payment: CostInput['payment'], context: CostContext): Result<
   const counterparty = context.counterparties.find((one) => one.id === payment.counterpartyId);
   if (counterparty === undefined) return err({ kind: 'UnknownCounterparty' });
   if (counterparty.archived) return err({ kind: 'CounterpartyArchived' });
+  // Anyone in use may pay for the farm (R.4); only a creditor may be owed a cost (P.1).
+  if (payment.kind === 'PaidBy') return ok(Object.freeze({ kind: 'PaidBy' as const, counterpartyId: payment.counterpartyId as CounterpartyId }));
   if (counterparty.kind === 'Customer') return err({ kind: 'NotACreditor' });
   return ok(Object.freeze({ kind: 'ToPay' as const, counterpartyId: payment.counterpartyId as CounterpartyId }));
 }

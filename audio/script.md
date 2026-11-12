@@ -166,6 +166,9 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `weighing-next` | C'est noté. Poulet suivant. | Poids validé, il en manque | |
 | `weighing-all-done` | C'est tout bon. Appuie sur Envoyer. | Cinq poids pris | |
 | `weighing-sent` | C'est envoyé. Le chef suit la croissance. | Pesée envoyée | |
+| `weighing-photo` | Pose le poulet sur la balance, et prends la photo. On doit bien voir le chiffre. | Avant chaque poids, la photo d'abord (T.6) | |
+| `weighing-type-from-photo` | Tape le poids que tu vois sur la photo. | La photo prise, l'afficheur s'ouvre | |
+| `weighing-camera-refused` | L'appareil photo ne s'ouvre pas. Sans photo, pas de pesée. Appelle le chef. | L'appareil photo refuse de s'ouvrir pendant la pesée | |
 
 ## 10. Message vocal et photo
 
@@ -248,6 +251,22 @@ Le sens de la dette se dit avant le montant (`bureau-admin-v2.html`, écran 10 ;
 | `settle-to` | Tu as donné : *nombre* francs. | Relecture d'un règlement donné — **composé** | |
 | `settle-from` | Tu as reçu : *nombre* francs. | Relecture d'un règlement reçu — **composé** | |
 
+## 15. Le bureau — les ventes
+
+Le même geste que la dépense : à qui → combien → payé → Oui, relecture d'office (W.3).
+
+| Id | Phrase | Quand | Wolof |
+|---|---|---|---|
+| `sale-to-whom` | À qui as-tu vendu ? | Le geste d'une vente s'ouvre | |
+| `sale-how-many` | Combien de poulets, et à quel prix ? | Le nombre et le prix | |
+| `sale-paid-how-much` | Il a payé combien, tout de suite ? | Ce qui est reçu sur le moment | |
+| `sale-birds` | Poulets vendus : *nombre*. | Relecture — **composé** | |
+| `sale-all-paid` | Tout est payé. | Relecture d'une vente payée en entier | |
+| `sale-still-owes` | Il doit encore : *nombre* francs. | Relecture d'une vente à crédit ou payée en partie — **composé**, puis `money-francs` | |
+| `sales-margin` | Marge : *nombre* francs. | Bouton d'écoute de la marge — **composé** | |
+| `sales-margin-negative` | Marge : moins *nombre* francs. | Marge sous zéro — **composé** | |
+| `sales-none-yet` | Pas encore de vente : la marge viendra avec la première. | Avant la première vente | |
+
 ---
 
 ## Annexe — les nombres, pour composer
@@ -264,4 +283,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 451 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 463 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

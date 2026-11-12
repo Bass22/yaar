@@ -37,6 +37,9 @@ export function lineOf(fact: FactPayload, delivery?: { readonly name: string; re
       return { picto: 'microphone', words: 'Message vocal' };
     case 'Photo':
       return { picto: 'camera', words: 'Photo' };
+    case 'WeighingValidated':
+      // Never sent to the phone (T.5): an admin's validation is not a line of the notebook.
+      return { picto: 'scale', words: 'Pesée validée' };
   }
 }
 

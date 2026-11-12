@@ -19,10 +19,10 @@ CREATE TYPE "audio_language" AS ENUM ('wo', 'fr');
 CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 
 -- CreateEnum
-CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'TaskDone', 'VoiceMessage', 'Photo');
+CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'WeighingValidated', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded', 'SaleRecorded', 'SaleReceiptRecorded', 'WeighingRequested');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
@@ -40,10 +40,13 @@ CREATE TYPE "payment_method" AS ENUM ('Cash', 'Wave', 'OrangeMoney');
 CREATE TYPE "retention_class" AS ENUM ('OperationalProof', 'SupportingDocument');
 
 -- CreateEnum
-CREATE TYPE "cost_payment_kind" AS ENUM ('Paid', 'ToPay');
+CREATE TYPE "cost_payment_kind" AS ENUM ('Paid', 'ToPay', 'PaidBy');
 
 -- CreateEnum
 CREATE TYPE "settlement_direction" AS ENUM ('ToCounterparty', 'FromCounterparty');
+
+-- CreateEnum
+CREATE TYPE "sale_pricing_kind" AS ENUM ('PerBird', 'PerKilo');
 
 -- CreateTable
 CREATE TABLE "tenants" (
@@ -215,6 +218,7 @@ CREATE TABLE "payments" (
     "paid_on" DATE NOT NULL,
     "amount" INTEGER NOT NULL,
     "method" "payment_method" NOT NULL,
+    "paid_by_id" UUID,
     "recorded_by" UUID NOT NULL,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -282,6 +286,50 @@ CREATE TABLE "settlements" (
     CONSTRAINT "settlements_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "sales" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "buyer_id" UUID NOT NULL,
+    "sold_on" DATE NOT NULL,
+    "birds" INTEGER NOT NULL,
+    "pricing_kind" "sale_pricing_kind" NOT NULL,
+    "unit_price" INTEGER NOT NULL,
+    "grams" INTEGER,
+    "amount" INTEGER NOT NULL,
+    "recorded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sales_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sale_receipts" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "sale_id" UUID NOT NULL,
+    "paid_on" DATE NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "method" "payment_method" NOT NULL,
+    "recorded_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sale_receipts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "weighing_requests" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "requested_for" DATE NOT NULL,
+    "requested_by" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "weighing_requests_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
@@ -338,6 +386,24 @@ CREATE INDEX "settlements_tenant_id_counterparty_id_idx" ON "settlements"("tenan
 
 -- CreateIndex
 CREATE UNIQUE INDEX "settlements_tenant_id_id_key" ON "settlements"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "sales_tenant_id_campaign_id_idx" ON "sales"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sales_tenant_id_id_key" ON "sales"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "sale_receipts_tenant_id_sale_id_idx" ON "sale_receipts"("tenant_id", "sale_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sale_receipts_tenant_id_id_key" ON "sale_receipts"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "weighing_requests_tenant_id_campaign_id_idx" ON "weighing_requests"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "weighing_requests_tenant_id_id_key" ON "weighing_requests"("tenant_id", "id");
 
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -418,6 +484,9 @@ ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_fkey" FOREIGN KEY ("te
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_order_id_fkey" FOREIGN KEY ("tenant_id", "order_id") REFERENCES "purchase_orders"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_paid_by_id_fkey" FOREIGN KEY ("tenant_id", "paid_by_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
 ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
@@ -449,6 +518,27 @@ ALTER TABLE "settlements" ADD CONSTRAINT "settlements_tenant_id_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "settlements" ADD CONSTRAINT "settlements_tenant_id_counterparty_id_fkey" FOREIGN KEY ("tenant_id", "counterparty_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sales" ADD CONSTRAINT "sales_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sales" ADD CONSTRAINT "sales_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sales" ADD CONSTRAINT "sales_tenant_id_buyer_id_fkey" FOREIGN KEY ("tenant_id", "buyer_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sale_receipts" ADD CONSTRAINT "sale_receipts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sale_receipts" ADD CONSTRAINT "sale_receipts_tenant_id_sale_id_fkey" FOREIGN KEY ("tenant_id", "sale_id") REFERENCES "sales"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "weighing_requests" ADD CONSTRAINT "weighing_requests_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "weighing_requests" ADD CONSTRAINT "weighing_requests_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- Written by hand: Prisma cannot describe a partial index.
 -- A site has at most one primary caretaker; its substitutes are as many as needed.
@@ -503,6 +593,11 @@ GRANT SELECT, INSERT ON "media" TO yaar_app;
 GRANT SELECT, INSERT ON "costs" TO yaar_app;
 -- A settlement is a money entry: added once, never updated nor deleted (R.2).
 GRANT SELECT, INSERT ON "settlements" TO yaar_app;
+-- A sale and its receipts are money entries: added once, never updated nor deleted (W.1).
+GRANT SELECT, INSERT ON "sales" TO yaar_app;
+GRANT SELECT, INSERT ON "sale_receipts" TO yaar_app;
+-- A request for a weighing is added once; what answers it is read from the journal (T.2).
+GRANT SELECT, INSERT ON "weighing_requests" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -552,6 +647,24 @@ CREATE POLICY tenant_isolation ON "order_lines"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
+ALTER TABLE "weighing_requests" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "weighing_requests" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "weighing_requests"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "sales" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "sales" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "sales"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE "sale_receipts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "sale_receipts" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "sale_receipts"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
 ALTER TABLE "settlements" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "settlements" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "settlements"
@@ -596,9 +709,13 @@ CREATE POLICY tenant_isolation ON "campaigns"
 
 -- Everything below is written by hand: Prisma describes none of it.
 
--- A cost owed names whom it is owed to; a paid cost names nobody. A correction names another cost.
-ALTER TABLE "costs" ADD CONSTRAINT "costs_payment_shape" CHECK (("payment_kind" = 'ToPay') = ("counterparty_id" IS NOT NULL));
+-- A cost owed names whom it is owed to, a cost paid by someone else names who paid (R.4); a cost
+-- the farm paid names nobody. A correction names another cost.
+ALTER TABLE "costs" ADD CONSTRAINT "costs_payment_shape" CHECK (("payment_kind" IN ('ToPay', 'PaidBy')) = ("counterparty_id" IS NOT NULL));
 ALTER TABLE "costs" ADD CONSTRAINT "costs_corrects_another" CHECK ("corrects" IS DISTINCT FROM "id");
+
+-- A sale by the kilo carries its weight; a sale by the head carries none.
+ALTER TABLE "sales" ADD CONSTRAINT "sales_pricing_shape" CHECK (("pricing_kind" = 'PerKilo') = ("grams" IS NOT NULL));
 
 -- The shape of a row. A retraction names a declaration and carries no fact; any other event
 -- carries its type and its fact, and may name the declaration it corrects.

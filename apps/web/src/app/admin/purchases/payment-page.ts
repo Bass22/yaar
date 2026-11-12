@@ -5,6 +5,7 @@ import type { PaymentMethodCode, RecordPaymentRequest } from '@contracts';
 import { recordPayment } from '@domain/finance';
 import type { CurrencyCode } from '@kit';
 import { Pictogram } from '../../ui/pictogram';
+import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from '../money/transfer-fee';
 import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
 
@@ -23,6 +24,7 @@ const WORDS: Partial<Record<PurchaseProblem | 'NoMethod', string>> = {
   UnknownPaymentMethod: 'Choisis comment tu as payé.',
   OrderNotFound: 'Cette commande n’existe plus.',
   NoNetwork: 'Pas de réseau : rien n’est payé. Réessaie avec le réseau.',
+  StorageUnavailable: 'L’appareil n’arrive pas à garder ce paiement. Réessaie, ou appelle le support.',
 };
 const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie.';
 
@@ -33,7 +35,7 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
  */
 @Component({
   selector: 'app-payment-page',
-  imports: [Pictogram, RouterLink],
+  imports: [FeeField, Pictogram, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="coin" [decorative]="true" /> Payer {{ supplier() }}</h1>
@@ -85,6 +87,7 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
             }
           </div>
         </fieldset>
+        <app-fee-field [method]="method()" [available]="feeType() !== null" [(value)]="fee" />
 
         @if (problem(); as problem) {
           <p class="refusal" role="alert"><app-pictogram picto="cross" [decorative]="true" /> {{ problem }}</p>
@@ -185,6 +188,11 @@ export class PaymentPage {
   protected readonly problem = signal<string | null>(null);
   /** Made once: a payment tried again after a failure keeps its identifier, so the server keeps it once. */
   private readonly paymentId = crypto.randomUUID();
+  /** The Wave or Orange Money fee the farm paid (P.8), typed; and its expense's identifier, made once too. */
+  protected readonly fee = signal('');
+  private readonly feeId = crypto.randomUUID();
+  protected readonly feeType = computed(() => feeTypeOf(this.purchases.activeCostTypes()));
+  private readonly fees = inject(TransferFees);
 
   constructor() {
     void this.purchases.load();
@@ -212,11 +220,16 @@ export class PaymentPage {
     // The same rule as the server's, so that a refusal is said before anything leaves.
     const judged = recordPayment({ ...request, orderId: order.id }, order.currency as CurrencyCode);
     if (!judged.ok) return this.problem.set(WORDS[judged.error.kind === 'InvalidId' ? 'ServerError' : judged.error.kind] ?? SERVER_ERROR);
+    const fee = feeCost({ id: this.feeId, typed: this.fee(), method, campaignId: order.campaignId, costTypeId: this.feeType(), on: request.paidOn, about: `paiement ${this.supplier()}` });
+    if (fee.kind === 'invalid') return this.problem.set(FEE_REFUSAL);
     this.busy.set(true);
     this.problem.set(null);
     const problem = await this.purchases.pay(order.id, request);
+    // The fee after its payment: the payment keeps its whole amount, the fee is the farm's expense.
+    const feeKept = problem === null && fee.kind === 'cost' ? await this.fees.keep(fee.request) : true;
     this.busy.set(false);
     if (problem !== null) return this.problem.set(WORDS[problem] ?? SERVER_ERROR);
+    if (!feeKept) return this.problem.set(WORDS.StorageUnavailable ?? SERVER_ERROR);
     await this.router.navigate(['../..'], { relativeTo: this.route });
   }
 }

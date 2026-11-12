@@ -50,6 +50,9 @@ export const authorizeDeclaration = <Event extends JournalEvent>(
   if (event.type === 'Loss') {
     return err({ kind: 'LossByAdminOnly' });
   }
+  if (event.type === 'WeighingValidated') {
+    return err({ kind: 'ValidationByAdminOnly' });
+  }
   const isPrimary = site.primaryCaretaker === author.id;
   if (!isPrimary && !site.substitutes.includes(author.id)) {
     return err({ kind: 'NotAssignedToSite' });

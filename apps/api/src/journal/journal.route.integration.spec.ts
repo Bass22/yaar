@@ -86,6 +86,8 @@ describe("L'API reçoit le journal", () => {
     await db.superuser.orderLine.createMany({
       data: [7, 8].map((rank, position) => ({ id: uuid(rank), tenantId: TENANT_A, orderId: uuid(73), position, costTypeId: uuid(72), quantity: 40, unitPrice: 17_500 })),
     });
+    // The weighing below answers this request of the Nord flock (T.2).
+    await db.superuser.weighingRequest.create({ data: { id: uuid(9), tenantId: TENANT_A, campaignId: BANDE_NORD, requestedFor: new Date('2026-11-04'), requestedBy: LE_GERANT } });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
       .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET })
@@ -223,6 +225,8 @@ describe("L'API reçoit le journal", () => {
       { type: 'VoiceMessage', media: MEDIA },
       { type: 'Photo', media: MEDIA },
       { type: 'Loss', lossType: 'Theft', quantity: 3 },
+      // The admin validates the weighing above, sent earlier in the same batch (T.5).
+      { type: 'WeighingValidated', weighingId: uuid(304) },
     ];
     const day = { businessDate: '2026-11-04', recordedAt: '2026-11-04T08:00:00.000Z' };
     const declarations = facts.map((fact, offset) => envoi(300 + offset, { ...day, fact }));

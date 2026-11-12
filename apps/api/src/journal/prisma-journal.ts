@@ -12,6 +12,8 @@ import {
   type Campaign,
   type DeliveryTarget,
   type OrderLineId,
+  type WeighingRequestId,
+  type WeighingTarget,
   type JournalEvent,
   type JournalEventId,
   type Refusal,
@@ -77,6 +79,21 @@ export class PrismaJournal implements IngestionPorts {
   async orderLine(id: OrderLineId): Promise<DeliveryTarget | null> {
     const line = await this.tx.orderLine.findUnique({ where: { id }, select: { order: { select: { campaignId: true, announcedAt: true, closedAt: true } } } });
     return line === null ? null : { campaignId: line.order.campaignId as CampaignId, announced: line.order.announcedAt !== null, closed: line.order.closedAt !== null };
+  }
+
+  async weighingRequest(id: WeighingRequestId): Promise<{ readonly campaignId: CampaignId } | null> {
+    const request = await this.tx.weighingRequest.findUnique({ where: { id }, select: { campaignId: true } });
+    return request === null ? null : { campaignId: request.campaignId as CampaignId };
+  }
+
+  async weighingTarget(id: JournalEventId): Promise<WeighingTarget | null> {
+    const event = await this.tx.journalEvent.findUnique({ where: { tenantId_id: { tenantId: this.tenantId, id } }, select: { type: true, campaignId: true, retracts: true, corrects: true } });
+    if (event === null || event.type === null || event.corrects !== null) return null;
+    const [retracted, validated] = await Promise.all([
+      this.tx.journalEvent.count({ where: { retracts: id } }),
+      this.tx.journalEvent.count({ where: { type: 'WeighingValidated', fact: { path: ['weighingId'], equals: id } } }),
+    ]);
+    return { type: event.type, campaignId: event.campaignId as CampaignId, retracted: retracted > 0, validated: validated > 0 };
   }
 
   async dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]> {

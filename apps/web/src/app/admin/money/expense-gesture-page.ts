@@ -37,7 +37,8 @@ const WORDS: Partial<Record<ExpenseProblem, string>> = {
   CampaignClosed: 'Ce lot est clos.',
   UnknownCampaign: 'Ce lot n’existe plus.',
   ReceiptRefused: 'La photo du reçu n’a pas été acceptée. Reprends-la, ou enregistre sans reçu.',
-  NoNetwork: 'Pas de réseau : rien n’est enregistré. Réessaie avec le réseau.',
+  NoNetwork: 'La photo du reçu demande le réseau : retire-la pour enregistrer sans, ou réessaie avec le réseau.',
+  StorageUnavailable: 'L’appareil n’arrive pas à garder cette dépense. Réessaie, ou appelle le support.',
 };
 const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer. Réessaie.';
 const MAX_DIGITS = 9;

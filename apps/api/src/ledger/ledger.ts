@@ -1,11 +1,13 @@
 import { err, Money, ok, unwrap, type CurrencyCode, type Result } from '@kit';
-import { costEntries, effectiveCosts, ledgerOf, orderEntries, recordSettlement, settlementEntries, type CostEntry, type CostId, type CostTypeId, type CounterpartyId, type LedgerEntry, type Settlement, type SettlementId } from '@domain/finance';
-import { recentBusinessDays, TimeZone, type BusinessDay, type CampaignId, type Instant, type TenantId } from '@domain/journal';
+import { costEntries, effectiveCosts, ledgerOf, orderEntries, recordSettlement, saleEntries, settlementEntries, type CounterpartyId, type LedgerEntry, type Settlement, type SettlementId } from '@domain/finance';
+import { recentBusinessDays, TimeZone, type BusinessDay, type TenantId } from '@domain/journal';
 import { Prisma } from '@prisma/client';
 import type { LedgerView, RecordSettlementRequest, SettlementRefusal } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
+import { entryOf } from '../costs/costs';
 import { ordersWithMoney } from '../orders/orders';
+import { salesOf } from '../sales/sales';
 
 type Tx = Prisma.TransactionClient;
 
@@ -16,9 +18,10 @@ type Tx = Prisma.TransactionClient;
 export async function farmLedger(tx: Tx, tenantId: TenantId): Promise<LedgerView> {
   const currency = await currencyOf(tx, tenantId);
   const orders = await ordersWithMoney(tx, tenantId);
-  const costs = effectiveCosts((await tx.cost.findMany()).map((row) => costOf(row, currency)));
+  const costs = effectiveCosts((await tx.cost.findMany()).map((row) => entryOf(row, currency)));
   const settlements = (await tx.settlement.findMany()).map((row) => settlementOf(row, currency));
-  const entries: LedgerEntry[] = [...orders.flatMap(({ order, received, payments }) => orderEntries(order, received, payments)), ...costEntries(costs), ...settlementEntries(settlements)];
+  const { sales, receipts } = await salesOf(tx, currency);
+  const entries: LedgerEntry[] = [...orders.flatMap(({ order, received, payments }) => orderEntries(order, received, payments)), ...costEntries(costs), ...settlementEntries(settlements), ...saleEntries(sales, receipts)];
   const ledger = ledgerOf(entries, currency).sort((a, b) => Math.abs(b.balance.amount) - Math.abs(a.balance.amount) || (a.counterpartyId < b.counterpartyId ? -1 : 1));
   return {
     currency,
@@ -35,9 +38,15 @@ export async function farmLedger(tx: Tx, tenantId: TenantId): Promise<LedgerView
             ? { kind: source.kind, orderId: source.orderId }
             : source.kind === 'OrderPayment'
               ? { kind: source.kind, orderId: source.orderId, method: source.method }
+              : source.kind === 'OrderPaidBy'
+                ? { kind: source.kind, orderId: source.orderId, method: source.method }
               : source.kind === 'Cost'
-                ? { kind: source.kind, costId: source.costId }
-                : { kind: source.kind, method: source.method, direction: source.direction },
+                ? { kind: source.kind, costId: source.costId, ...(source.paidBy === true ? { paidBy: true as const } : {}) }
+                : source.kind === 'Settlement'
+                  ? { kind: source.kind, method: source.method, direction: source.direction }
+                  : source.kind === 'Sale'
+                    ? { kind: source.kind, saleId: source.saleId }
+                    : { kind: source.kind, saleId: source.saleId, method: source.method },
       })),
     })),
   };
@@ -83,20 +92,6 @@ async function currencyOf(tx: Tx, tenantId: string): Promise<CurrencyCode> {
 }
 
 // Stored rows read back as the domain's: written once by the domain, so their values are valid.
-function costOf(row: Prisma.CostGetPayload<object>, currency: CurrencyCode): CostEntry {
-  return Object.freeze({
-    id: row.id as CostId,
-    corrects: row.corrects as CostId | null,
-    campaignId: row.campaignId as CampaignId,
-    costTypeId: row.costTypeId as CostTypeId,
-    spentOn: row.spentOn.toISOString().slice(0, 10) as BusinessDay,
-    amount: unwrap(Money.of(row.amount, currency)),
-    note: row.note,
-    payment: row.paymentKind === 'Paid' ? { kind: 'Paid' as const } : { kind: 'ToPay' as const, counterpartyId: row.counterpartyId as CounterpartyId },
-    receipt: row.receipt,
-    recordedAt: row.recordedAt.toISOString() as Instant,
-  });
-}
 
 function settlementOf(row: Prisma.SettlementGetPayload<object>, currency: CurrencyCode): Settlement {
   return Object.freeze({

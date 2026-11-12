@@ -39,6 +39,8 @@ const bande = (lines: CaretakerDeliveryLine[], fields: Partial<CaretakerCampaign
   liveCount: null,
   journal: [],
   deliveries: lines.length === 0 ? [] : [{ orderId: uuid(20), lines }],
+  weighingRequests: [],
+  strain: 'Cobb500',
   ...fields,
 });
 const contexte = (campaign: CaretakerCampaign): CaretakerContext => ({

@@ -58,7 +58,15 @@ export type Fact =
       readonly receivedQuantity: Quantity;
       readonly deliveryNote: DeliveryNote;
     }
-  | { readonly type: 'Weighing'; readonly weighingRequestId: WeighingRequestId; readonly weights: readonly Weight[] }
+  | {
+      readonly type: 'Weighing';
+      readonly weighingRequestId: WeighingRequestId;
+      readonly weights: readonly Weight[];
+      /** The photo of the scale for each weight, in the same order (T.6, added): absent, never empty. */
+      readonly photos?: readonly MediaFingerprint[];
+    }
+  /** The admin validated a weighing (T.5): it joins the real curve. Admin only, final. */
+  | { readonly type: 'WeighingValidated'; readonly weighingId: JournalEventId }
   | { readonly type: 'TaskDone'; readonly taskId: TaskId }
   | { readonly type: 'VoiceMessage'; readonly media: MediaFingerprint }
   | { readonly type: 'Photo'; readonly media: MediaFingerprint };
@@ -137,7 +145,10 @@ export function factOf(fact: Fact): Fact {
         type: fact.type,
         weighingRequestId: fact.weighingRequestId,
         weights: Object.freeze([...fact.weights]),
+        ...(fact.photos === undefined ? {} : { photos: Object.freeze([...fact.photos]) }),
       };
+    case 'WeighingValidated':
+      return { type: fact.type, weighingId: fact.weighingId };
     case 'TaskDone':
       return { type: fact.type, taskId: fact.taskId };
     case 'VoiceMessage':

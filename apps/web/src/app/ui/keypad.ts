@@ -9,7 +9,7 @@ import { Pictogram } from './pictogram';
   imports: [Pictogram],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="pad">
+    <div class="pad" [class.compact]="compact()">
       @for (digit of digits; track digit) {
         <button type="button" class="key" [disabled]="disabled()" (click)="digit$.emit(digit)">{{ digit }}</button>
       }
@@ -44,6 +44,9 @@ import { Pictogram } from './pictogram';
     .validate { background: var(--color-pasture); }
     .thousands { font-size: 1.5rem; }
     app-pictogram { inline-size: 28px; block-size: 28px; }
+    /* Smaller keys where the screen holds more above the pad (the weighing): still above the touch minimum. */
+    .compact { grid-template-columns: repeat(3, 64px); gap: 10px; }
+    .compact .key { block-size: 56px; font-size: 1.7rem; }
   `,
 })
 export class Keypad {
@@ -52,6 +55,7 @@ export class Keypad {
   /** A 000 key in the empty corner: money is typed by the thousand (bureau-admin-v2.html, screen 8). */
   readonly thousands = input(false);
   readonly disabled = input(false);
+  readonly compact = input(false);
   // `digit` would clash with the template variable: the output is named digit in the template API.
   readonly digit$ = output<string>({ alias: 'digit' });
   readonly erase = output<void>();

@@ -13,6 +13,7 @@ import { TalkToChef } from '../gestures/talk/talk-to-chef';
 import { LineCorrection } from '../journal/correction/line-correction';
 import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
 import { RefusalNotice } from '../sync/refusal-notice';
+import { WeighingCard } from '../weighing/weighing-card';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { DayJournal, type NamedLine } from './day-journal';
@@ -27,7 +28,7 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, DeliveryCard, LineCorrection, NothingLostReminder, PhotoGesture, RefusalNotice, TalkToChef, NotebookCover, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, DeliveryCard, LineCorrection, NothingLostReminder, PhotoGesture, RefusalNotice, TalkToChef, NotebookCover, WeighingCard, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -72,6 +73,8 @@ import { NotebookCover } from './notebook-cover';
             @if (notebook.declarationTarget(); as target) {
               <!-- Only when an order is announced and something is still to come (CdC « Affichage par phase »). -->
               <app-delivery-card [lines]="notebook.expectedDeliveries()" [target]="target" />
+              <!-- Only once the chef asked, until a weighing answers (T.2). -->
+              <app-weighing-card [requests]="notebook.weighingRequests()" [target]="target" [strain]="notebook.strain()" [campaignDay]="campaign.campaignDay" />
               <div class="gestures" role="group" aria-label="Écrire dans le cahier">
                 <app-declaration-gesture [gesture]="deaths" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.deathsWritten()" />
                 <app-declaration-gesture [gesture]="bags" [target]="target" [when]="notebook.day()?.when ?? 'today'" [alreadyWritten]="notebook.bagsWritten()" />

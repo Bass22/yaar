@@ -27,7 +27,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 // What the phone keeps once reduced: a small JPEG.
 const REDUITE = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 8, 0, 0, 0xff, 0xd9]);
 
-const contexte = (campaigns: CaretakerContext['sites'][number]['campaigns'] = [{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [], deliveries: [] }]): CaretakerContext => ({
+const contexte = (campaigns: CaretakerContext['sites'][number]['campaigns'] = [{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' }]): CaretakerContext => ({
   chef: { name: 'Le gérant', phone: '+221770000003' },
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: OUSMANE, campaigns }],
 });
@@ -140,7 +140,7 @@ describe('La photo au chef', () => {
     // The event reached the server; its photo still waits on the phone.
     const fingerprint = await media.keep(OUSMANE, REDUITE, 'image/jpeg', 'OperationalProof');
     const sent = { id: uuid(301), businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', author: { id: OUSMANE, name: 'Ousmane' }, fact: { type: 'Photo' as const, media: fingerprint }, corrected: false, retracted: false };
-    const { element, soon } = await ouvre(contexte([{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [sent], deliveries: [] }]));
+    const { element, soon } = await ouvre(contexte([{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [sent], deliveries: [], weighingRequests: [], strain: 'Cobb500' }]));
 
     // The phone reads its waiting photos just after the notebook: the line says it as soon as it knows.
     await soon(() => expect(element.querySelector('app-day-journal .line')?.textContent).toContain('photo pas encore partie'));
@@ -149,7 +149,7 @@ describe('La photo au chef', () => {
 
   it('une fois l’image sur le serveur, la ligne dit « bien envoyé »', async () => {
     const sent = { id: uuid(302), businessDate: '2026-11-06', recordedAt: '2026-11-06T07:30:00.000Z', author: { id: OUSMANE, name: 'Ousmane' }, fact: { type: 'Photo' as const, media: 'c'.repeat(64) }, corrected: false, retracted: false };
-    const { element, soon } = await ouvre(contexte([{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [sent], deliveries: [] }]));
+    const { element, soon } = await ouvre(contexte([{ campaignId: BANDE, placementDay: '2026-10-25', campaignDay: 12, liveCount: null, journal: [sent], deliveries: [], weighingRequests: [], strain: 'Cobb500' }]));
 
     await soon(() => expect(element.querySelector('app-day-journal .line')?.textContent).toContain('bien envoyé'));
   });

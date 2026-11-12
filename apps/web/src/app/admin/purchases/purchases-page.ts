@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { OrderStatusCode, OrderView } from '@contracts';
 import { orderedAmount } from '@domain/finance';
 import type { CurrencyCode } from '@kit';
 import { Pictogram } from '../../ui/pictogram';
+import { FiguresAge } from '../figures-age';
+import { OfficePending } from '../office-pending';
+import { OfficeSync } from '../office-sync';
 import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
 
@@ -22,7 +25,7 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
 // a draft is announced to the caretaker in one gesture. Online, like the rest of the office.
 @Component({
   selector: 'app-purchases-page',
-  imports: [Pictogram, RouterLink],
+  imports: [FiguresAge, OfficePending, Pictogram, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="truck" [decorative]="true" /> Commandes</h1>
@@ -30,9 +33,8 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
       <a class="new-order" routerLink="nouvelle"><app-pictogram picto="truck" [decorative]="true" /> Nouvelle commande</a>
       <a class="expenses" routerLink="depenses"><app-pictogram picto="coin" [decorative]="true" /> Les dépenses</a>
     </div>
-    @if (purchases.unreachable()) {
-      <p class="refusal" role="alert"><app-pictogram picto="sync-cloud" [decorative]="true" /> Pas de réseau : les commandes ne se lisent pas.</p>
-    }
+    <app-figures-age [readAt]="purchases.readAt()" [stale]="purchases.unreachable()" />
+    <app-office-pending [kinds]="['payment']" />
     @if (problem(); as problem) {
       <p class="refusal" role="alert"><app-pictogram picto="cross" [decorative]="true" /> {{ problem }}</p>
     }
@@ -48,6 +50,9 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
             <span class="lot">{{ card.lot }}</span>
             <span class="status"><app-pictogram [picto]="card.status.picto" [decorative]="true" /> {{ card.status.words }}</span>
             <span class="money">{{ card.money }}</span>
+            @if (waitingPayments().has(card.order.id)) {
+              <span class="waiting"><app-pictogram picto="stamp-pending" [decorative]="true" /> paiement en attente d’envoi</span>
+            }
           </a>
           <div class="acts">
             @if (card.order.status === 'Draft') {
@@ -94,6 +99,8 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     .status { grid-area: status; display: flex; align-items: center; gap: 6px; font-weight: 700; margin-block-start: 4px; }
     .status app-pictogram { inline-size: 22px; block-size: 22px; }
     .money { grid-area: money; font-variant-numeric: tabular-nums; }
+    .waiting { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; color: var(--color-earth); font-weight: 700; }
+    .waiting app-pictogram { inline-size: 22px; block-size: 22px; }
     .tone-draft { border-inline-start-color: var(--color-neutral); }
     .tone-announced { border-inline-start-color: var(--color-blue); }
     .tone-partial { border-inline-start-color: var(--color-orange); }
@@ -119,6 +126,9 @@ export class PurchasesPage {
   private readonly office = inject(Office);
   protected readonly announcing = signal<string | null>(null);
   protected readonly problem = signal<string | null>(null);
+  private readonly officeSync = inject(OfficeSync);
+  /** The orders with a payment still on the device (P.7). */
+  protected readonly waitingPayments = computed(() => new Set(this.officeSync.entries().filter((entry) => entry.kind === 'payment' && entry.state === 'pending').map((entry) => entry.subject)));
 
   protected readonly cards = computed(() =>
     this.purchases.orders().map((order) => {
@@ -136,7 +146,11 @@ export class PurchasesPage {
   );
 
   constructor() {
-    void this.purchases.load();
+    // Read again whenever the server has received what was waiting.
+    effect(() => {
+      this.officeSync.revision();
+      untracked(() => void this.purchases.load());
+    });
   }
 
   protected async announce(orderId: string): Promise<void> {

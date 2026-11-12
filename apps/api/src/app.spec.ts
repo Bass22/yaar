@@ -99,6 +99,10 @@ describe("Démarrage de l'API", () => {
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
       // Admin only: the money of a campaign — committed, cost per bird, costs and their history (P.3).
       'GET /api/v1/campaigns/:id/money',
+      // Admin only: the sales of a campaign, revenue, cashed in, margin, average price (W.3).
+      'GET /api/v1/campaigns/:id/sales',
+      // Admin only: the real weight curve and the weighings waiting for validation (T.5).
+      'GET /api/v1/campaigns/:id/weighings',
       'GET /api/v1/caretaker/context',
       // Admin only: the farm's cost types under the base, archived ones marked (N.2).
       'GET /api/v1/cost-types',
@@ -148,6 +152,10 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/orders/:id/close',
       // Admin only: a payment of an order, kept once when sent twice (Q.9).
       'POST /api/v1/orders/:id/payments',
+      // Admin only: a sale, the amount computed by the server, kept once when sent twice (W.3).
+      'POST /api/v1/sales',
+      // Admin only: money received later for a sale (W.3).
+      'POST /api/v1/sales/:id/receipts',
       // Admin only: a settlement with a counterparty, kept once when sent twice (R.2).
       'POST /api/v1/settlements',
       // Admin only: a site of the farm of the session (O.1).
@@ -160,6 +168,8 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/users/:userId/sign-out-everywhere',
       'POST /api/v1/users/:userId/unblock',
       // Every session: a photo sent by its fingerprint, kept once when sent twice (M.1).
+      // Admin only: a weighing asked of a flock, on a day (T.2).
+      'POST /api/v1/weighing-requests',
       'PUT /api/v1/media/:sha256',
       // Admin only: a draft rewritten whole (Q.4).
       'PUT /api/v1/orders/:id',

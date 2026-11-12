@@ -117,7 +117,7 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
   if (fields === undefined || !Object.hasOwn(FIELDS, type as string)) {
     return err({ kind: 'UnknownEventType' });
   }
-  const unknown = unknownField(raw, ['type', ...fields], 'fact.');
+  const unknown = unknownField(raw, ['type', ...fields, ...(OPTIONAL_FIELDS[type as Fact['type']] ?? [])], 'fact.');
   if (unknown !== null) {
     return unknown;
   }
@@ -164,7 +164,21 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
         if (!weight.ok) return weight;
         weights.push(weight.value);
       }
-      return ok({ type: 'Weighing', weighingRequestId: weighingRequestId.value, weights });
+      if (raw['photos'] === undefined) return ok({ type: 'Weighing', weighingRequestId: weighingRequestId.value, weights });
+      // Added by T.6: absent, or a list of fingerprints — never empty, never anything else.
+      const shot = raw['photos'];
+      if (!Array.isArray(shot) || shot.length === 0) return malformed('fact.photos');
+      const photos: MediaFingerprint[] = [];
+      for (const value of shot as unknown[]) {
+        const photo = MediaFingerprint(value);
+        if (!photo.ok) return photo;
+        photos.push(photo.value);
+      }
+      return ok({ type: 'Weighing', weighingRequestId: weighingRequestId.value, weights, photos });
+    }
+    case 'WeighingValidated': {
+      const weighingId = JournalEventId(raw['weighingId']);
+      return weighingId.ok ? ok({ type: 'WeighingValidated', weighingId: weighingId.value }) : weighingId;
     }
     case 'TaskDone': {
       const taskId = TaskId(raw['taskId']);
@@ -178,6 +192,12 @@ function factOf(raw: unknown): Result<Fact, DecodingRefusal> {
   }
 }
 
+// Fields a type may carry or leave out, added after its first version (CLAUDE.md §4 rule 1: the
+// schema only grows by optional fields).
+const OPTIONAL_FIELDS: { readonly [Type in Fact['type']]?: readonly string[] } = {
+  Weighing: ['photos'],
+};
+
 // The fields of each type of fact, besides `type`. Closed: a type absent here is unknown.
 const FIELDS: { readonly [Type in Fact['type']]: readonly string[] } = {
   Death: ['quantity'],
@@ -186,6 +206,7 @@ const FIELDS: { readonly [Type in Fact['type']]: readonly string[] } = {
   Loss: ['lossType', 'quantity'],
   Delivery: ['orderLineId', 'receivedQuantity', 'deliveryNote'],
   Weighing: ['weighingRequestId', 'weights'],
+  WeighingValidated: ['weighingId'],
   TaskDone: ['taskId'],
   VoiceMessage: ['media'],
   Photo: ['media'],

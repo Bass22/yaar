@@ -77,6 +77,16 @@ describe('Un coût', () => {
     expect(recordCost(unCout(3, { payment: { kind: 'ToPay', counterpartyId: SEDIMA } }), contexte).ok).toBe(true);
   });
 
+  // Spec: backlog R.4 — payé par un tiers (décisions du 2026-11-12).
+  it('« payé par » nomme le tiers qui a payé pour l’élevage : un acheteur, un collaborateur ou un fournisseur — jamais un inconnu ni un archivé', () => {
+    expect(recordCost(unCout(30, { payment: { kind: 'PaidBy', counterpartyId: RAMASSEUR } }), contexte)).toMatchObject({ ok: true, value: { payment: { kind: 'PaidBy', counterpartyId: RAMASSEUR } } });
+    expect(recordCost(unCout(31, { payment: { kind: 'PaidBy', counterpartyId: OUSMANE } }), contexte).ok).toBe(true);
+    expect([recordCost(unCout(32, { payment: { kind: 'PaidBy', counterpartyId: uuid(98) } }), contexte), recordCost(unCout(33, { payment: { kind: 'PaidBy', counterpartyId: ANCIEN } }), contexte)]).toEqual([
+      { ok: false, error: { kind: 'UnknownCounterparty' } },
+      { ok: false, error: { kind: 'CounterpartyArchived' } },
+    ]);
+  });
+
   it('la date de dépense peut être passée, jamais dans le futur', () => {
     expect(recordCost(unCout(4, { spentOn: '2026-09-01' }), contexte).ok).toBe(true);
     expect(recordCost(unCout(5, { spentOn: '2026-11-12' }), contexte).ok).toBe(true);

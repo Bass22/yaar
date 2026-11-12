@@ -56,6 +56,7 @@ const facts: { readonly [Type in EventType]: Extract<Fact, { type: Type }> } = {
     deliveryNote: { kind: 'Photographed', media: empreinte('a') },
   },
   Weighing: { type: 'Weighing', weighingRequestId: unwrap(WeighingRequestId(uuid(7))), weights: cinqPoids() },
+  WeighingValidated: { type: 'WeighingValidated', weighingId: unwrap(JournalEventId(uuid(9))) },
   TaskDone: { type: 'TaskDone', taskId: unwrap(TaskId(uuid(8))) },
   VoiceMessage: { type: 'VoiceMessage', media: empreinte('b') },
   Photo: { type: 'Photo', media: empreinte('c') },
@@ -76,6 +77,8 @@ function tell(event: Declaration): string {
       return `${event.receivedQuantity} reçus`;
     case 'Weighing':
       return `${event.weights.length} poids`;
+    case 'WeighingValidated':
+      return 'pesée validée';
     case 'TaskDone':
       return 'tâche faite';
     case 'VoiceMessage':
@@ -99,7 +102,7 @@ type Carried<T> = T extends Money | SignedMoney
     : T extends readonly (infer Item)[]
       ? Carried<Item>
       : T extends object
-        ? { [Key in keyof T]: Carried<T[Key]> }[keyof T]
+        ? { [Key in keyof T]-?: Carried<T[Key]> }[keyof T]
         : never;
 
 function fieldNames(value: unknown): string[] {
@@ -159,7 +162,7 @@ describe('Événement du journal', () => {
   });
 
   describe('une liste fermée de types', () => {
-    it("les types d'événements sont : mort, sac ouvert, rien perdu, perte hors mortalité, réception, pesée, tâche faite, vocal, photo", () => {
+    it("les types d'événements sont : mort, sac ouvert, rien perdu, perte hors mortalité, réception, pesée, pesée validée (T.5, par ajout), tâche faite, vocal, photo", () => {
       expect(Object.keys(facts)).toEqual([
         'Death',
         'BagOpened',
@@ -167,6 +170,7 @@ describe('Événement du journal', () => {
         'Loss',
         'Delivery',
         'Weighing',
+        'WeighingValidated',
         'TaskDone',
         'VoiceMessage',
         'Photo',
@@ -207,6 +211,18 @@ describe('Événement du journal', () => {
       // @ts-expect-error la moyenne se recalcule, elle ne se stocke pas
       const withAverage: Fact = { ...facts.Weighing, average: 1_879.6 };
       expect(Declaration(signeParLeGardien(), withAverage)).not.toHaveProperty('average');
+    });
+
+    it('une pesée peut porter la photo de la balance pour chaque poids (T.6, champ ajouté) ; sans photo, le champ est absent, jamais vide', () => {
+      // When
+      const photos = ['1', '2', '3', '4', '5'].map(empreinte);
+      const withPhotos = Declaration(signeParLeGardien(), { ...facts.Weighing, photos });
+      const without = Declaration(signeParLeGardien(), facts.Weighing);
+
+      // Then
+      expect(withPhotos).toMatchObject({ photos: photos.map(String) });
+      expect(() => (withPhotos as unknown as { photos: string[] }).photos.push(empreinte('6'))).toThrow(TypeError);
+      expect(without).not.toHaveProperty('photos');
     });
 
     it("une réception porte la quantité comptée, ni la quantité attendue ni l'écart", () => {

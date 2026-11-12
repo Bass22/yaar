@@ -17,7 +17,9 @@ export type FactPayload =
       readonly deliveryNote: { readonly kind: 'Photographed'; readonly media: string } | { readonly kind: 'NoPaper' };
     }
   /** Whole grams, typed as read: the scale is not modelled. */
-  | { readonly type: 'Weighing'; readonly weighingRequestId: Uuid; readonly weights: readonly number[] }
+  | { readonly type: 'Weighing'; readonly weighingRequestId: Uuid; readonly weights: readonly number[]; /** One photo of the scale per weight, same order (T.6); absent when none. */ readonly photos?: readonly string[] }
+  /** The admin validated a weighing (T.5). Admin only. */
+  | { readonly type: 'WeighingValidated'; readonly weighingId: Uuid }
   | { readonly type: 'TaskDone'; readonly taskId: Uuid }
   /** `media`: the SHA-256 fingerprint of the file, 64 lowercase hexadecimal characters. */
   | { readonly type: 'VoiceMessage' | 'Photo'; readonly media: string };
@@ -104,6 +106,16 @@ export interface CaretakerCampaign {
   readonly journal: readonly CaretakerJournalLine[];
   /** One per announced order still expected, earliest announced first (Q.6). Never a price. */
   readonly deliveries: readonly CaretakerDelivery[];
+  /** The weighings the chef asked for, from their day on, until a weighing answers them (T.2). */
+  readonly weighingRequests: readonly CaretakerWeighingRequest[];
+  /** The strain placed (`Cobb500`): the weighing screen bounds a weight by its target (T.3). */
+  readonly strain: string;
+}
+
+export interface CaretakerWeighingRequest {
+  readonly weighingRequestId: string;
+  /** `YYYY-MM-DD`: the day the chef asked for. */
+  readonly requestedFor: string;
 }
 
 /** A delivery the caretaker waits for: an announced order, neither fully received nor closed. Quantities only (rule 4). */
@@ -135,4 +147,42 @@ export interface CaretakerJournalLine {
   readonly retracted: boolean;
   /** For a delivery: what was received, by the farm's name and its category (Q.7) — never a price. */
   readonly delivery?: { readonly name: string; readonly category: CaretakerDeliveryLine['category'] };
+}
+
+/** Body of POST /api/v1/weighing-requests (T.2): the chef asks for a weighing of a flock, on a day. Admin only. */
+export interface RecordWeighingRequest {
+  readonly id: string;
+  readonly campaignId: string;
+  /** `YYYY-MM-DD`, today or later on the site. */
+  readonly requestedFor: string;
+}
+
+/** A weighing declared and not validated yet, as the office corrects and validates it (T.5). */
+export interface WeighingToValidate {
+  /** The identifier of the weighing as declared: a correction and the validation name it. */
+  readonly weighingId: string;
+  /** The request it answers: a correction carries it again. */
+  readonly weighingRequestId: string;
+  readonly businessDate: string;
+  readonly campaignDay: number;
+  readonly authorName: string;
+  /** As they count: the latest correction's, or the declared ones. */
+  readonly weights: readonly number[];
+  /** The photo of the scale for each weight, same order (T.6): what the admin reads first. `null` when none. */
+  readonly photos: readonly string[] | null;
+  readonly average: number;
+}
+
+/** Answer of GET /api/v1/campaigns/:id/weighings (admin): the real curve, and what waits for validation. */
+export interface WeighingsView {
+  readonly campaignId: string;
+  /** Where the flock is: a correction and a validation are written there. */
+  readonly siteId: string;
+  /** The strain placed (`Cobb500`): the curve is read against its targets. */
+  readonly strain: string;
+  /** Asked for and not answered yet by a weighing, earliest first. */
+  readonly openRequests: readonly CaretakerWeighingRequest[];
+  /** Validated weighings only, earliest first. */
+  readonly curve: readonly { readonly weighingId: string; readonly campaignDay: number; readonly average: number }[];
+  readonly toValidate: readonly WeighingToValidate[];
 }

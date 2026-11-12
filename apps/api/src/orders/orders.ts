@@ -52,14 +52,27 @@ export async function payPurchaseOrder(tx: Tx, admin: Session, orderId: string, 
   if (order === null) return err({ kind: 'OrderNotFound' });
   const payment = recordPayment({ ...request, orderId: order.id }, order.currency);
   if (!payment.ok) return err(payment.error.kind === 'InvalidId' ? { kind: 'InvalidId' } : { kind: payment.error.kind });
+  const paidBy = payment.value.paidBy ?? null;
+  // Someone else who paid (R.4): a counterparty of the farm in use, never the supplier paying itself.
+  if (paidBy !== null) {
+    if (paidBy === order.supplierId) return err({ kind: 'PaidBySupplier' });
+    const payer = await tx.counterparty.findUnique({ where: { id: paidBy }, select: { archivedAt: true } });
+    if (payer === null) return err({ kind: 'UnknownCounterparty' });
+    if (payer.archivedAt !== null) return err({ kind: 'CounterpartyArchived' });
+  }
   const existing = await tx.payment.findUnique({ where: { id: payment.value.id } });
   if (existing !== null) {
-    const same = existing.orderId === order.id && existing.paidOn.toISOString().slice(0, 10) === payment.value.paidOn && existing.amount === payment.value.amount.amount && existing.method === payment.value.method;
+    const same =
+      existing.orderId === order.id &&
+      existing.paidOn.toISOString().slice(0, 10) === payment.value.paidOn &&
+      existing.amount === payment.value.amount.amount &&
+      existing.method === payment.value.method &&
+      existing.paidById === paidBy;
     return same ? ok('Duplicate') : err({ kind: 'PaymentAlreadyExists' });
   }
   try {
     await tx.payment.create({
-      data: { tenantId: admin.tenantId, id: payment.value.id, orderId: order.id, paidOn: new Date(payment.value.paidOn), amount: payment.value.amount.amount, method: payment.value.method, recordedBy: admin.userId },
+      data: { tenantId: admin.tenantId, id: payment.value.id, orderId: order.id, paidOn: new Date(payment.value.paidOn), amount: payment.value.amount.amount, method: payment.value.method, paidById: paidBy, recordedBy: admin.userId },
     });
   } catch (error) {
     // The identifier is taken in another farm, which this transaction does not see.
@@ -222,7 +235,14 @@ function orderOf(row: OrderRow): PurchaseOrder {
 function paymentOf(row: PaymentRow, currency: CurrencyCode): Payment {
   const amount = Money.of(row.amount, currency);
   if (!amount.ok) throw new Error(`Payment ${row.id} holds an invalid amount`);
-  return Object.freeze({ id: row.id as PaymentId, orderId: row.orderId as PurchaseOrderId, paidOn: row.paidOn.toISOString().slice(0, 10) as BusinessDay, amount: amount.value, method: row.method });
+  return Object.freeze({
+    id: row.id as PaymentId,
+    orderId: row.orderId as PurchaseOrderId,
+    paidOn: row.paidOn.toISOString().slice(0, 10) as BusinessDay,
+    amount: amount.value,
+    method: row.method,
+    ...(row.paidById === null ? {} : { paidBy: row.paidById }),
+  });
 }
 
 function viewOf(order: PurchaseOrder, received: ReadonlyMap<string, number>, payments: readonly Payment[]): OrderView {
@@ -239,6 +259,6 @@ function viewOf(order: PurchaseOrder, received: ReadonlyMap<string, number>, pay
     lines: order.lines.map((line) => ({ id: line.id, costTypeId: line.costTypeId, quantity: line.quantity, unitPrice: line.unitPrice.amount, received: received.get(line.id) ?? 0 })),
     billable: balance.value.billable.amount,
     paid: balance.value.paid.amount,
-    payments: payments.map(({ id, paidOn, amount, method }) => ({ id, paidOn, amount: amount.amount, method })),
+    payments: payments.map(({ id, paidOn, amount, method, paidBy }) => ({ id, paidOn, amount: amount.amount, method, paidBy: paidBy ?? null })),
   };
 }

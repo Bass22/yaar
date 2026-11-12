@@ -5,6 +5,9 @@ import type { CostView } from '@contracts';
 import { clip, number, type PhrasePart } from '../../core/audio/phrase';
 import { Pictogram } from '../../ui/pictogram';
 import { SpeakerButton } from '../../ui/speaker-button';
+import { FiguresAge } from '../figures-age';
+import { OfficePending } from '../office-pending';
+import { OfficeSync } from '../office-sync';
 import { Office } from '../office';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Banknotes } from './banknotes';
@@ -16,7 +19,7 @@ import { CATEGORY_PICTO, Expenses } from './expenses';
 // is duplicated (the gesture filled at today's date, nothing written) or corrected (a counter-entry).
 @Component({
   selector: 'app-expenses-page',
-  imports: [Banknotes, Pictogram, RouterLink, SpeakerButton],
+  imports: [Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton],
   providers: [Expenses],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -32,9 +35,8 @@ import { CATEGORY_PICTO, Expenses } from './expenses';
         }
       </div>
     }
-    @if (expenses.unreachable()) {
-      <p class="refusal" role="alert"><app-pictogram picto="sync-cloud" [decorative]="true" /> Pas de réseau : les dépenses ne se lisent pas.</p>
-    }
+    <app-figures-age [readAt]="expenses.readAt()" [stale]="expenses.unreachable()" />
+    <app-office-pending [kinds]="['cost']" [subject]="lotId()" />
     @if (expenses.money(); as money) {
       <section class="totals" aria-label="L'argent du lot">
         <div class="total">
@@ -160,10 +162,14 @@ export class ExpensesPage {
     return perBird === null ? [clip('cost-per-bird-unknown')] : [clip('cost-per-bird'), number(perBird), clip('money-francs')];
   });
 
+  private readonly officeSync = inject(OfficeSync);
+
   constructor() {
     void this.purchases.load();
+    // The lot chosen, and again whenever the server has received what was waiting (P.7).
     effect(() => {
       const lot = this.lotId();
+      this.officeSync.revision();
       if (lot !== '') untracked(() => void this.expenses.load(lot));
     });
   }
@@ -197,7 +203,6 @@ export class ExpensesPage {
       cost.id,
     );
     this.paying.set(null);
-    this.problem.set(problem === null ? null : problem === 'NoNetwork' ? 'Pas de réseau : rien n’est changé. Réessaie avec le réseau.' : 'Le serveur n’a pas pu enregistrer. Réessaie.');
-    if (problem === null) await this.expenses.load(this.lotId());
+    this.problem.set(problem === null ? null : 'L’appareil n’arrive pas à garder ce changement. Réessaie.');
   }
 }

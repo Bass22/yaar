@@ -44,7 +44,7 @@ async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal,
 async function campaignContext(
   tx: Prisma.TransactionClient,
   journal: PrismaJournal,
-  campaign: { id: string; placementDay: Date },
+  campaign: { id: string; placementDay: Date; strain: string },
   days: readonly string[],
   today: BusinessDay,
 ): Promise<CaretakerCampaign> {
@@ -52,7 +52,7 @@ async function campaignContext(
   const events = await journal.campaignJournal(campaign.id);
   // Only the caretaker's three days, and only what the caretaker sees: losses that are not deaths stay with the admin.
   const lines = effectiveJournal(events).filter(
-    (line) => days.includes(line.declaration.businessDate) && line.declaration.type !== 'Loss',
+    (line) => days.includes(line.declaration.businessDate) && line.declaration.type !== 'Loss' && line.declaration.type !== 'WeighingValidated',
   );
   const authors = await tx.user.findMany({ where: { id: { in: [...new Set(lines.map((line) => line.declaration.authorId))] } }, select: { id: true, name: true } });
   const nameOf = new Map(authors.map((author) => [author.id, author.name]));
@@ -67,7 +67,19 @@ async function campaignContext(
     liveCount: await liveCountOf(tx, campaign.id, events),
     journal: lines.map((line) => lineOf(line, nameOf.get(line.declaration.authorId) ?? '', deliveredOf)),
     deliveries: await deliveriesOf(tx, campaign.id, events),
+    weighingRequests: await weighingRequestsOf(tx, campaign.id, events, today),
+    strain: campaign.strain,
   };
+}
+
+/**
+ * The weighings the chef asked for (T.2): from their day on, until a weighing of the journal —
+ * not taken back — answers them. Earliest first.
+ */
+async function weighingRequestsOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[], today: BusinessDay): Promise<CaretakerCampaign['weighingRequests']> {
+  const answered = new Set(effectiveJournal(events).flatMap(({ fact }) => (fact?.type === 'Weighing' ? [fact.weighingRequestId as string] : [])));
+  const requests = await tx.weighingRequest.findMany({ where: { campaignId, requestedFor: { lte: new Date(today) } }, orderBy: [{ requestedFor: 'asc' }, { id: 'asc' }] });
+  return requests.filter(({ id }) => !answered.has(id)).map(({ id, requestedFor }) => ({ weighingRequestId: id, requestedFor: requestedFor.toISOString().slice(0, 10) }));
 }
 
 /**
@@ -81,7 +93,9 @@ async function liveCountOf(tx: Prisma.TransactionClient, campaignId: string, eve
 /** The chicks received on the campaign's chick lines, and the birds alive — `null` until a chick is received (Q.7). */
 export async function birdsOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<{ received: number; liveCount: number | null }> {
   const chickLines = await tx.orderLine.findMany({ where: { order: { campaignId }, costType: { category: 'Chicks' } }, select: { id: true } });
-  const count = computeLiveCount(events, { campaignId: unwrap(CampaignId(campaignId)), placementOrderLines: chickLines.map(({ id }) => id as OrderLineId) });
+  // Birds sold leave the flock (W.1): a number only reaches the phone, never a sale.
+  const sold = (await tx.sale.aggregate({ where: { campaignId }, _sum: { birds: true } }))._sum.birds ?? 0;
+  const count = computeLiveCount(events, { campaignId: unwrap(CampaignId(campaignId)), placementOrderLines: chickLines.map(({ id }) => id as OrderLineId), sold });
   return { received: count.received, liveCount: count.received > 0 ? count.liveCount : null };
 }
 

@@ -10,6 +10,10 @@ import { ExpensesPage } from './money/expenses-page';
 import { CounterpartyLedgerPage } from './money/counterparties/counterparty-ledger-page';
 import { LedgerPage } from './money/counterparties/ledger-page';
 import { MorePage } from './more/more-page';
+import { SaleGesturePage } from './sales/sale-gesture-page';
+import { SalePage } from './sales/sale-page';
+import { SalesPage } from './sales/sales-page';
+import { WeighingsPage } from './weighings/weighings-page';
 import { OfficeShell } from './shell/office-shell';
 
 // The admin's office: loaded on its own, never with the caretaker's notebook (CLAUDE.md §3).
@@ -23,6 +27,10 @@ export const adminRoutes: Route[] = [
       { path: 'accueil', component: HomePage },
       { path: 'lots', component: LotsPage },
       { path: 'lots/ouvrir', component: OpenCampaignPage },
+      { path: 'lots/ventes', component: SalesPage },
+      { path: 'lots/pesees', component: WeighingsPage },
+      { path: 'lots/vente', component: SaleGesturePage },
+      { path: 'lots/ventes/:id', component: SalePage },
       { path: 'achats', component: PurchasesPage },
       { path: 'achats/nouvelle', component: OrderEditorPage },
       // Before `achats/:id`, which would take them for an order.
