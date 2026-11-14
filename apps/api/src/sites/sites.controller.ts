@@ -7,6 +7,7 @@ import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { assignToSite, designatePrimaryCaretaker, removeFromSite } from './site-staff';
+import { objectOf } from '../http/body';
 
 // The sites of the farm (O.1) and their staff (E.7): created and configured, and who writes in
 // their notebook. Admin only; every change runs in the tenant transaction of the request and
@@ -51,13 +52,6 @@ export class SitesController {
     const { userId } = designateRequestOf(body);
     answer(await this.prisma.runInTenant(session.tenantId, (tx) => designatePrimaryCaretaker(tx, session, siteId, userId, this.clock.now())));
   }
-}
-
-function objectOf(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new BadRequestException({ kind: 'InvalidRequest' });
-  }
-  return body as Record<string, unknown>;
 }
 
 // Whitelist at the border: id, name, time zone, and the voice if chosen — never a farm, never the strict mode.

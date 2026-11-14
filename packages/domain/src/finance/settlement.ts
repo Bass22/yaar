@@ -2,6 +2,7 @@ import { err, Money, ok, type Brand, type CurrencyCode, type Result } from '@kit
 import { BusinessDay } from '../journal/business-day';
 import { PAYMENT_METHODS, type PaymentMethod } from './order-balance';
 import type { CounterpartyId } from './purchase-order';
+import { isCanonicalUuid } from '../journal/ids';
 
 export type SettlementId = Brand<string, 'SettlementId'>;
 
@@ -45,7 +46,6 @@ export type SettlementRefusal =
   | { readonly kind: 'UnknownCounterparty' }
   | { readonly kind: 'CounterpartyArchived' };
 
-const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * A settlement (R.2): a date never ahead of today, an amount of at least one unit, a method, a
@@ -53,7 +53,7 @@ const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
  * counterparty then owes the difference (decision of 2026-11-12).
  */
 export function recordSettlement(input: SettlementInput, context: SettlementContext): Result<Settlement, SettlementRefusal> {
-  if (!CANONICAL_UUID.test(input.id)) return err({ kind: 'InvalidId', expected: 'SettlementId' });
+  if (!isCanonicalUuid(input.id)) return err({ kind: 'InvalidId', expected: 'SettlementId' });
   const paidOn = BusinessDay(input.paidOn);
   if (!paidOn.ok) return err({ kind: 'InvalidBusinessDay' });
   if (paidOn.value > context.today) return err({ kind: 'PaidInFuture' });

@@ -187,7 +187,9 @@ describe("Comptes de l'équipe et premier PIN", () => {
       expect(body).toMatchObject({ role: 'collaborator', expiresAt: '2026-11-14T08:00:00.000Z', token: expect.any(String) });
       expect((await signIn('+221770000051', ousmaneProvisional)).status).toBe(401);
       expect((await signIn('+221770000051', '7351')).status).toBe(200);
-      expect(await db.superuser.user.findUniqueOrThrow({ where: { id: OUSMANE } })).toMatchObject({ provisionalPinExpiresAt: null, pinFailures: 0 });
+      expect(await db.superuser.user.findUniqueOrThrow({ where: { id: OUSMANE } })).toMatchObject({ provisionalPinExpiresAt: null });
+      // The phone that chose the PIN is now known to the account, its counter back to zero (E.10).
+      expect(await db.superuser.signInAttempt.findFirst({ where: { userId: OUSMANE, deviceId: TELEPHONE } })).toMatchObject({ failures: 0, knownSince: expect.any(Date) });
     });
 
     it("une fois son PIN choisi, on ne le rechoisit pas par cette voie", async () => {
@@ -220,10 +222,17 @@ describe("Comptes de l'équipe et premier PIN", () => {
       const before = ((await (await signIn('+221770000051', '7351')).json()) as Json)['token'] as string;
       expect((await fetch(`${origin}/api/v1/probe`, { headers: { Authorization: `Bearer ${before}` } })).status).toBe(200);
 
+      // And deux essais ratés depuis un autre téléphone
+      for (let failure = 0; failure < 2; failure += 1) {
+        await post('auth/sign-in', { phone: '+221770000051', pin: '0000', deviceId: '00000000-0000-4000-8000-0000000000e9' });
+      }
+
       // When le gérant lui donne un PIN provisoire, à 9 h
       at('2026-11-14T09:00:00.000Z');
       const response = await post(`users/${OUSMANE}/reset-pin`, {}, gerant());
       const body = (await response.json()) as Json;
+      // Le PIN provisoire remet à zéro les compteurs de tous ses appareils (E.10)
+      expect((await db.superuser.signInAttempt.aggregate({ where: { userId: OUSMANE }, _sum: { failures: true } }))._sum.failures).toBe(0);
 
       // Then
       expect(response.status).toBe(200);

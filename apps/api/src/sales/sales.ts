@@ -6,6 +6,7 @@ import type { RecordSaleRequest, SaleReceiptRequest, SaleRefusal, SalesView } fr
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
 import { campaignMoney } from '../costs/costs';
+import { currencyOf } from '../tenants/currency';
 
 type Tx = Prisma.TransactionClient;
 
@@ -132,10 +133,6 @@ export async function salesOf(tx: Tx, currency: CurrencyCode, where: { campaignI
 
 async function writeReceipt(tx: Tx, admin: Session, receipt: SaleReceipt): Promise<void> {
   await tx.saleReceipt.create({ data: { tenantId: admin.tenantId, id: receipt.id, saleId: receipt.saleId, paidOn: new Date(receipt.paidOn), amount: receipt.amount.amount, method: receipt.method, recordedBy: admin.userId } });
-}
-
-async function currencyOf(tx: Tx, tenantId: string): Promise<CurrencyCode> {
-  return (await tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { currency: true } })).currency as CurrencyCode;
 }
 
 function sameSale(row: Prisma.SaleGetPayload<object>, sale: Sale): boolean {

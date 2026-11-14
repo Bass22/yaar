@@ -2,13 +2,18 @@ import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, sig
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { CounterpartyFaceCode, DraftOrderRequest } from '@contracts';
-import { COUNTERPARTY_FACES, draftOrder, orderedAmount } from '@domain/finance';
-import type { CurrencyCode } from '@kit';
+import { draftOrder, orderedAmount, unusualPrice } from '@domain/finance';
+import { Money, type CurrencyCode } from '@kit';
 import { Pictogram } from '../../ui/pictogram';
 import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
+import { currencyWord, grouped, typedNumber, typedText } from '../typed-number';
+import { Affixed } from '../../ui/affixed';
+import { byTheBag } from '@domain/journal';
 
-type LineDraft = { readonly id: string; readonly costTypeId: string; readonly quantity: string; readonly unitPrice: string };
+// `proposed`: the price shown was proposed by the catalog (N.5), not typed — it follows the supplier.
+// `bagWeight` (N.8c): `null`, the usual weight of the feed's bag, unwritten; typed kg, the weight written for this order.
+type LineDraft = { readonly id: string; readonly costTypeId: string; readonly quantity: string; readonly unitPrice: string; readonly proposed?: boolean; readonly bagWeight?: string | null };
 
 /** What each face says of a supplier: the real object, and its word. */
 const FACE_WORDS: Record<CounterpartyFaceCode, string> = {
@@ -21,6 +26,7 @@ const FACE_WORDS: Record<CounterpartyFaceCode, string> = {
   drinker: 'Eau',
   barn: 'Bâtiment',
   paper: 'Autre',
+  shop: 'Entreprise',
 };
 
 const WORDS: Partial<Record<PurchaseProblem, string>> = {
@@ -30,6 +36,9 @@ const WORDS: Partial<Record<PurchaseProblem, string>> = {
   OrderWithoutLines: 'Ajoute au moins une ligne.',
   InvalidQuantity: 'Sur chaque ligne, une quantité d’au moins 1.',
   InvalidUnitPrice: 'Sur chaque ligne, un prix en francs entiers.',
+  MissingBagWeight: 'Dis le poids du sac de cet aliment.',
+  UnexpectedBagWeight: 'Seul un aliment a un poids de sac.',
+  InvalidBagWeight: 'Le poids d’un sac est un nombre au-dessus de zéro.',
   InvalidBusinessDay: 'La date n’est pas une date.',
   UnknownCostType: 'Ce type ne se commande pas.',
   CostTypeNotOrderable: 'Ce type ne se commande pas.',
@@ -58,7 +67,7 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
  */
 @Component({
   selector: 'app-order-editor-page',
-  imports: [Pictogram, RouterLink],
+  imports: [Affixed, Pictogram, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="truck" [decorative]="true" /> {{ editing() ? 'Modifier la commande' : 'Nouvelle commande' }}</h1>
@@ -76,7 +85,7 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
                 <input type="radio" name="lot" [value]="lot.campaignId" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
                 <app-pictogram picto="chick" [decorative]="true" />
                 <span class="name">{{ lot.siteName }}</span>
-                <small>Jour {{ lot.campaignDay }}</small>
+                <small>{{ lot.dayLabel }}</small>
               </label>
             }
           </div>
@@ -87,7 +96,7 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
           <div class="tiles">
             @for (supplier of purchases.suppliers(); track supplier.id) {
               <label class="tile supplier">
-                <input type="radio" name="supplier" [value]="supplier.id" [checked]="supplier.id === supplierId()" (change)="supplierId.set(supplier.id)" />
+                <input type="radio" name="supplier" [value]="supplier.id" [checked]="supplier.id === supplierId()" (change)="chooseSupplier(supplier.id)" />
                 <app-pictogram [picto]="face(supplier.face)" [decorative]="true" />
                 <span class="name">{{ supplier.name }}</span>
               </label>
@@ -149,14 +158,32 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
                 <div class="figures">
                   <label class="field">
                     <span>Combien ?</span>
-                    <input name="quantity" type="number" inputmode="numeric" min="1" step="1" [value]="line.quantity" (input)="edit(index, { quantity: valueOf($event) })" />
+                    <app-affixed [unit]="unitWordOf(line.costTypeId)"><input name="quantity" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(line.quantity)" (input)="edit(index, { quantity: typedNumber($event) })" /></app-affixed>
                   </label>
                   <span class="times" aria-hidden="true">×</span>
+                  @if (isFeed(line.costTypeId)) {
+                    @if (line.bagWeight === null || line.bagWeight === undefined) {
+                      @if (usualWeightOf(line.costTypeId); as usual) {
+                        <p class="bag-weight">Sac de {{ usual }} kg <button type="button" (click)="edit(index, { bagWeight: '' })">changer</button></p>
+                      }
+                    } @else {
+                      <label class="field bag-weight">
+                        <span>Poids d’un sac</span>
+                        <app-affixed unit="kg"><input name="bagWeight" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(line.bagWeight)" (input)="edit(index, { bagWeight: typedNumber($event) })" /></app-affixed>
+                      </label>
+                    }
+                  }
                   <label class="field">
                     <span>Prix l’unité</span>
-                    <input name="unitPrice" type="number" inputmode="numeric" min="0" step="1" [value]="line.unitPrice" (input)="edit(index, { unitPrice: valueOf($event) })" />
+                    <app-affixed [unit]="currencyWord(purchases.currency())"><input name="unitPrice" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(line.unitPrice)" (input)="edit(index, { unitPrice: typedNumber($event) })" /></app-affixed>
                   </label>
                 </div>
+                @if (readback(line); as said) {
+                  <p class="line-readback">{{ said }}</p>
+                }
+                @if (unusual(line); as warning) {
+                  <p class="price-warning" role="alert">{{ warning }}</p>
+                }
                 @if (lines().length > 1) {
                   <button type="button" class="remove-line" (click)="remove(index)"><app-pictogram picto="cross" [decorative]="true" /> Retirer la ligne</button>
                 }
@@ -235,9 +262,14 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
     .type-choice app-pictogram { inline-size: 24px; block-size: 24px; }
     .type-choice input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
     .type-choice:has(input:checked) { border-color: var(--color-pasture); background: var(--color-pasture); color: var(--color-on-sign); }
-    .figures { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
+    /* One figure a row (Q.10): at 360 px, the quantity, the price and their units do not fit side by side. */
+    .figures { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
     .figures input { font: 700 1.3rem var(--font-hand); text-align: end; font-variant-numeric: tabular-nums; }
-    .times { padding-block-end: 12px; font: 700 1.3rem var(--font-hand); color: var(--color-muted); }
+    .times { display: none; }
+    .line-readback { margin: 4px 0 0; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+    .price-warning { margin: 4px 0 0; padding: 6px 8px; border-inline-start: 4px solid var(--color-orange); background: var(--color-orange-light); color: var(--color-ink); font-weight: 700; }
+    p.bag-weight { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-muted); font-size: 0.95rem; }
+    p.bag-weight button { min-block-size: 44px; padding: 0 10px; border: none; background: transparent; color: var(--color-ink); font-weight: 700; text-decoration: underline; cursor: pointer; }
     .remove-line, .add-line {
       display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-block-size: 48px; padding: 0 14px;
       border: 2px dashed var(--color-card-edge); border-radius: 4px; background: transparent; color: var(--color-ink); font-weight: 700;
@@ -256,28 +288,32 @@ const emptyLine = (): LineDraft => ({ id: crypto.randomUUID(), costTypeId: '', q
 
     /* Always in sight, above the bar of five: the total, and the one action of the page. */
     .actions {
-      position: fixed; inset-inline: 0; inset-block-end: var(--office-tabs-block-size, 0); z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      position: fixed; inset-inline: 0; inset-block-end: var(--office-tabs-block-size, 0); z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 10px;
       padding: 8px 16px; background: var(--color-paper); border-block-start: 2px dashed var(--color-card-edge);
     }
     .total { display: grid; margin: 0; color: var(--color-earth); font-weight: 700; line-height: 1.1; }
-    .total strong { font: 700 1.45rem var(--font-hand); color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .total strong { font: 700 1.1rem var(--font-hand); color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .go {
-      display: inline-flex; align-items: center; gap: 8px; min-block-size: 52px; padding: 0 22px;
+      display: inline-flex; align-items: center; gap: 6px; min-block-size: 52px; padding: 0 12px; flex: none;
       border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard);
-      background: var(--color-pasture); color: var(--color-on-sign); font: 700 1.15rem var(--font-hand);
+      background: var(--color-pasture); color: var(--color-on-sign); font: 700 1.05rem var(--font-hand);
     }
     .go app-pictogram { inline-size: 24px; block-size: 24px; }
     .go:disabled, .create-supplier:disabled { opacity: 0.6; }
   `,
 })
 export class OrderEditorPage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
+  protected readonly currencyWord = currencyWord;
   protected readonly purchases = inject(Purchases);
   protected readonly office = inject(Office);
   private readonly router = inject(Router);
   // The office lives under a prefix (/admin): every link is relative to this page's route.
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly faces = COUNTERPARTY_FACES;
+  // What the farm orders, nothing else for now (demand of the founder, 2026-11-13): feed, chicks, vet.
+  protected readonly faces: readonly CounterpartyFaceCode[] = ['closed-bag', 'chick', 'syringe'];
   protected readonly faceWords = FACE_WORDS;
   protected readonly categoryPicto = CATEGORY_PICTO;
   private readonly orderId = this.route.snapshot.paramMap.get('id');
@@ -286,14 +322,23 @@ export class OrderEditorPage {
   protected readonly locked = computed(() => this.order() !== null && this.order()?.status !== 'Draft');
 
   /** The only running lot is chosen for the admin; with several, nothing is chosen ahead. */
-  protected readonly lotId = linkedSignal(() => this.order()?.campaignId ?? (this.office.lots().length === 1 ? (this.office.lots()[0]?.campaignId ?? '') : ''));
+  protected readonly lotId = linkedSignal(() => this.order()?.campaignId ?? (this.office.currentLot()?.campaignId ?? ''));
   protected readonly supplierId = linkedSignal(() => this.order()?.supplierId ?? '');
-  private readonly today = computed(() => this.office.sites()[0]?.today ?? '');
+  private readonly today = computed(() => this.office.today());
   protected readonly orderDay = linkedSignal(() => this.order()?.orderDay ?? this.today());
   protected readonly reference = linkedSignal(() => this.order()?.reference ?? '');
   protected readonly lines = linkedSignal<readonly LineDraft[]>(() => {
     const order = this.order();
-    return order === null ? [emptyLine()] : order.lines.map((line) => ({ id: line.id, costTypeId: line.costTypeId, quantity: String(line.quantity), unitPrice: String(line.unitPrice) }));
+    return order === null
+      ? [emptyLine()]
+      : order.lines.map((line) => ({
+          id: line.id,
+          costTypeId: line.costTypeId,
+          quantity: String(line.quantity),
+          unitPrice: String(line.unitPrice),
+          // The usual weight stays unwritten; another one shows in its box.
+          bagWeight: line.bagWeight === null || line.bagWeight === this.purchases.costTypeById().get(line.costTypeId)?.bagWeight ? null : String(line.bagWeight / 1000),
+        }));
   });
 
   protected readonly creating = signal(false);
@@ -315,18 +360,78 @@ export class OrderEditorPage {
 
   constructor() {
     void this.purchases.load();
+    void this.purchases.loadPriceCatalog();
   }
 
   protected face(code: string): PictogramName {
     return code as PictogramName;
   }
 
+  /** What a quantity counts, said next to its box (Q.10): bags of feed or bedding, chicks, or units. */
+  protected isFeed(costTypeId: string): boolean {
+    return this.purchases.costTypeById().get(costTypeId)?.category === 'Feed';
+  }
+
+  /** The usual weight of the feed's bag, in kg; `null` when each order says it (feed bought by weight). */
+  protected usualWeightOf(costTypeId: string): number | null {
+    const grams = this.purchases.costTypeById().get(costTypeId)?.bagWeight ?? null;
+    return grams === null ? null : grams / 1000;
+  }
+
+  /** « 20 sacs × 17 500 FCFA = 350 000 FCFA » (Q.13): the line said whole, once its figures are whole. */
+  protected readback(line: LineDraft): string | null {
+    if (line.costTypeId === '' || !/^\d+$/.test(line.quantity) || !/^\d+$/.test(line.unitPrice)) return null;
+    const quantity = Number(line.quantity);
+    const unitPrice = Number(line.unitPrice);
+    const currency = this.purchases.currency() ?? '';
+    const unit = quantity > 1 ? this.unitWordOf(line.costTypeId) : this.unitWordOf(line.costTypeId).replace(/s$/, '');
+    return `${grouped(quantity)} ${unit} × ${amountWords(unitPrice, currency)} = ${amountWords(quantity * unitPrice, currency)}`;
+  }
+
+  /** A typed price far from the known one (Q.13): « 20 FCFA le sac, d’habitude 17 500 FCFA : … ? » — a warning, never a block. */
+  protected unusual(line: LineDraft): string | null {
+    // A proposed price is the known one: it never warns, no need to say so.
+    if (line.costTypeId === '' || !/^\d+$/.test(line.unitPrice)) return null;
+    const currency = this.purchases.currency();
+    const known = this.purchases.knownPrice(line.costTypeId, this.supplierId());
+    const typed = currency === null ? null : Money.of(Number(line.unitPrice), currency as CurrencyCode);
+    if (known === null || typed === null || !typed.ok || !unusualPrice(typed.value, known)) return null;
+    const one = this.unitWordOf(line.costTypeId).replace(/s$/, '');
+    return `${amountWords(typed.value.amount, currency ?? '')} le ${one}, d’habitude ${amountWords(known.amount, currency ?? '')} : quantité et prix inversés ?`;
+  }
+
+  protected unitWordOf(costTypeId: string): string {
+    const category = this.purchases.costTypeById().get(costTypeId)?.category;
+    return byTheBag(category ?? '') ? 'sacs' : category === 'Chicks' ? 'poussins' : 'unités';
+  }
+
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected edit(index: number, change: Partial<LineDraft>): void {
-    this.lines.update((lines) => lines.map((line, at) => (at === index ? { ...line, ...change } : line)));
+    const typed = 'unitPrice' in change ? { proposed: false } : {};
+    this.lines.update((lines) => lines.map((line, at) => (at === index ? this.withProposedPrice(this.withWeightBox({ ...line, ...change, ...typed })) : line)));
+  }
+
+  /** The supplier chosen: a line still without price takes the one known for it (N.5). */
+  protected chooseSupplier(supplierId: string): void {
+    this.supplierId.set(supplierId);
+    this.lines.update((lines) => lines.map((line) => this.withProposedPrice(line)));
+  }
+
+  // The catalog proposes, it never imposes (N.5): only an empty or proposed price is filled; a typed one stays.
+  // A feed without usual weight (bought by weight) opens its weight box and counts one bag: the price is the total (N.8c).
+  private withWeightBox(line: LineDraft): LineDraft {
+    // Off feed, a weight is neither shown nor sent: nothing to clear.
+    if (!this.isFeed(line.costTypeId) || this.usualWeightOf(line.costTypeId) !== null || (line.bagWeight !== null && line.bagWeight !== undefined)) return line;
+    return { ...line, bagWeight: '', quantity: line.quantity === '' ? '1' : line.quantity };
+  }
+
+  private withProposedPrice(line: LineDraft): LineDraft {
+    if ((line.unitPrice !== '' && line.proposed !== true) || line.costTypeId === '') return line;
+    const unitPrice = this.purchases.proposedPrice(line.costTypeId, this.supplierId());
+    return { ...line, unitPrice, proposed: unitPrice !== '' };
   }
 
   protected add(): void {
@@ -344,7 +449,7 @@ export class OrderEditorPage {
       return;
     }
     this.busy.set(true);
-    const created = await this.purchases.createSupplier(this.newName(), this.newFace());
+    const created = await this.purchases.createCounterparty(this.newName(), this.newFace());
     this.busy.set(false);
     if ('problem' in created) {
       this.problem.set(WORDS[created.problem] ?? SERVER_ERROR);
@@ -367,13 +472,20 @@ export class OrderEditorPage {
       campaignId: this.lotId(),
       orderDay: this.orderDay(),
       reference: this.reference().trim() === '' ? null : this.reference().trim(),
-      lines: this.lines().map((line) => ({ id: line.id, costTypeId: line.costTypeId, quantity: numberOf(line.quantity), unitPrice: numberOf(line.unitPrice) })),
+      lines: this.lines().map((line) => ({
+        id: line.id,
+        costTypeId: line.costTypeId,
+        quantity: numberOf(line.quantity),
+        unitPrice: numberOf(line.unitPrice),
+        // Typed in kg, sent in grams (N.8c); unwritten or emptied, the usual weight — or a refusal, without one.
+        ...(this.isFeed(line.costTypeId) && line.bagWeight !== null && line.bagWeight !== undefined && line.bagWeight !== '' ? { bagWeight: numberOf(line.bagWeight) * 1000 } : {}),
+      })),
     };
     // The same rule as the server's, so that a refusal is said before anything leaves.
     const judged = draftOrder(request, {
       currency: currency as CurrencyCode,
       counterparties: [...this.purchases.counterpartyById().values()].map(({ id, kind, archived }) => ({ id, kind, archived })),
-      costTypes: [...this.purchases.costTypeById().values()].map(({ id, orderable, archived }) => ({ id, orderable, archived })),
+      costTypes: [...this.purchases.costTypeById().values()].map(({ id, category, bagWeight, orderable, archived }) => ({ id, category, bagWeight, orderable, archived })),
     });
     if (!judged.ok) return this.problem.set(WORDS[judged.error.kind] ?? SERVER_ERROR);
     this.busy.set(true);

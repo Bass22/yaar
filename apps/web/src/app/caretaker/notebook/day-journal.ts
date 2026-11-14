@@ -11,7 +11,8 @@ export type NamedLine = NotebookLine & {
 };
 
 /** The real object of a delivery's category; the received bags stand for the others (Bedding has none drawn yet). */
-const DELIVERED_PICTO: Partial<Record<string, PictogramName>> = { Feed: 'closed-bag', Chicks: 'chick', Health: 'syringe' };
+/** The real object of each category the caretaker receives; Bedding has none drawn yet — the received bags stand for it. */
+export const DELIVERED_PICTO: Partial<Record<string, PictogramName>> = { Feed: 'closed-bag', Chicks: 'chick', Health: 'syringe' };
 
 /** The picto and the words of a fact, as written in the notebook; a delivery says what was received when it is known. */
 export function lineOf(fact: FactPayload, delivery?: { readonly name: string; readonly category: string }): { readonly picto: PictogramName; readonly words: string } {

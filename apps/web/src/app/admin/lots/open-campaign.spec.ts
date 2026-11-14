@@ -104,6 +104,14 @@ describe('Ouvrir une bande, au bureau', () => {
     expect(field<HTMLInputElement>('input[name=plannedHeadcount]').value).toBe('');
   });
 
+  it('l’effectif dit son unité une seule fois, collée à la case : « poussins »', async () => {
+    const { field } = await ouvre();
+    const effectif = field<HTMLElement>('label.headcount .figure');
+
+    expect(effectif.textContent?.match(/poussins/g)).toEqual(['poussins']);
+    expect(effectif.querySelector('.affix')?.textContent?.trim()).toBe('poussins');
+  });
+
   it('le choix d’un site se fait d’un tap sur sa tuile, et c’est lui qui part', async () => {
     const { element, type, submit, soon, refresh } = await ouvre(contexte([unSite(NORD, 'Poulailler Nord'), unSite(SUD, 'Poulailler Sud')]));
     element().querySelector<HTMLInputElement>(`input[name=site][value="${SUD}"]`)?.click();
@@ -129,10 +137,11 @@ describe('Ouvrir une bande, au bureau', () => {
     expect(element().querySelector('.refusal')).toBeNull();
   });
 
-  it('le calendrier ne propose ni le futur ni plus de 60 jours en arrière', async () => {
+  // Spec: backlog O.5 (décision du 2026-11-13) — une bande s'ouvre jusqu'à 30 jours à l'avance
+  it('le calendrier propose jusqu’à 30 jours à l’avance, et pas plus de 60 jours en arrière', async () => {
     const { field } = await ouvre();
 
-    expect([field<HTMLInputElement>('input[name=placementDay]').max, field<HTMLInputElement>('input[name=placementDay]').min]).toEqual(['2026-11-06', '2026-09-07']);
+    expect([field<HTMLInputElement>('input[name=placementDay]').max, field<HTMLInputElement>('input[name=placementDay]').min]).toEqual(['2026-12-06', '2026-09-07']);
   });
 
   it('avec deux sites, aucun n’est choisi d’avance : l’admin dit lequel, sinon rien ne part', async () => {
@@ -196,10 +205,10 @@ describe('Ouvrir une bande, au bureau', () => {
       expect(request).toBeDefined();
     });
     // The site's day may have moved on the server: it judges, the office only helps.
-    request?.flush({ kind: 'PlacementInFuture' }, { status: 400, statusText: 'Bad Request' });
+    request?.flush({ kind: 'PlacementTooFarAhead' }, { status: 400, statusText: 'Bad Request' });
 
-    await soon(() => expect(element().querySelector('.refusal')?.textContent).toContain('La mise en place ne peut pas être dans le futur'));
-    expect(field<HTMLInputElement>('input[name=plannedHeadcount]').value).toBe('1000');
+    await soon(() => expect(element().querySelector('.refusal')?.textContent).toContain('La mise en place est au plus dans 30 jours'));
+    expect(field<HTMLInputElement>('input[name=plannedHeadcount]').value).toBe('1 000');
     expect(TestBed.inject(Router).url).toBe('/admin/lots/ouvrir');
   });
 
@@ -216,7 +225,7 @@ describe('Ouvrir une bande, au bureau', () => {
     request?.error(new ProgressEvent('error'));
 
     await soon(() => expect(element().querySelector('.refusal')?.textContent).toContain('Pas de réseau : la bande n’est pas ouverte'));
-    expect(field<HTMLInputElement>('input[name=plannedHeadcount]').value).toBe('1000');
+    expect(field<HTMLInputElement>('input[name=plannedHeadcount]').value).toBe('1 000');
     expect(TestBed.inject(Router).url).toBe('/admin/lots/ouvrir');
   });
 

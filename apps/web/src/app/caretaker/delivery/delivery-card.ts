@@ -14,14 +14,17 @@ import { Pile } from '../../ui/pile';
 import { PostIt } from '../../ui/post-it';
 import { Sheet } from '../../ui/sheet';
 import { SpeakerButton } from '../../ui/speaker-button';
-import { Stamp } from '../../ui/stamp';
+import { Stamp, STAMP_MS } from '../../ui/stamp';
 import { REDUCE_PHOTO } from '../../core/media/reduce-photo';
 import type { DeclarationTarget } from '../notebook/notebook';
+import { DELIVERED_PICTO } from '../notebook/day-journal';
 
-const STAMP_MS = 1500;
-
-/** The real object of each category the caretaker receives. Bedding has none drawn yet: the received bags stand for it. */
-const PICTO: Partial<Record<string, PictogramName>> = { Feed: 'closed-bag', Chicks: 'chick', Health: 'syringe' };
+/** The stage of a feed (N.9; founder's decisions of 2026-11-13): the colour of its bag, the words the voice says first. */
+const STAGE: Record<NonNullable<CaretakerDeliveryLine['feedStage']>, { readonly css: string; readonly clip: ScriptClip }> = {
+  Starter: { css: 'stage-starter', clip: 'feed-starter' },
+  Grower: { css: 'stage-grower', clip: 'feed-grower' },
+  Finisher: { css: 'stage-finisher', clip: 'feed-finisher' },
+};
 
 /** What is counted, said for a number: « 8 sacs », « 21 cartons », « 6 ». */
 const UNIT_WORDS: Record<CountingUnit, readonly [string, string]> = { bag: ['sac', 'sacs'], box: ['carton', 'cartons'], unit: ['', ''] };
@@ -59,7 +62,7 @@ type Trouble = 'camera' | 'full' | 'storage';
         </p>
         <ul class="expected">
           @for (line of lines(); track line.orderLineId) {
-            <li>
+            <li [class]="stageOf(line)">
               <app-pictogram [picto]="pictoOf(line)" [decorative]="true" />
               <span class="name">{{ line.name }}</span>&ngsp;<span class="left">{{ leftWords(line) }}</span>
             </li>
@@ -79,7 +82,7 @@ type Trouble = 'camera' | 'full' | 'storage';
         <p class="title">Qu'est-ce qui est arrivé ?</p>
         <div class="tiles">
           @for (line of lines(); track line.orderLineId) {
-            <label class="tile">
+            <label [class]="'tile ' + stageOf(line)">
               <input type="checkbox" [checked]="chosen().has(line.orderLineId)" (change)="toggle(line.orderLineId)" />
               <app-pictogram [picto]="pictoOf(line)" [decorative]="true" />
               <span>{{ line.name }}</span>
@@ -94,9 +97,9 @@ type Trouble = 'camera' | 'full' | 'storage';
 
       <app-sheet [open]="step() === 'count'" [title]="current()?.line?.name ?? ''" (closed)="close()">
         @if (current(); as now) {
-          <p class="title"><app-pictogram [picto]="pictoOf(now.line)" [decorative]="true" /> {{ now.line.name }}</p>
+          <p [class]="'title ' + stageOf(now.line)"><app-pictogram [picto]="pictoOf(now.line)" [decorative]="true" /> {{ now.line.name }}</p>
           <p class="hint">Le chef attend {{ unitWords(now.counting.expected, now.counting.unit) }}</p>
-          <app-counter [value]="count()" (valueChange)="count.set($event)" [unit]="unitWord(now.counting.unit)">
+          <app-counter [class]="stageOf(now.line)" [value]="count()" (valueChange)="count.set($event)" [unit]="unitWord(now.counting.unit)">
             @if (now.counting.unit === 'bag') {
               <app-pile kind="delivery" [count]="count()" [label]="unitWords(count(), 'bag')" />
             } @else {
@@ -149,6 +152,10 @@ type Trouble = 'camera' | 'full' | 'storage';
   `,
   styles: `
     :host { display: block; }
+    /* The bag of each feed in the colour of its stage (N.9) — to show a caretaker before adopting it */
+    .stage-starter { --feed-bag: var(--color-corn); --feed-bag-tie: var(--color-kraft); }
+    .stage-grower { --feed-bag: var(--color-pasture); --feed-bag-tie: var(--color-pasture-light); }
+    .stage-finisher { --feed-bag: var(--color-earth); --feed-bag-tie: var(--color-kraft); }
     .card {
       margin: 14px 0; padding: 12px 14px; background: var(--color-pasture-light);
       border: 3px solid var(--color-pasture); border-radius: var(--radius-wobble-3); box-shadow: var(--shadow-hard-sm); transform: rotate(-0.4deg);
@@ -265,7 +272,11 @@ export class DeliveryCard {
   });
 
   protected pictoOf(line: CaretakerDeliveryLine): PictogramName {
-    return PICTO[line.category] ?? 'received-bags';
+    return DELIVERED_PICTO[line.category] ?? 'received-bags';
+  }
+
+  protected stageOf(line: CaretakerDeliveryLine): string {
+    return line.feedStage === null ? '' : STAGE[line.feedStage].css;
   }
 
   protected unitWord(unit: CountingUnit): string {
@@ -399,7 +410,9 @@ export class DeliveryCard {
     if (now === null) return;
     this.count.set(Math.max(1, now.counting.expected));
     this.step.set('count');
-    void this.voice.say([clip(HOW_MANY[now.counting.unit])]);
+    // The feed is named first, so that the bag counted is the right one (N.9)
+    const named = now.line.feedStage === null ? [] : [clip(STAGE[now.line.feedStage].clip)];
+    void this.voice.say([...named, clip(HOW_MANY[now.counting.unit])]);
   }
 
   private say(trouble: Trouble): void {

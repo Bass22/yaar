@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { CampaignClosingRefusal, ClosedLotView, CloseCampaignRequest, ClosingReportView, CostTypeView } from '@contracts';
 import { AuthService } from '../../core/session/auth';
+import { authHeaders } from '../../core/session/auth-headers';
 
 const REFUSALS: Record<CampaignClosingRefusal['kind'], string> = {
   InvalidRequest: 'La demande est mal formée.',
@@ -20,7 +21,12 @@ const REFUSALS: Record<CampaignClosingRefusal['kind'], string> = {
   OtherSite: 'Les restes vont à une bande du même site.',
   DestinationClosed: 'La bande qui reçoit les restes est déjà close.',
   CommentTooLong: 'Le commentaire dépasse 2 000 caractères.',
+  InvalidOpenedWeight: 'Les kg restants : un nombre entier au-dessus de zéro, pour un sac d’aliment entamé.',
+  UnexplainedFeedGap: 'Les sacs d’aliment comptés ne tombent pas juste.',
 };
+
+/** Why a closing was refused: the words, and for the bags of feed, the gap the server found (N.8d). */
+export type ClosingRefused = { readonly words: string; readonly feedGap?: { readonly expected: number; readonly counted: number; readonly gap: number } };
 
 /**
  * Closing a campaign at the office (X.2): online only — the closing, its report and the closed
@@ -44,16 +50,17 @@ export class Closing {
   }
 
   /** `null` when closed; otherwise what to tell the admin. */
-  async close(campaignId: string, request: CloseCampaignRequest): Promise<string | null> {
+  async close(campaignId: string, request: CloseCampaignRequest): Promise<ClosingRefused | null> {
     try {
       await firstValueFrom(this.http.post(`/api/v1/campaigns/${campaignId}/closing`, request, { headers: this.headers() }));
       return null;
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500) {
-        const kind = (error.error as { kind?: CampaignClosingRefusal['kind'] } | null)?.kind;
-        return (kind === undefined ? undefined : REFUSALS[kind]) ?? 'La clôture est refusée.';
+        const refusal = error.error as Partial<CampaignClosingRefusal> | null;
+        const words = (refusal?.kind === undefined ? undefined : REFUSALS[refusal.kind]) ?? 'La clôture est refusée.';
+        return refusal?.kind === 'UnexplainedFeedGap' && 'gap' in refusal ? { words, feedGap: { expected: refusal.expected ?? 0, counted: refusal.counted ?? 0, gap: refusal.gap ?? 0 } } : { words };
       }
-      return 'Pas de réseau : la clôture demande le réseau. Réessaie plus tard.';
+      return { words: 'Pas de réseau : la clôture demande le réseau. Réessaie plus tard.' };
     }
   }
 
@@ -75,9 +82,8 @@ export class Closing {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 }
 
 /** `2026-11-01` → « 01/11/2026 ». */
-export const dayWords = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;

@@ -18,6 +18,7 @@ import { amountWords, Purchases } from '../purchases/purchases';
 import { Banknotes } from './banknotes';
 import { CATEGORY_PICTO, expenseReadBack, Expenses, type ExpenseProblem } from './expenses';
 import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from './transfer-fee';
+import { dayWords } from '../typed-number';
 
 type Step = 'what' | 'howMuch' | 'readBack';
 
@@ -25,7 +26,7 @@ const WORDS: Partial<Record<ExpenseProblem, string>> = {
   NoLot: 'Choisis le lot.',
   NoType: 'Choisis pour quoi tu as dépensé.',
   NoAmount: 'Tape le montant, en francs.',
-  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 F.',
+  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 FCFA.',
   NoCreditor: 'Choisis à qui tu dois.',
   SpentInFuture: 'La date ne peut pas être après aujourd’hui.',
   InvalidBusinessDay: 'La date n’est pas une date.',
@@ -48,7 +49,7 @@ const MAX_DIGITS = 9;
  * Writing an expense (P.4, P.5; bureau-admin-v2.html screens 7 to 9): what for → how much, in
  * notes while typing → the read-back said aloud → Oui. Date, note and receipt behind « Plus de
  * détails », never required. Opened from a cost, it duplicates it (`from`, nothing written until
- * the Oui) or corrects it (`corrige`, a counter-entry). Online until the office's queue (P.7).
+ * the Oui) or corrects it (`corrige`, a counter-entry). Kept in the office's queue until it leaves (P.7).
  */
 @Component({
   selector: 'app-expense-gesture-page',
@@ -62,7 +63,7 @@ const MAX_DIGITS = 9;
         @for (lot of lots(); track lot.campaignId) {
           <label class="lot">
             <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
+            {{ lot.siteName }} · {{ lot.dayLabel }}
           </label>
         }
       </div>
@@ -257,12 +258,12 @@ export class ExpenseGesturePage {
   private readonly source = computed((): CostView | null => this.expenses.money()?.costs.find((cost) => cost.id === this.sourceId) ?? null);
 
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.query.get('lot') ?? (this.office.lots().length === 1 ? (this.office.lots()[0]?.campaignId ?? '') : ''));
+  protected readonly lotId = linkedSignal(() => this.query.get('lot') ?? (this.office.currentLot()?.campaignId ?? ''));
   protected readonly lotName = computed(() => {
     const lot = this.office.lots().find((one) => one.campaignId === this.lotId());
     return lot === undefined ? null : `${lot.siteName} · Jour ${lot.campaignDay}`;
   });
-  protected readonly today = computed(() => this.office.sites()[0]?.today ?? '');
+  protected readonly today = computed(() => this.office.today());
 
   protected readonly step = signal<Step>('what');
   protected readonly typeId = signal('');
@@ -274,7 +275,7 @@ export class ExpenseGesturePage {
   protected readonly creditorId = signal('');
   /** Someone else who paid for the farm (R.4): any counterparty in use; empty when the farm pays or owes. */
   protected readonly payerId = signal('');
-  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived));
+  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived && one.advancesExpenses));
   protected readonly payerName = computed(() => (this.payerId() === '' ? null : (this.purchases.counterpartyById().get(this.payerId())?.name ?? 'lui')));
   /** The payer's transfer fees the farm takes on (R.4): taken off what it owes; and their expense's identifier. */
   protected readonly fee = signal('');
@@ -468,7 +469,3 @@ export class ExpenseGesturePage {
   }
 }
 
-const dayWords = (day: string): string => {
-  const [year, month, date] = day.split('-');
-  return `${date}/${month}/${year}`;
-};

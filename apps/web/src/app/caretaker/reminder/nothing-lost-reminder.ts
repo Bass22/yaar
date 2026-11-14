@@ -6,10 +6,8 @@ import { JournalSync } from '../../core/sync/journal-sync';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
 import { SpeakerButton } from '../../ui/speaker-button';
-import { Stamp } from '../../ui/stamp';
+import { Stamp, STAMP_MS } from '../../ui/stamp';
 import type { DeclarationTarget } from '../notebook/notebook';
-
-const STAMP_MS = 1500;
 
 // The reminder of yesterday (K.4, mockup journal-gardien.html .nudge): while yesterday's deaths
 // are not written, a post-it offers the zero in one tap — « Rien perdu hier » — or the notebook

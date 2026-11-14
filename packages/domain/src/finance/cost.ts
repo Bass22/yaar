@@ -4,6 +4,7 @@ import type { CampaignId } from '../journal/ids';
 import { Instant } from '../journal/instant';
 import type { CounterpartyKind } from './counterparty';
 import type { CostTypeId, CounterpartyId } from './purchase-order';
+import { isCanonicalUuid } from '../journal/ids';
 
 export type CostId = Brand<string, 'CostId'>;
 
@@ -79,7 +80,6 @@ export type CostRefusal =
 /** A note is long, never cut — but bounded. */
 export const NOTE_MAX_LENGTH = 2000;
 
-const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA_256_HEX = /^[0-9a-f]{64}$/;
 
 /** A cost as first written (P.1), judged against the farm. */
@@ -99,8 +99,8 @@ export function reviseCost(original: CostEntry, input: CostInput, context: CostC
 }
 
 function entryOf(input: CostInput, corrects: CostId | null, context: CostContext): Result<CostEntry, CostRefusal> {
-  if (!CANONICAL_UUID.test(input.id)) return err({ kind: 'InvalidId', expected: 'CostId' });
-  if (!CANONICAL_UUID.test(input.campaignId)) return err({ kind: 'InvalidId', expected: 'CampaignId' });
+  if (!isCanonicalUuid(input.id)) return err({ kind: 'InvalidId', expected: 'CostId' });
+  if (!isCanonicalUuid(input.campaignId)) return err({ kind: 'InvalidId', expected: 'CampaignId' });
   const spentOn = BusinessDay(input.spentOn);
   if (!spentOn.ok) return err({ kind: 'InvalidBusinessDay' });
   if (spentOn.value > context.today) return err({ kind: 'SpentInFuture' });

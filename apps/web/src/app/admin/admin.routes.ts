@@ -13,7 +13,11 @@ import { ExpenseGesturePage } from './money/expense-gesture-page';
 import { ExpensesPage } from './money/expenses-page';
 import { CounterpartyLedgerPage } from './money/counterparties/counterparty-ledger-page';
 import { LedgerPage } from './money/counterparties/ledger-page';
+import { JournalPage } from './journal/journal-page';
 import { MorePage } from './more/more-page';
+import { OrderSheetPage } from './purchases/order-sheet-page';
+import { ToReceivePage } from './purchases/to-receive-page';
+import { PriceCatalogPage } from './more/price-catalog-page';
 import { SaleGesturePage } from './sales/sale-gesture-page';
 import { SalePage } from './sales/sale-page';
 import { SalesPage } from './sales/sales-page';
@@ -35,6 +39,7 @@ export const adminRoutes: Route[] = [
       { path: 'lots/ventes', component: SalesPage },
       { path: 'lots/pesees', component: WeighingsPage },
       { path: 'lots/suivi', component: TrackingPage },
+      { path: 'lots/journal', component: JournalPage },
       { path: 'lots/budget', component: BudgetPage },
       { path: 'lots/cloture', component: ClosingPage },
       { path: 'lots/clos', component: ClosedLotsPage },
@@ -46,11 +51,15 @@ export const adminRoutes: Route[] = [
       // Before `achats/:id`, which would take them for an order.
       { path: 'achats/depenses', component: ExpensesPage },
       { path: 'achats/depense', component: ExpenseGesturePage },
+      // Before « achats/:id »: « a-recevoir » is not an order (Q.14)
+      { path: 'achats/a-recevoir', component: ToReceivePage },
       { path: 'achats/:id', component: OrderEditorPage },
+      { path: 'achats/:id/fiche', component: OrderSheetPage },
       { path: 'achats/:id/payer', component: PaymentPage },
       { path: 'tiers', component: LedgerPage },
       { path: 'tiers/:id', component: CounterpartyLedgerPage },
       { path: 'plus', component: MorePage },
+      { path: 'plus/prix', component: PriceCatalogPage },
     ],
   },
 ];

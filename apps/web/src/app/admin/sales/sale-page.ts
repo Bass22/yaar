@@ -13,6 +13,8 @@ import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from '../mone
 import { METHODS } from '../purchases/payment-page';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Sales } from './sales';
+import { currencyWord, dayWords, grouped, typedNumber, typedText } from '../typed-number';
+import { Affixed } from '../../ui/affixed';
 
 const METHOD_WORDS: Record<PaymentMethodCode, string> = { Cash: 'Espèces', Wave: 'Wave', OrangeMoney: 'Orange Money' };
 
@@ -21,7 +23,7 @@ const METHOD_WORDS: Record<PaymentMethodCode, string> = { Cash: 'Espèces', Wave
 // first (P.7); the server sums.
 @Component({
   selector: 'app-sale-page',
-  imports: [FeeField, FiguresAge, OfficePending, Pictogram, RouterLink],
+  imports: [Affixed, FeeField, FiguresAge, OfficePending, Pictogram, RouterLink],
   providers: [Sales],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -48,7 +50,7 @@ const METHOD_WORDS: Record<PaymentMethodCode, string> = { Cash: 'Espèces', Wave
       <section class="receive" aria-label="Encaisser">
         <h2>Encaisser</h2>
         <div class="when">
-          <label class="field"><span>Combien ?</span><input name="amount" type="number" inputmode="numeric" min="1" step="1" [value]="amount()" (input)="amount.set(valueOf($event))" /></label>
+          <label class="field"><span>Combien ?</span><app-affixed [unit]="currencyWord(purchases.currency())"><input name="amount" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(amount())" (input)="amount.set(typedNumber($event))" /></app-affixed></label>
           <label class="field"><span>Le</span><input name="paidOn" type="date" [value]="paidOn()" [max]="today()" (input)="paidOn.set(valueOf($event))" /></label>
         </div>
         <div class="methods" role="radiogroup" aria-label="Comment ?">
@@ -110,8 +112,11 @@ const METHOD_WORDS: Record<PaymentMethodCode, string> = { Cash: 'Espèces', Wave
   `,
 })
 export class SalePage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
+  protected readonly currencyWord = currencyWord;
   protected readonly sales = inject(Sales);
-  private readonly purchases = inject(Purchases);
+  protected readonly purchases = inject(Purchases);
   private readonly office = inject(Office);
   private readonly officeSync = inject(OfficeSync);
   private readonly route = inject(ActivatedRoute);
@@ -120,11 +125,11 @@ export class SalePage {
   protected readonly methodWords = METHOD_WORDS;
   protected readonly abs = Math.abs;
   private readonly saleId = this.route.snapshot.paramMap.get('id') ?? '';
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.currentLot()?.campaignId ?? '');
   protected readonly sale = computed(() => this.sales.view()?.sales.find((one) => one.id === this.saleId) ?? null);
   protected readonly due = computed(() => (this.sale()?.amount ?? 0) - (this.sale()?.received ?? 0));
   protected readonly buyer = computed(() => this.purchases.counterpartyById().get(this.sale()?.buyerId ?? '')?.name ?? 'Acheteur');
-  protected readonly today = computed(() => this.office.sites()[0]?.today ?? '');
+  protected readonly today = computed(() => this.office.today());
   /** What is owed is offered. */
   protected readonly amount = linkedSignal(() => (this.due() > 0 ? String(this.due()) : ''));
   protected readonly paidOn = linkedSignal(() => this.today());
@@ -152,12 +157,11 @@ export class SalePage {
   }
 
   protected day(on: string): string {
-    const [year, month, date] = on.split('-');
-    return `${date}/${month}/${year}`;
+    return dayWords(on);
   }
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected async receive(): Promise<void> {
@@ -167,7 +171,7 @@ export class SalePage {
     if (method === null) return this.problem.set('Choisis comment il a payé.');
     const request = { id: this.receiptId, paidOn: this.paidOn(), amount: this.amount().trim() === '' ? Number.NaN : Number(this.amount()), method };
     const judged = recordSaleReceipt({ ...request, saleId: this.saleId }, { currency: currency as CurrencyCode, today: this.today() as BusinessDay });
-    if (!judged.ok) return this.problem.set(judged.error.kind === 'PaidInFuture' ? 'La date ne peut pas être après aujourd’hui.' : 'Un montant en francs entiers, d’au moins 1 F.');
+    if (!judged.ok) return this.problem.set(judged.error.kind === 'PaidInFuture' ? 'La date ne peut pas être après aujourd’hui.' : 'Un montant en francs entiers, d’au moins 1 FCFA.');
     const fee = feeCost({ id: this.feeId, typed: this.fee(), method, campaignId: this.lotId() === '' ? null : this.lotId(), costTypeId: this.feeType(), on: request.paidOn, about: `encaissement ${this.buyer()}` });
     if (fee.kind === 'invalid') return this.problem.set(FEE_REFUSAL);
     this.busy.set(true);

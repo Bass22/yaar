@@ -144,7 +144,8 @@ export const effectiveJournal = (events: readonly JournalEvent[]): JournalLine[]
 
 // By recording instant, then by identifier so that two events written at the same instant
 // always come in the same order. Instants and identifiers compare as texts.
-function inWritingOrder(left: JournalEvent, right: JournalEvent): number {
+/** The order writings were made in: by recording instant, then by identifier — the last one written counts (decision of 2026-11-06). */
+export function inWritingOrder(left: { readonly recordedAt: string; readonly id: string }, right: { readonly recordedAt: string; readonly id: string }): number {
   if (left.recordedAt !== right.recordedAt) {
     return left.recordedAt < right.recordedAt ? -1 : 1;
   }

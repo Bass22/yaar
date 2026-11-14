@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { halvesOf, recordLeftovers, type LeftoverInput } from './leftovers';
+import { checkFeedCount, halvesOf, recordLeftovers, type LeftoverInput } from './leftovers';
 
 // Spec: backlog X.1 — les restes se saisissent en sacs entiers et en demi-sac entamé ; cahier des
 // charges « Les restes et le bilan » (décisions du 2026-11-12 : tout ce qui se commande sauf les
@@ -19,7 +19,7 @@ describe('Les restes saisis à la clôture', () => {
     const restes = recordLeftovers([reste()]);
 
     // Then 3 × 2 + 1 = 7 demis, compté en sacs
-    expect(restes.ok && restes.value).toEqual([{ costTypeId: DEMARRAGE, unit: 'bag', whole: 3, opened: true }]);
+    expect(restes.ok && restes.value).toEqual([{ costTypeId: DEMARRAGE, unit: 'bag', whole: 3, opened: true, openedWeight: null }]);
     expect(restes.ok && halvesOf(restes.value[0]!)).toBe(7);
   });
 
@@ -35,7 +35,7 @@ describe('Les restes saisis à la clôture', () => {
     const restes = recordLeftovers([reste({ costTypeId: VACCIN, category: 'Health', whole: 4, opened: true })]);
 
     // Then 4 × 2 + 1 = 9 demis, compté en unités
-    expect(restes.ok && restes.value).toEqual([{ costTypeId: VACCIN, unit: 'unit', whole: 4, opened: true }]);
+    expect(restes.ok && restes.value).toEqual([{ costTypeId: VACCIN, unit: 'unit', whole: 4, opened: true, openedWeight: null }]);
     expect(restes.ok && halvesOf(restes.value[0]!)).toBe(9);
   });
 
@@ -80,5 +80,49 @@ describe('Les restes saisis à la clôture', () => {
 
     expect(restes.ok && Object.isFrozen(restes.value)).toBe(true);
     expect(restes.ok && Object.isFrozen(restes.value[0])).toBe(true);
+  });
+});
+
+// Spec: backlog N.8d — les sacs d'aliment comptés à la clôture (décisions du fondateur du 2026-11-13)
+describe('Le sac d’aliment entamé, à son poids', () => {
+  it('les kg qui restent dans le sac d’aliment entamé, s’ils sont connus, en grammes', () => {
+    const restes = recordLeftovers([reste({ whole: 1, opened: true, openedWeight: 5_000 })]);
+    expect(restes.ok && restes.value).toEqual([{ costTypeId: DEMARRAGE, unit: 'bag', whole: 1, opened: true, openedWeight: 5_000 }]);
+  });
+
+  it('un poids sans sac entamé, hors de l’aliment, nul, négatif ou à virgule est refusé', () => {
+    expect([
+      recordLeftovers([reste({ opened: false, openedWeight: 5_000 })]),
+      recordLeftovers([reste({ costTypeId: VACCIN, category: 'Health', opened: true, openedWeight: 5_000 })]),
+      recordLeftovers([reste({ openedWeight: 0 })]),
+      recordLeftovers([reste({ openedWeight: -5 })]),
+      recordLeftovers([reste({ openedWeight: 2.5 })]),
+    ]).toEqual([
+      { ok: false, error: { kind: 'InvalidOpenedWeight', costTypeId: DEMARRAGE } },
+      { ok: false, error: { kind: 'InvalidOpenedWeight', costTypeId: VACCIN } },
+      { ok: false, error: { kind: 'InvalidOpenedWeight', costTypeId: DEMARRAGE } },
+      { ok: false, error: { kind: 'InvalidOpenedWeight', costTypeId: DEMARRAGE } },
+      { ok: false, error: { kind: 'InvalidOpenedWeight', costTypeId: DEMARRAGE } },
+    ]);
+  });
+});
+
+describe('Les sacs d’aliment comptés face aux attendus', () => {
+  it('le compte tombe juste : rien à expliquer', () => {
+    expect(checkFeedCount({ counted: 6, expected: 6, comment: null })).toEqual({ ok: true, value: { gap: 0, comment: null } });
+  });
+
+  it('un sac de moins qu’attendu, sans commentaire : refusé, et l’écart est dit, signé', () => {
+    const refus = { ok: false, error: { kind: 'UnexplainedFeedGap', expected: 6, counted: 5, gap: -1 } };
+    expect(checkFeedCount({ counted: 5, expected: 6, comment: null })).toEqual(refus);
+    expect(checkFeedCount({ counted: 5, expected: 6, comment: '   ' })).toEqual(refus);
+  });
+
+  it('un sac de plus qu’attendu doit s’expliquer aussi', () => {
+    expect(checkFeedCount({ counted: 7, expected: 6, comment: null })).toEqual({ ok: false, error: { kind: 'UnexplainedFeedGap', expected: 6, counted: 7, gap: 1 } });
+  });
+
+  it('un écart expliqué par un commentaire passe : le compte de l’admin fait foi, l’écart et le commentaire restent', () => {
+    expect(checkFeedCount({ counted: 5, expected: 6, comment: ' Un sac mouillé par la pluie ' })).toEqual({ ok: true, value: { gap: -1, comment: 'Un sac mouillé par la pluie' } });
   });
 });

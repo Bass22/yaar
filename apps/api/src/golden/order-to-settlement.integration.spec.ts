@@ -87,13 +87,13 @@ describe('Parcours doré : la commande du 12/10, de la commande au solde', () =>
     await db.superuser.costType.createMany({
       data: [
         { id: VETO, tenantId: TENANT, category: 'Health', name: 'Vaccins et soins', behaviour: 'Variable' },
-        { id: ALIMENT, tenantId: TENANT, category: 'Feed', name: 'Aliment', behaviour: 'Variable' },
+        { id: ALIMENT, tenantId: TENANT, category: 'Feed', name: 'Aliment', behaviour: 'Variable', bagWeight: 50_000 },
         { id: POUSSINS, tenantId: TENANT, category: 'Chicks', name: 'Poussins', behaviour: 'Variable' },
       ],
     });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();

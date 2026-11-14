@@ -14,8 +14,8 @@ import type { Gesture } from '../../gestures/gesture';
 import type { NamedLine } from '../../notebook/day-journal';
 import { Notebook, type DeclarationTarget } from '../../notebook/notebook';
 import type { NotebookDay } from '../../notebook/notebook-view';
+import { STAMP_MS } from '../../../ui/stamp';
 
-const STAMP_MS = 1500;
 /** Long enough to read twice; the voice has said it already. */
 const NOTICE_MS = 8000;
 

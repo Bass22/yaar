@@ -1,5 +1,5 @@
 import { err, Money, ok, unwrap, type CurrencyCode, type Result } from '@kit';
-import { costEntries, effectiveCosts, ledgerOf, orderEntries, recordSettlement, saleEntries, settlementEntries, type CounterpartyId, type LedgerEntry, type Settlement, type SettlementId } from '@domain/finance';
+import { costEntries, effectiveCosts, ledgerOf, orderEntries, paidAhead, recordSettlement, saleEntries, settlementEntries, type CounterpartyId, type LedgerEntry, type Settlement, type SettlementId } from '@domain/finance';
 import { recentBusinessDays, TimeZone, type BusinessDay, type TenantId } from '@domain/journal';
 import { Prisma } from '@prisma/client';
 import type { LedgerView, RecordSettlementRequest, SettlementRefusal } from '@contracts';
@@ -8,6 +8,7 @@ import type { Session } from '../auth/session';
 import { entryOf } from '../costs/costs';
 import { ordersWithMoney } from '../orders/orders';
 import { salesOf } from '../sales/sales';
+import { currencyOf } from '../tenants/currency';
 
 type Tx = Prisma.TransactionClient;
 
@@ -22,6 +23,9 @@ export async function farmLedger(tx: Tx, tenantId: TenantId): Promise<LedgerView
   const settlements = (await tx.settlement.findMany()).map((row) => settlementOf(row, currency));
   const { sales, receipts } = await salesOf(tx, currency);
   const entries: LedgerEntry[] = [...orders.flatMap(({ order, received, payments }) => orderEntries(order, received, payments)), ...costEntries(costs), ...settlementEntries(settlements), ...saleEntries(sales, receipts)];
+  // What each supplier holds paid ahead on orders still to deliver (R.8).
+  const ahead = new Map<string, number>();
+  for (const { order, received, payments } of orders) ahead.set(order.supplierId, (ahead.get(order.supplierId) ?? 0) + paidAhead(order, received, payments).amount);
   const ledger = ledgerOf(entries, currency).sort((a, b) => Math.abs(b.balance.amount) - Math.abs(a.balance.amount) || (a.counterpartyId < b.counterpartyId ? -1 : 1));
   return {
     currency,
@@ -30,6 +34,8 @@ export async function farmLedger(tx: Tx, tenantId: TenantId): Promise<LedgerView
     counterparties: ledger.map(({ counterpartyId, balance, entries: own }) => ({
       counterpartyId,
       balance: balance.amount,
+      // Never more than what it owes you: a later settlement may already have taken part of it back.
+      ...(Math.min(ahead.get(counterpartyId) ?? 0, balance.amount) > 0 ? { paidAhead: Math.min(ahead.get(counterpartyId) ?? 0, balance.amount) } : {}),
       entries: own.map(({ on, amount, source }) => ({
         on,
         amount: amount.amount,
@@ -85,10 +91,6 @@ export async function recordFarmSettlement(tx: Tx, admin: Session, request: Reco
   }
   await recordAudit(tx, admin.tenantId, { action: 'SettlementRecorded', actorId: admin.userId, subjectId: value.id, deviceId: admin.deviceId }, now);
   return ok('Recorded');
-}
-
-async function currencyOf(tx: Tx, tenantId: string): Promise<CurrencyCode> {
-  return (await tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { currency: true } })).currency as CurrencyCode;
 }
 
 // Stored rows read back as the domain's: written once by the domain, so their values are valid.

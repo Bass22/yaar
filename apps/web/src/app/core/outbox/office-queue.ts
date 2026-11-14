@@ -1,4 +1,5 @@
 import type { SessionState } from '../session/session-store';
+import { committed, done } from './idb';
 
 /** What the office writes while the network may be missing (architecture §5, P.7). */
 export type OfficeEntryKind = 'cost' | 'payment' | 'settlement' | 'sale' | 'saleReceipt';
@@ -124,21 +125,4 @@ export async function synchronizeOffice(queue: OfficeQueue, session: SessionStat
     }
   }
   return { sent, refused, stopped: null };
-}
-
-function done<T>(start: () => IDBRequest): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const request = start();
-    request.onsuccess = () => resolve(request.result as T);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// A write counts once its transaction is committed: before that, a crash would lose it.
-function committed(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
 }

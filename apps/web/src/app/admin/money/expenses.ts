@@ -8,7 +8,8 @@ import type { ScriptClip } from '../../core/audio/script-clips';
 import { fingerprintOf } from '../../core/outbox/media-queue';
 import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
-import { OfficeSync, recall, remember } from '../office-sync';
+import { OfficeSync, readOrRecall } from '../office-sync';
+import { authHeaders } from '../../core/session/auth-headers';
 
 /** What can go wrong with an expense, said in words by the screens. */
 export type ExpenseProblem = CostRefusalCode | 'NoType' | 'NoAmount' | 'NoCreditor' | 'NoLot' | 'ReceiptRefused' | 'NoNetwork' | 'ServerError' | 'StorageUnavailable';
@@ -73,21 +74,13 @@ export class Expenses {
     const url = `/api/v1/campaigns/${campaignId}/money`;
     const session = this.auth.session();
     const userId = session.status === 'none' ? '' : session.userId;
-    try {
-      const money = await firstValueFrom(this.http.get<CampaignMoneyView>(url, { headers: this.headers() }));
-      const at = this.clock.now();
-      remember(userId, url, money, at);
-      this.money.set(money);
-      this.readAt.set(at.toISOString());
-      this.unreachable.set(false);
-    } catch {
-      const kept = recall<CampaignMoneyView>(userId, url);
-      if (kept !== null) {
-        this.money.set(kept.value);
-        this.readAt.set(kept.readAt);
+    await readOrRecall<CampaignMoneyView>(this.http, url, userId, this.headers(), () => this.clock.now(), (reading, online) => {
+      if (reading !== null) {
+        this.money.set(reading.value);
+        this.readAt.set(reading.readAt);
       }
-      this.unreachable.set(true);
-    }
+      this.unreachable.set(!online);
+    });
   }
 
   /**
@@ -120,7 +113,7 @@ export class Expenses {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 
 }

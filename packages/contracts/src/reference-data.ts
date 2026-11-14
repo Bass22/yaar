@@ -47,6 +47,8 @@ export interface CostTypeView {
   readonly category: CostCategoryCode;
   readonly name: string;
   readonly behaviour: 'Fixed' | 'Variable';
+  /** The usual weight of a bag of this feed, in grams (N.8a); `null` outside feed, or when each order says it. */
+  readonly bagWeight: number | null;
   /** Its category's: only orderable types go through order → delivery. */
   readonly orderable: boolean;
   /** No longer offered; still readable wherever it appears. */

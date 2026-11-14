@@ -104,6 +104,8 @@ describe('La créance sur l’acheteur', () => {
   });
 
   it('un encaissement porte sa date, un montant d’au moins 1 F et son moyen ; jamais dans le futur', () => {
+    // Refactoring du 2026-11-14 : la vente encaissée doit être nommée par un identifiant valide
+    expect(recordSaleReceipt({ id: uuid(506), saleId: 'pas-un-uuid', paidOn: '2026-11-24', amount: 1, method: 'Cash' }, contexte)).toEqual({ ok: false, error: { kind: 'InvalidId', expected: 'SaleId' } });
     expect(recordSaleReceipt({ id: uuid(503), saleId: uuid(1), paidOn: '2026-11-24', amount: 0, method: 'Cash' }, contexte)).toEqual({ ok: false, error: { kind: 'InvalidAmount' } });
     expect(recordSaleReceipt({ id: uuid(504), saleId: uuid(1), paidOn: '2026-11-26', amount: 1, method: 'Wave' }, contexte)).toEqual({ ok: false, error: { kind: 'PaidInFuture' } });
     expect(recordSaleReceipt({ id: uuid(505), saleId: uuid(1), paidOn: '2026-11-24', amount: 1, method: 'Cheque' as never }, contexte)).toEqual({ ok: false, error: { kind: 'UnknownPaymentMethod' } });

@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post, Put } from '@nestjs/common';
-import { unwrap, type Clock, type Result } from '@kit';
-import { TenantId } from '@domain/journal';
+import { type Clock, type Result } from '@kit';
+import { isCanonicalUuid } from '@domain/journal';
 import type { BudgetRefusal, BudgetView, RecordBudgetRequest, CampaignClosingRefusal, ClosedLotView, CloseCampaignRequest, ClosingReportView, CampaignOpeningRefusal, OpenCampaignRequest, TrackingView } from '@contracts';
 import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
@@ -43,7 +43,7 @@ export class CampaignsController {
   /** The report exists only at the closing (X.2): 404 while the campaign runs. */
   @Get(':id/closing-report')
   async closingReport(@CurrentSession() session: Session, @Param('id') id: string): Promise<ClosingReportView> {
-    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignClosingReport(tx, unwrap(TenantId(session.tenantId)), id));
+    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignClosingReport(tx, session.tenantId, id));
     if (view === null) throw new NotFoundException();
     return view;
   }
@@ -51,7 +51,7 @@ export class CampaignsController {
   /** The budget of a campaign by category, against its committed cost (S.1, S.3). */
   @Get(':id/budget')
   async budget(@CurrentSession() session: Session, @Param('id') id: string): Promise<BudgetView> {
-    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignBudget(tx, unwrap(TenantId(session.tenantId)), id));
+    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignBudget(tx, session.tenantId, id));
     if (view === null) throw new NotFoundException();
     return view;
   }
@@ -67,7 +67,7 @@ export class CampaignsController {
   /** The « Suivi » of a lot (V.3): money is in it, so the admin only. */
   @Get(':id/tracking')
   async tracking(@CurrentSession() session: Session, @Param('id') id: string): Promise<TrackingView> {
-    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignTracking(tx, unwrap(TenantId(session.tenantId)), id, this.clock.now()));
+    const view = await this.prisma.runInTenant(session.tenantId, (tx) => campaignTracking(tx, session.tenantId, id, this.clock.now()));
     if (view === null) throw new NotFoundException();
     return view;
   }
@@ -106,18 +106,25 @@ function answer(result: Result<void, CampaignOpeningRefusal>): void {
   }
 }
 
-// Whitelist at the border: exactly the three fields, each leftover exactly its three fields.
+// Whitelist at the border: the three fields and the gap's comment (N.8d), each leftover its three fields and the grams left.
 function closeRequestOf(body: unknown): CloseCampaignRequest {
   const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
   const sameKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).sort().join() === [...keys].sort().join();
   const valid =
     isRecord(body) &&
-    sameKeys(body, ['comment', 'leftovers', 'leftoversTo']) &&
+    (sameKeys(body, ['comment', 'leftovers', 'leftoversTo']) || sameKeys(body, ['comment', 'feedGapComment', 'leftovers', 'leftoversTo'])) &&
     (body['comment'] === null || typeof body['comment'] === 'string') &&
+    (body['feedGapComment'] === undefined || body['feedGapComment'] === null || typeof body['feedGapComment'] === 'string') &&
     (body['leftoversTo'] === null || typeof body['leftoversTo'] === 'string') &&
     Array.isArray(body['leftovers']) &&
     (body['leftovers'] as unknown[]).every(
-      (leftover) => isRecord(leftover) && sameKeys(leftover, ['costTypeId', 'opened', 'whole']) && typeof leftover['costTypeId'] === 'string' && typeof leftover['whole'] === 'number' && typeof leftover['opened'] === 'boolean',
+      (leftover) =>
+        isRecord(leftover) &&
+        (sameKeys(leftover, ['costTypeId', 'opened', 'whole']) || sameKeys(leftover, ['costTypeId', 'opened', 'openedWeight', 'whole'])) &&
+        typeof leftover['costTypeId'] === 'string' &&
+        typeof leftover['whole'] === 'number' &&
+        typeof leftover['opened'] === 'boolean' &&
+        (leftover['openedWeight'] === undefined || leftover['openedWeight'] === null || typeof leftover['openedWeight'] === 'number'),
     );
   if (!valid) {
     throw new BadRequestException({ kind: 'InvalidRequest' });
@@ -146,7 +153,7 @@ function budgetRequestOf(body: unknown): RecordBudgetRequest {
     isRecord(body) &&
     Object.keys(body).sort().join() === 'id,lines' &&
     typeof body['id'] === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(body['id']) &&
+    isCanonicalUuid(body['id']) &&
     Array.isArray(body['lines']) &&
     (body['lines'] as unknown[]).every((line) => isRecord(line) && Object.keys(line).sort().join() === 'amount,category' && typeof line['category'] === 'string' && (line['amount'] === null || typeof line['amount'] === 'number'));
   if (!valid) {

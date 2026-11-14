@@ -44,6 +44,7 @@ export const PICTOGRAM_LABELS: Readonly<Record<PictogramName, string>> = {
   question: 'À vérifier',
   'received-bags': 'Sacs reçus',
   'round-check': 'Fait',
+  shop: 'Une entreprise',
   scale: 'Balance',
   speaker: 'Écouter',
   'stamp-done': 'Bien envoyé',

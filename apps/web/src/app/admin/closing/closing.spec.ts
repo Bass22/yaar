@@ -38,7 +38,7 @@ const contexte = (): CaretakerContext => ({
     { siteId: SUD, name: 'Poulailler Sud', timeZone: 'Africa/Dakar', today: '2026-11-04', primaryCaretakerId: null, campaigns: [lot(AU_SUD, '2026-10-20', 15)] },
   ],
 });
-const type = (id: string, category: CostTypeView['category'], name: string, fields: Partial<CostTypeView> = {}): CostTypeView => ({ id, category, name, behaviour: 'Variable', orderable: true, archived: false, ...fields });
+const type = (id: string, category: CostTypeView['category'], name: string, fields: Partial<CostTypeView> = {}): CostTypeView => ({ id, category, name, behaviour: 'Variable', bagWeight: null, orderable: true, archived: false, ...fields });
 const TYPES: CostTypeView[] = [
   type(uuid(42), 'Chicks', 'Poussins'),
   type(DEMARRAGE, 'Feed', 'Aliment démarrage'),
@@ -58,8 +58,8 @@ const bilan = (fields: Partial<ClosingReportView> = {}): ClosingReportView => ({
   birdsSold: 900,
   costs: 975_000,
   leftovers: [
-    { costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 2, opened: true, value: 37_500 },
-    { costTypeId: uuid(45), name: 'Copeaux', unit: 'bag', whole: 1, opened: false, value: null },
+    { costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 2, opened: true, openedWeight: null, value: 37_500 },
+    { costTypeId: uuid(45), name: 'Copeaux', unit: 'bag', whole: 1, opened: false, openedWeight: null, value: null },
   ],
   leftoversTo: { campaignId: SUIVANTE, siteName: 'Poulailler Nord', placementDay: '2026-11-01' },
   leftoversValue: 37_500,
@@ -70,6 +70,8 @@ const bilan = (fields: Partial<ClosingReportView> = {}): ClosingReportView => ({
   revenuePerChick: 2_250,
   profit: 1_312_500,
   comment: 'Bonne bande.\nChaleur en semaine 4.',
+  feedGap: 0,
+  feedGapComment: null,
   ...fields,
 });
 
@@ -77,7 +79,9 @@ describe('La clôture d’une bande, au bureau', () => {
   let http: HttpTestingController;
   let closings: TestRequest[];
 
-  type Answers = { report?: ClosingReportView | 404; closing?: 'ok' | 'no-network' | { status: number; kind: string }; closed?: ClosedLotView[] };
+  type Closing = 'ok' | 'no-network' | { status: number; kind: string; [field: string]: unknown };
+  // `closing`: the server's answer to every closing; or one answer a closing, in order.
+  type Answers = { report?: ClosingReportView | 404; closing?: Closing | readonly Closing[]; closed?: ClosedLotView[] };
   const ouvre = async (url: string, answers: Answers = {}) => {
     const voice = provideHeardVoice([]);
     TestBed.configureTestingModule({
@@ -102,10 +106,14 @@ describe('La clôture d’une bande, au bureau', () => {
       http.match((request) => request.url.endsWith('/closing-report')).forEach((request) => (answers.report === 404 || answers.report === undefined ? request.flush({}, { status: 404, statusText: 'Not Found' }) : request.flush(answers.report)));
       http.match((request) => request.url.endsWith('/closing')).forEach((request) => {
         closings.push(request);
-        const closing = answers.closing ?? 'ok';
+        const answer = answers.closing ?? 'ok';
+        const closing = Array.isArray(answer) ? ((answer as readonly Closing[])[closings.length - 1] ?? 'ok') : (answer as Closing);
         if (closing === 'ok') request.flush(null, { status: 204, statusText: 'No Content' });
         else if (closing === 'no-network') request.error(new ProgressEvent('error'));
-        else request.flush({ kind: closing.kind }, { status: closing.status, statusText: 'Refused' });
+        else {
+          const { status, ...body } = closing;
+          request.flush(body, { status, statusText: 'Refused' });
+        }
       });
       harness.detectChanges();
       await harness.fixture.whenStable();
@@ -167,7 +175,7 @@ describe('La clôture d’une bande, au bureau', () => {
       const { element, tap } = await ouvre(`/admin/lots/cloture?lot=${BANDE}`);
 
       // La bande visée est toujours nommée, même seule (vu à 360 px : rien ne la disait)
-      expect(text(element().querySelector('.current'))).toBe('La bande du Poulailler Nord · Jour 23');
+      expect(text(element().querySelector('.current-lot .name'))).toBe('Poulailler Nord · Jour 23');
       expect(text(element().querySelector('.nothing-left'))).toBe('Aucun reste : rien ne passe à une autre bande.');
       expect(element().querySelector('.receivers')).toBeNull();
       await tap('button.close');
@@ -203,6 +211,53 @@ describe('La clôture d’une bande, au bureau', () => {
         leftoversTo: SUIVANTE,
         comment: 'Bonne bande.',
       });
+    });
+
+    // Spec: backlog N.8d — les sacs d'aliment comptés à la clôture (décisions du fondateur du 2026-11-13)
+    it('le sac d’aliment entamé demande ses kg restants, si on les sait : envoyés en grammes ; hors de l’aliment, pas de case', async () => {
+      const { element, tap, type } = await ouvre(`/admin/lots/cloture?lot=${BANDE}`);
+
+      await type(`.leftover[data-type="${DEMARRAGE}"] input.whole`, '2');
+      expect(element().querySelector(`.leftover[data-type="${DEMARRAGE}"] input.opened-kg`)).toBeNull();
+      await tap(`.leftover[data-type="${DEMARRAGE}"] input.opened`);
+      await tap(`.leftover[data-type="${ANTIBIOTIQUE}"] input.opened`);
+      expect(element().querySelector(`.leftover[data-type="${ANTIBIOTIQUE}"] input.opened-kg`)).toBeNull();
+      await type(`.leftover[data-type="${DEMARRAGE}"] input.opened-kg`, '10');
+      await tap('.receivers input');
+      await tap('button.close');
+      await tap('.confirm button.yes');
+
+      expect((closings[0]?.request.body as { leftovers: unknown[] }).leftovers).toEqual([
+        { costTypeId: DEMARRAGE, whole: 2, opened: true, openedWeight: 10_000 },
+        { costTypeId: ANTIBIOTIQUE, whole: 0, opened: true },
+      ]);
+    });
+
+    it('des sacs d’aliment de moins qu’attendu : le serveur dit l’écart, l’écran mène au journal ou demande d’expliquer — puis la clôture repart avec l’explication', async () => {
+      const ecart = { status: 400, kind: 'UnexplainedFeedGap', expected: 3, counted: 2, gap: -1 };
+      const { element, tap, type } = await ouvre(`/admin/lots/cloture?lot=${BANDE}`, { closing: [ecart, 'ok'] });
+      await type(`.leftover[data-type="${DEMARRAGE}"] input.whole`, '2');
+      await tap('.receivers input');
+      await tap('button.close');
+      await tap('.confirm button.yes');
+
+      expect(text(element().querySelector('.feed-gap p'))).toBe('1 sac d’aliment de moins qu’attendu : 3 attendus, 2 comptés. Une ouverture n’a peut-être pas été déclarée : corrige le journal, ou explique l’écart.');
+      expect(element().querySelector('.feed-gap a.journal')?.getAttribute('href')).toBe(`/admin/lots/journal?lot=${BANDE}`);
+      expect(TestBed.inject(Router).url).toBe(`/admin/lots/cloture?lot=${BANDE}`);
+
+      await type('textarea.feed-gap-comment', 'Un sac mouillé par la pluie, jeté.');
+      await tap('button.close');
+      await tap('.confirm button.yes');
+      expect(closings[1]?.request.body).toMatchObject({ feedGapComment: 'Un sac mouillé par la pluie, jeté.' });
+      expect(TestBed.inject(Router).url).toBe(`/admin/lots/bilan/${BANDE}`);
+    });
+
+    it('des sacs de plus qu’attendu : l’écart se dit dans l’autre sens', async () => {
+      const { element, tap } = await ouvre(`/admin/lots/cloture?lot=${BANDE}`, { closing: { status: 400, kind: 'UnexplainedFeedGap', expected: 3, counted: 5, gap: 2 } });
+      await tap('button.close');
+      await tap('.confirm button.yes');
+
+      expect(text(element().querySelector('.feed-gap p'))).toBe('2 sacs d’aliment de plus qu’attendu : 3 attendus, 5 comptés. Une ouverture déclarée en trop, ou une livraison jamais déclarée ? Corrige le journal, ou explique l’écart.');
     });
 
     it('des restes effacés après avoir choisi la bande : rien ne passe, aucune bande n’est envoyée', async () => {
@@ -265,9 +320,9 @@ describe('La clôture d’une bande, au bureau', () => {
     it('le coût par poulet face au prix de vente par poussin reçu, le bénéfice', async () => {
       const { element } = await ouvre(`/admin/lots/bilan/${BANDE}`, { report: bilan() });
 
-      expect(text(element().querySelector('.kpi.cost'))).toBe('938 F coût par poussin reçu');
-      expect(text(element().querySelector('.kpi.price'))).toBe('2 250 F vente par poussin reçu');
-      expect(text(element().querySelector('.kpi.profit'))).toBe('1 312 500 F bénéfice');
+      expect(text(element().querySelector('.kpi.cost'))).toBe('938 FCFA coût par poussin reçu');
+      expect(text(element().querySelector('.kpi.price'))).toBe('2 250 FCFA vente par poussin reçu');
+      expect(text(element().querySelector('.kpi.profit'))).toBe('1 312 500 FCFA bénéfice');
       expect(element().querySelector('.kpi.profit strong')?.classList.contains('negative')).toBe(false);
     });
 
@@ -275,15 +330,28 @@ describe('La clôture d’une bande, au bureau', () => {
       const { element } = await ouvre(`/admin/lots/bilan/${BANDE}`, { report: bilan() });
 
       expect(Array.from(element().querySelectorAll('.flock .line')).map(text)).toEqual(['Poussins reçus 1 000', 'Morts 50', 'Pertes (manquants, dons, vols) 0', 'Poulets vendus 900']);
-      expect(Array.from(element().querySelectorAll('.money .line')).map(text)).toEqual(['Coûts 975 000 F', 'Restes transférés − 37 500 F', 'Coût net 937 500 F', 'Chiffre d’affaires 2 250 000 F', 'Encaissé 2 000 000 F']);
-      expect(Array.from(element().querySelectorAll('.leftovers li')).map(text)).toEqual(['Aliment démarrage : 2 sacs et un entamé 37 500 F', 'Copeaux : 1 sac valeur inconnue']);
+      expect(Array.from(element().querySelectorAll('.money .line')).map(text)).toEqual(['Coûts 975 000 FCFA', 'Restes transférés − 37 500 FCFA', 'Coût net 937 500 FCFA', 'Chiffre d’affaires 2 250 000 FCFA', 'Encaissé 2 000 000 FCFA']);
+      expect(Array.from(element().querySelectorAll('.leftovers li')).map(text)).toEqual(['Aliment démarrage : 2 sacs et un entamé 37 500 FCFA', 'Copeaux : 1 sac valeur inconnue']);
       expect(text(element().querySelector('.leftovers .to'))).toBe('Passés à la bande du Poulailler Nord mise en place le 01/11/2026.');
+    });
+
+    it('l’écart des sacs d’aliment et son explication ; le poids qui restait dans l’entamé', async () => {
+      const leftovers = [{ costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag' as const, whole: 2, opened: true, openedWeight: 10_000, value: 37_500 }];
+      const { element } = await ouvre(`/admin/lots/bilan/${BANDE}`, { report: bilan({ leftovers, feedGap: -1, feedGapComment: 'Un sac mouillé par la pluie, jeté.' }) });
+
+      expect(text(element().querySelector('.feed-gap'))).toBe('Sacs d’aliment : 1 de moins qu’attendu. Un sac mouillé par la pluie, jeté.');
+      expect(Array.from(element().querySelectorAll('.leftovers li')).map(text)).toEqual(['Aliment démarrage : 2 sacs et un entamé (10 kg) 37 500 FCFA']);
+    });
+
+    it('sans écart de sacs, le bilan n’en parle pas', async () => {
+      const { element } = await ouvre(`/admin/lots/bilan/${BANDE}`, { report: bilan() });
+      expect(element().querySelector('.feed-gap')).toBeNull();
     });
 
     it('une bande qui perd : le bénéfice est rouge et signé', async () => {
       const { element } = await ouvre(`/admin/lots/bilan/${BANDE}`, { report: bilan({ profit: -120_000 }) });
 
-      expect(text(element().querySelector('.kpi.profit strong'))).toBe('−120 000 F');
+      expect(text(element().querySelector('.kpi.profit strong'))).toBe('−120 000 FCFA');
       expect(element().querySelector('.kpi.profit strong')?.classList.contains('negative')).toBe(true);
     });
 

@@ -27,6 +27,24 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
   }
 
   /**
+   * The farms, by their identifier only (Y.3: the morning reminder goes through each of them):
+   * the transaction says it lists them (policy `tenant_listing`), and sees nothing else. Read only.
+   */
+  async tenantIds(): Promise<TenantId[]> {
+    return this.detached(() =>
+      this.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.tenant_listing', 'on', true)`;
+        return (await tx.tenant.findMany({ select: { id: true } })).map(({ id }) => id as TenantId);
+      }),
+    );
+  }
+
+  /** Work started outside the current tenant transaction, even from code that runs within one (Y.2a). */
+  detached<T>(work: () => Promise<T>): Promise<T> {
+    return this.tenantScope.exit(work);
+  }
+
+  /**
    * Runs `work` in one transaction scoped to a tenant. The tenant is set for the transaction
    * only (`set_config(..., true)`, the parameterised form of SET LOCAL): it reverts at commit
    * or rollback, so a pooled connection never carries a tenant to the next request.
@@ -59,7 +77,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       await tx.$queryRaw`SELECT set_config('app.sign_in_phone', ${phone}, true)`;
       return tx.user.findUnique({
         where: { phone },
-        select: { id: true, tenantId: true, phone: true, role: true, name: true, avatar: true, audioLanguage: true, pinHash: true, pinFailures: true, pinLastFailureAt: true, blockedAt: true, provisionalPinExpiresAt: true },
+        select: { id: true, tenantId: true, phone: true, role: true, name: true, avatar: true, audioLanguage: true, pinHash: true, blockedAt: true, provisionalPinExpiresAt: true },
       });
     });
   }

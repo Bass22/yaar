@@ -19,7 +19,7 @@ export type CampaignOpeningRefusal =
   | { readonly kind: 'UnknownStrain' }
   | { readonly kind: 'InvalidQuantity'; readonly value: number }
   | { readonly kind: 'InvalidBusinessDay' }
-  | { readonly kind: 'PlacementInFuture' }
+  | { readonly kind: 'PlacementTooFarAhead' }
   | { readonly kind: 'PlacementTooOld' }
   | { readonly kind: 'InvalidPlannedDuration'; readonly value: number }
   | { readonly kind: 'CampaignAlreadyExists' }

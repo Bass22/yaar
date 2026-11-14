@@ -66,7 +66,7 @@ describe('La photo des morts', () => {
     await db.superuser.siteAssignment.createMany({ data: [{ tenantId: TENANT, siteId: NORD, userId: OUSMANE, isPrimary: true }, { tenantId: TENANT, siteId: NORD, userId: MODOU, isPrimary: false }] });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume, vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();

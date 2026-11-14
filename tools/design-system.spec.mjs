@@ -78,13 +78,17 @@ describe('Pictos pré-cuits', () => {
     // The office's own pictos, drawn in bureau-admin-v2.html (validated on 2026-11-08), added as screens use them.
     const office = { cloche: 'bell', camion: 'truck', 'piece-f': 'coin', 'telephone-argent': 'mobile-money' };
     const officeMockup = read('bureau-admin-v2.html');
+    // Drawn after the mockups, each on a demand of the founder, each to show to the field before it is
+    // adopted: a buyer that is a business (2026-11-13, W.3 « une personne ou une entreprise »).
+    const drawnLater = { shop: '2026-11-13 — un acheteur qui est une entreprise' };
 
     assert.equal(avatars.length, 12, 'douze avatars (E.9, décision du 2026-11-07)');
     for (const [drawn, name] of Object.entries(office)) {
       assert.match(officeMockup, new RegExp(`<symbol id="${drawn}"`), `${drawn} est dessiné dans la maquette du bureau`);
       assert.ok(sources.includes(`${name}.svg`), name);
     }
-    assert.equal(sources.length, mockupSymbols.length + avatars.length + Object.keys(office).length);
+    for (const name of Object.keys(drawnLater)) assert.ok(sources.includes(`${name}.svg`), name);
+    assert.equal(sources.length, mockupSymbols.length + avatars.length + Object.keys(office).length + Object.keys(drawnLater).length);
     for (const avatar of avatars) {
       assert.ok(sources.includes(`${avatar}.svg`), avatar);
       assert.match(read('packages/design-system/src/pictograms/avatars.ts'), new RegExp(`name: '${avatar}'`), `${avatar} dans la liste fermée`);

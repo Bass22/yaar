@@ -10,7 +10,8 @@ describe('Un tiers', () => {
   });
 
   it('a pour visage un picto d’objet réel, pris dans une liste fermée — le papier pour « autre »', () => {
-    expect(COUNTERPARTY_FACES).toEqual(['closed-bag', 'chick', 'syringe', 'truck', 'caretaker', 'hen', 'drinker', 'barn', 'paper']);
+    // « Une entreprise », pour un acheteur (demande du fondateur du 2026-11-13) : ajoutée en fin de liste, rien d'ancien ne change
+    expect(COUNTERPARTY_FACES).toEqual(['closed-bag', 'chick', 'syringe', 'truck', 'caretaker', 'hen', 'drinker', 'barn', 'paper', 'shop']);
   });
 
   it('les deux listes ne se modifient pas en cours de route', () => {

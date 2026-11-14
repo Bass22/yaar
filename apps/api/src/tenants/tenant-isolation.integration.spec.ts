@@ -13,7 +13,7 @@ const TENANT_A = unwrap(TenantId('00000000-0000-4000-8000-00000000000a'));
 const TENANT_B = unwrap(TenantId('00000000-0000-4000-8000-00000000000b'));
 const SITE_A = '00000000-0000-4000-8000-0000000000a1';
 const SITE_B = '00000000-0000-4000-8000-0000000000b1';
-const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties', 'cost_types', 'purchase_orders', 'order_lines', 'payments', 'media', 'costs', 'settlements', 'sales', 'sale_receipts', 'weighing_requests', 'campaign_leftovers', 'budget_lines'];
+const TABLES = ['tenants', 'users', 'sites', 'site_assignments', 'campaigns', 'journal_events', 'audit_events', 'refused_events', 'counterparties', 'cost_types', 'purchase_orders', 'order_lines', 'payments', 'media', 'costs', 'settlements', 'sales', 'sale_receipts', 'weighing_requests', 'campaign_leftovers', 'budget_lines', 'sign_in_attempts', 'catalog_prices', 'attachments', 'sale_forecasts', 'planned_receptions', 'push_subscriptions', 'correction_reviews', 'morning_reminders', 'reception_alerts'];
 
 describe('Cloisonnement entre élevages', () => {
   let db: TestDatabase;
@@ -52,12 +52,21 @@ describe('Cloisonnement entre élevages', () => {
       await db.superuser.counterparty.create({ data: { id: `00000000-0000-4000-8000-0000000000${suffix}7`, tenantId, kind: 'Supplier', name: 'Fournisseur', face: 'truck' } });
       await db.superuser.purchaseOrder.create({ data: { id: `00000000-0000-4000-8000-0000000001${suffix}1`, tenantId, supplierId: `00000000-0000-4000-8000-0000000000${suffix}7`, campaignId, orderDay: new Date('2026-10-12'), currency: 'XOF' } });
       await db.superuser.orderLine.create({ data: { id: `00000000-0000-4000-8000-0000000001${suffix}2`, tenantId, orderId: `00000000-0000-4000-8000-0000000001${suffix}1`, position: 0, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, quantity: 20, unitPrice: 17500 } });
+      await db.superuser.plannedReception.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000005${suffix}1`, receptionId: `00000000-0000-4000-8000-0000000005${suffix}2`, orderId: `00000000-0000-4000-8000-0000000001${suffix}1`, withdrawn: true, writtenAt: new Date('2026-10-13T08:00:00.000Z'), writtenBy: userId } });
       await db.superuser.payment.create({ data: { id: `00000000-0000-4000-8000-0000000001${suffix}3`, tenantId, orderId: `00000000-0000-4000-8000-0000000001${suffix}1`, paidOn: new Date('2026-10-13'), amount: 1000, method: 'Wave', recordedBy: userId } });
       await db.superuser.media.create({ data: { tenantId, sha256: 'a'.repeat(64), byteSize: 10, contentType: 'image/jpeg', retentionClass: 'OperationalProof', uploadedBy: userId, deviceId: userId, uploadedAt: new Date('2026-10-13T08:00:00.000Z') } });
       await db.superuser.cost.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}4`, campaignId, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, spentOn: new Date('2026-10-13'), amount: 12500, paymentKind: 'Paid', recordedAt: new Date('2026-10-13T08:00:00.000Z'), recordedBy: userId } });
       await db.superuser.settlement.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}5`, counterpartyId: `00000000-0000-4000-8000-0000000000${suffix}7`, paidOn: new Date('2026-10-13'), amount: 1000, method: 'Cash', direction: 'ToCounterparty', recordedBy: userId } });
       await db.superuser.sale.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}6`, campaignId, buyerId: `00000000-0000-4000-8000-0000000000${suffix}7`, soldOn: new Date('2026-10-13'), birds: 1, pricingKind: 'PerBird', unitPrice: 2750, amount: 2750, recordedBy: userId } });
       await db.superuser.saleReceipt.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}7`, saleId: `00000000-0000-4000-8000-0000000001${suffix}6`, paidOn: new Date('2026-10-13'), amount: 2750, method: 'Cash', recordedBy: userId } });
+      await db.superuser.correctionReview.create({ data: { tenantId, correctionId: '00000000-0000-4000-8000-0000000000e1', reviewedBy: userId, reviewedAt: new Date('2026-10-13T08:00:00.000Z') } });
+      await db.superuser.morningReminder.create({ data: { tenantId, siteId, day: new Date('2026-10-13'), sentAt: new Date('2026-10-13T20:00:00.000Z') } });
+      await db.superuser.receptionAlert.create({ data: { tenantId, receptionId: '00000000-0000-4000-8000-0000000005f1', day: new Date('2026-10-13'), sentAt: new Date('2026-10-13T07:00:00.000Z') } });
+      await db.superuser.pushSubscription.create({ data: { tenantId, userId, deviceId: '00000000-0000-4000-8000-0000000000d1', endpoint: `https://fcm.googleapis.com/fcm/send/${suffix}`, p256dh: 'p', auth: 'a' } });
+      await db.superuser.signInAttempt.create({ data: { tenantId, userId, deviceId: '00000000-0000-4000-8000-0000000000d1', failures: 1 } });
+      await db.superuser.saleForecast.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000004${suffix}1`, forecastId: `00000000-0000-4000-8000-0000000004${suffix}2`, campaignId, withdrawn: true, writtenAt: new Date('2026-10-13T08:00:00.000Z'), writtenBy: userId } });
+      await db.superuser.attachment.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000003${suffix}1`, subjectKind: 'Order', subjectId: `00000000-0000-4000-8000-0000000003${suffix}2`, mediaSha256: 'a'.repeat(64), attachedAt: new Date('2026-10-13T08:00:00.000Z'), attachedBy: userId } });
+      await db.superuser.catalogPrice.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000002${suffix}1`, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, unitPrice: 17_500, setAt: new Date('2026-10-13T08:00:00.000Z'), setBy: userId } });
       await db.superuser.budgetLine.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}9`, category: 'Feed', campaignId, amount: 1_000_000, recordedAt: new Date('2026-10-13T08:00:00.000Z'), recordedBy: userId } });
       await db.superuser.campaignLeftover.create({ data: { tenantId, campaignId, costTypeId: `00000000-0000-4000-8000-0000000000${suffix}8`, whole: 2, opened: true } });
       await db.superuser.weighingRequest.create({ data: { tenantId, id: `00000000-0000-4000-8000-0000000001${suffix}8`, campaignId, requestedFor: new Date('2026-10-13'), requestedBy: userId } });
@@ -77,7 +86,7 @@ describe('Cloisonnement entre élevages', () => {
       });
     }
     // The API connects as the application role, never as the owner.
-    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons', mediaPath: '/data/medias' });
+    api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: 'un-secret-de-test-assez-long-pour-signer-des-jetons', mediaPath: '/data/medias', vapidPublicKey: null });
   });
 
   afterAll(async () => {
@@ -95,7 +104,7 @@ describe('Cloisonnement entre élevages', () => {
 
   describe('sans tenant fixé', () => {
     it("aucune ligne n'est visible, dans aucune table", async () => {
-      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0, settlements: 0, sales: 0, sale_receipts: 0, weighing_requests: 0, campaign_leftovers: 0, budget_lines: 0 });
+      expect(await countAll(api)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0, settlements: 0, sales: 0, sale_receipts: 0, weighing_requests: 0, campaign_leftovers: 0, budget_lines: 0, sign_in_attempts: 0, catalog_prices: 0, attachments: 0, sale_forecasts: 0, planned_receptions: 0, push_subscriptions: 0, correction_reviews: 0, morning_reminders: 0, reception_alerts: 0 });
     });
 
     it("rien ne s'écrit", async () => {
@@ -108,7 +117,7 @@ describe('Cloisonnement entre élevages', () => {
   // Spec: backlog D.6 — le propriétaire des tables, sous lequel tournent migrations et scripts de l'éditeur, est lié par la RLS forcée
   describe('le propriétaire des tables', () => {
     it("sans élevage fixé, ne voit aucune ligne, dans aucune table — ni le journal, ni la trace — alors qu'un superutilisateur voit tout", async () => {
-      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0, settlements: 0, sales: 0, sale_receipts: 0, weighing_requests: 0, campaign_leftovers: 0, budget_lines: 0 });
+      expect(await countAll(db.owner)).toEqual({ tenants: 0, users: 0, sites: 0, site_assignments: 0, campaigns: 0, journal_events: 0, audit_events: 0, refused_events: 0, counterparties: 0, cost_types: 0, purchase_orders: 0, order_lines: 0, payments: 0, media: 0, costs: 0, settlements: 0, sales: 0, sale_receipts: 0, weighing_requests: 0, campaign_leftovers: 0, budget_lines: 0, sign_in_attempts: 0, catalog_prices: 0, attachments: 0, sale_forecasts: 0, planned_receptions: 0, push_subscriptions: 0, correction_reviews: 0, morning_reminders: 0, reception_alerts: 0 });
       expect((await countAll(db.superuser)).journal_events).toBe(2);
     });
 
@@ -118,7 +127,7 @@ describe('Cloisonnement entre élevages', () => {
         return countAll(tx);
       });
 
-      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1, settlements: 1, sales: 1, sale_receipts: 1, weighing_requests: 1, campaign_leftovers: 1, budget_lines: 1 });
+      expect(seen).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1, settlements: 1, sales: 1, sale_receipts: 1, weighing_requests: 1, campaign_leftovers: 1, budget_lines: 1, sign_in_attempts: 1, catalog_prices: 1, attachments: 1, sale_forecasts: 1, planned_receptions: 1, push_subscriptions: 1, correction_reviews: 1, morning_reminders: 1, reception_alerts: 1 });
     });
   });
 
@@ -130,7 +139,7 @@ describe('Cloisonnement entre élevages', () => {
       const sitesOfB = await api.runInTenant(TENANT_B, (tx) => tx.site.findMany());
 
       // Then une ligne par table, la sienne
-      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1, settlements: 1, sales: 1, sale_receipts: 1, weighing_requests: 1, campaign_leftovers: 1, budget_lines: 1 });
+      expect(seenByA).toEqual({ tenants: 1, users: 1, sites: 1, site_assignments: 1, campaigns: 1, journal_events: 1, audit_events: 0, refused_events: 1, counterparties: 2, cost_types: 1, purchase_orders: 1, order_lines: 1, payments: 1, media: 1, costs: 1, settlements: 1, sales: 1, sale_receipts: 1, weighing_requests: 1, campaign_leftovers: 1, budget_lines: 1, sign_in_attempts: 1, catalog_prices: 1, attachments: 1, sale_forecasts: 1, planned_receptions: 1, push_subscriptions: 1, correction_reviews: 1, morning_reminders: 1, reception_alerts: 1 });
       expect(sitesOfA.map((site) => site.name)).toEqual(['Poulailler A']);
       expect(sitesOfB.map((site) => site.name)).toEqual(['Poulailler B']);
     });
@@ -230,6 +239,23 @@ describe('Cloisonnement entre élevages', () => {
       expect(await db.superuser.user.findFirstOrThrow({ where: { phone: '+221770000002' } })).toMatchObject({ name: 'Gardien' });
     });
 
+    // Spec: backlog Y.3 — le rappel du soir parcourt les élevages : il les voit, et rien d'autre
+    it("lister les élevages ne montre que les élevages : ni une autre table, ni l'écriture, et pas au-delà de la transaction", async () => {
+      const seen = await api.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.tenant_listing', 'on', true)`;
+        return { tenants: await tx.tenant.count(), users: await tx.user.count(), sites: await tx.site.count(), journal: await tx.journalEvent.count() };
+      });
+      const rename = api.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('app.tenant_listing', 'on', true)`;
+        return tx.tenant.updateMany({ data: { name: 'Renommé' } });
+      });
+
+      expect(seen).toEqual({ tenants: 2, users: 0, sites: 0, journal: 0 });
+      // The application may not write a farm at all: refused by PostgreSQL, not silently skipped
+      await expect(rename).rejects.toThrow(/permission denied for table tenants/);
+      expect(await api.tenant.count()).toBe(0);
+    });
+
     it("le numéro posé ne survit pas à la transaction", async () => {
       await api.findUserForSignIn('+221770000002');
 
@@ -309,8 +335,9 @@ describe('Cloisonnement entre élevages', () => {
          WHERE n.nspname = 'public' AND t.relkind = 'r' AND t.relname <> '_prisma_migrations'
          ORDER BY t.relname`;
 
-      // `users` has a second policy: the one that lets a sign-in find its row by phone number.
-      expect(tables).toEqual([...TABLES].sort().map((name) => ({ name, enabled: true, forced: true, policies: name === 'users' ? 2 : 1 })));
+      // `users` has a second policy: the one that lets a sign-in find its row by phone number;
+      // `tenants` too: the one that lets the morning reminder list the farms (Y.3).
+      expect(tables).toEqual([...TABLES].sort().map((name) => ({ name, enabled: true, forced: true, policies: name === 'users' || name === 'tenants' ? 2 : 1 })));
     });
 
     it("n'a que les droits accordés table par table : lire et écrire, jamais vider, ne supprimer qu'une affectation à un site, et seulement lire son élevage", async () => {
@@ -322,13 +349,19 @@ describe('Cloisonnement entre élevages', () => {
          GROUP BY table_name ORDER BY table_name`;
 
       expect(grants).toEqual([
+        // A photo joined to an order or a payment: added, never updated nor deleted (R.6).
+        { table_name: 'attachments', privileges: 'INSERT,SELECT' },
         { table_name: 'audit_events', privileges: 'INSERT,SELECT' },
         // Written again whole, never updated nor deleted (S.1).
         { table_name: 'budget_lines', privileges: 'INSERT,SELECT' },
         // Written once, with the closing (X.2).
         { table_name: 'campaign_leftovers', privileges: 'INSERT,SELECT' },
         { table_name: 'campaigns', privileges: 'INSERT,SELECT,UPDATE' },
+        // A price set by hand: added once, never updated nor deleted (N.5).
+        { table_name: 'catalog_prices', privileges: 'INSERT,SELECT' },
         // Archived, never deleted (N.2).
+        // « Vu » on a correction: written once (Y.2b).
+        { table_name: 'correction_reviews', privileges: 'INSERT,SELECT' },
         { table_name: 'cost_types', privileges: 'INSERT,SELECT,UPDATE' },
         // A money entry: corrected by another row, never updated nor deleted (P.2).
         { table_name: 'costs', privileges: 'INSERT,SELECT' },
@@ -338,17 +371,29 @@ describe('Cloisonnement entre élevages', () => {
         // A draft's lines are rewritten whole (Q.4).
         // Added once; the file is never removed (M.1).
         { table_name: 'media', privileges: 'INSERT,SELECT' },
+        // A morning reminder sent: written once, never changed (Y.3).
+        { table_name: 'morning_reminders', privileges: 'INSERT,SELECT' },
         { table_name: 'order_lines', privileges: 'DELETE,INSERT,SELECT' },
         // A money entry: written once, never updated nor deleted (Q.9).
         { table_name: 'payments', privileges: 'INSERT,SELECT' },
         // Closed, never deleted (Q.4).
+        // A planned reception: written line after line, never updated nor deleted (Q.14).
+        { table_name: 'planned_receptions', privileges: 'INSERT,SELECT' },
         { table_name: 'purchase_orders', privileges: 'INSERT,SELECT,UPDATE' },
+        // One per device, replaced when it subscribes again; deleted when the account is blocked or signed out (Y.1).
+        { table_name: 'push_subscriptions', privileges: 'DELETE,INSERT,SELECT,UPDATE' },
+        // A reception alert sent: written once, never changed (Q.15).
+        { table_name: 'reception_alerts', privileges: 'INSERT,SELECT' },
         { table_name: 'refused_events', privileges: 'INSERT,SELECT' },
         // Money entries: added once, never updated nor deleted (W.1).
+        // A planned sale: written line after line, never updated nor deleted (W.4).
+        { table_name: 'sale_forecasts', privileges: 'INSERT,SELECT' },
         { table_name: 'sale_receipts', privileges: 'INSERT,SELECT' },
         { table_name: 'sales', privileges: 'INSERT,SELECT' },
         // A money entry: added once, never updated nor deleted (R.2).
         { table_name: 'settlements', privileges: 'INSERT,SELECT' },
+        // Counted and reset, never deleted (E.10).
+        { table_name: 'sign_in_attempts', privileges: 'INSERT,SELECT,UPDATE' },
         // Removing a collaborator from a site erases the assignment; the audit trail keeps it (E.7).
         { table_name: 'site_assignments', privileges: 'DELETE,INSERT,SELECT,UPDATE' },
         { table_name: 'sites', privileges: 'INSERT,SELECT,UPDATE' },

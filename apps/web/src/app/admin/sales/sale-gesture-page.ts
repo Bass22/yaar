@@ -16,6 +16,8 @@ import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, TransferFees } from '../mone
 import { METHODS } from '../purchases/payment-page';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Sales, type SaleProblem } from './sales';
+import { currencyWord, grouped, typedNumber, typedText } from '../typed-number';
+import { Affixed } from '../../ui/affixed';
 
 type Step = 'whom' | 'howMany' | 'paid' | 'readBack';
 type Paid = 'all' | 'part' | 'none';
@@ -25,10 +27,10 @@ const WORDS: Partial<Record<SaleProblem, string>> = {
   NoBirds: 'Combien de poulets ? Au moins un.',
   InvalidBirds: 'Combien de poulets ? Au moins un, sans virgule.',
   NoPrice: 'Mets le prix.',
-  InvalidPrice: 'Un prix en francs entiers, d’au moins 1 F.',
+  InvalidPrice: 'Un prix en francs entiers, d’au moins 1 FCFA.',
   InvalidWeight: 'Le poids pesé, en kilos.',
   NoMethod: 'Choisis comment il a payé.',
-  InvalidAmount: 'Ce qu’il a payé : en francs entiers, d’au moins 1 F.',
+  InvalidAmount: 'Ce qu’il a payé : en francs entiers, d’au moins 1 FCFA.',
   SoldInFuture: 'La date ne peut pas être après aujourd’hui.',
   NotACustomer: 'Choisis un acheteur.',
   CounterpartyArchived: 'Cet acheteur n’est plus disponible.',
@@ -36,7 +38,11 @@ const WORDS: Partial<Record<SaleProblem, string>> = {
   StorageUnavailable: 'L’appareil n’arrive pas à garder cette vente. Réessaie, ou appelle le support.',
 };
 const SERVER_ERROR = 'La vente n’a pas pu être gardée. Réessaie.';
-const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck', 'barn', 'paper'];
+// A buyer is a person or a business (demand of the founder, 2026-11-13).
+const BUYER_FACES: readonly { readonly face: CounterpartyFaceCode; readonly word: string }[] = [
+  { face: 'caretaker', word: 'Une personne' },
+  { face: 'shop', word: 'Une entreprise' },
+];
 
 /**
  * Writing a sale (W.3), the same gesture as an expense: to whom → how many birds, at what price
@@ -46,7 +52,7 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
  */
 @Component({
   selector: 'app-sale-gesture-page',
-  imports: [FeeField, Banknotes, Pictogram, RouterLink, SpeakerButton],
+  imports: [Affixed, FeeField, Banknotes, Pictogram, RouterLink, SpeakerButton],
   providers: [Sales],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -70,8 +76,8 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
           <div class="new-buyer">
             <label class="field"><span>Son nom</span><input name="buyerName" type="text" maxlength="60" [value]="newName()" (input)="newName.set(valueOf($event))" /></label>
             <div class="faces">
-              @for (one of faces; track one) {
-                <button type="button" class="face-choice" [class.chosen]="one === newFace()" (click)="newFace.set(one)"><app-pictogram [picto]="face(one)" [decorative]="true" /></button>
+              @for (one of faces; track one.face) {
+                <button type="button" class="face-choice" [class.chosen]="one.face === newFace()" [attr.aria-pressed]="one.face === newFace()" (click)="newFace.set(one.face)"><app-pictogram [picto]="face(one.face)" [decorative]="true" /> {{ one.word }}</button>
               }
             </div>
             <button type="button" class="yes add" [disabled]="busy()" (click)="createBuyer()"><app-pictogram picto="check" [decorative]="true" /> Ajouter cet acheteur</button>
@@ -80,17 +86,17 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
       }
       @case ('howMany') {
         <h1>{{ buyerName() }} : combien de poulets ? <app-speaker-button phrase="sale-how-many" /></h1>
-        <label class="field big"><span>Poulets vendus</span><input name="birds" type="number" inputmode="numeric" min="1" step="1" [value]="birds()" (input)="birds.set(valueOf($event))" /></label>
+        <label class="field big"><span>Poulets vendus</span><app-affixed [unit]="'poulets'"><input name="birds" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(birds())" (input)="birds.set(typedNumber($event))" /></app-affixed></label>
         <div class="choices" role="radiogroup" aria-label="Le prix">
           <label class="choice" [class.on]="byHead()"><input type="radio" name="pricing" [checked]="byHead()" (change)="byHead.set(true)" /> <app-pictogram picto="hen" [decorative]="true" /> Par poulet</label>
           <label class="choice" [class.on]="!byHead()"><input type="radio" name="pricing" [checked]="!byHead()" (change)="byHead.set(false)" /> <app-pictogram picto="scale" [decorative]="true" /> Au kilo</label>
         </div>
         @if (byHead()) {
-          <label class="field big"><span>Prix d’un poulet</span><input name="unitPrice" type="number" inputmode="numeric" min="1" step="1" [value]="unitPrice()" (input)="unitPrice.set(valueOf($event))" /></label>
+          <label class="field big"><span>Prix d’un poulet</span><app-affixed [unit]="currencyWord(purchases.currency())"><input name="unitPrice" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(unitPrice())" (input)="unitPrice.set(typedNumber($event))" /></app-affixed></label>
         } @else {
           <div class="pair">
             <label class="field big"><span>Poids pesé (kg)</span><input name="kilos" type="number" inputmode="decimal" min="0" step="0.1" [value]="kilos()" (input)="kilos.set(valueOf($event))" /></label>
-            <label class="field big"><span>Prix du kilo</span><input name="pricePerKilo" type="number" inputmode="numeric" min="1" step="1" [value]="pricePerKilo()" (input)="pricePerKilo.set(valueOf($event))" /></label>
+            <label class="field big"><span>Prix du kilo</span><app-affixed [unit]="currencyWord(purchases.currency()) + ' le kg'"><input name="pricePerKilo" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(pricePerKilo())" (input)="pricePerKilo.set(typedNumber($event))" /></app-affixed></label>
           </div>
         }
         <p class="amount" aria-live="polite">{{ amount() === null ? '—' : money(amount() ?? 0) }}</p>
@@ -111,7 +117,7 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
           <label class="choice" [class.on]="paid() === 'none'"><input type="radio" name="paid" [checked]="paid() === 'none'" (change)="paid.set('none')" /> Rien, à crédit</label>
         </div>
         @if (paid() === 'part') {
-          <label class="field big"><span>Reçu tout de suite</span><input name="received" type="number" inputmode="numeric" min="1" step="1" [value]="received()" (input)="received.set(valueOf($event))" /></label>
+          <label class="field big"><span>Reçu tout de suite</span><app-affixed [unit]="currencyWord(purchases.currency())"><input name="received" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(received())" (input)="received.set(typedNumber($event))" /></app-affixed></label>
         }
         @if (paid() !== 'none') {
           <div class="methods" role="radiogroup" aria-label="Comment ?">
@@ -173,13 +179,13 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
     .plus { font: 700 2rem var(--font-hand); }
     .new-buyer { display: grid; gap: 10px; margin-block-start: 12px; padding: 12px; background: var(--color-post-it); border-radius: var(--radius-wobble-3); }
     .faces { display: flex; flex-wrap: wrap; gap: 8px; }
-    .face-choice { inline-size: 56px; block-size: 56px; border: 2px solid transparent; border-radius: var(--radius-blob); background: transparent; cursor: pointer; }
+    .face-choice { display: inline-flex; align-items: center; gap: 8px; min-block-size: 56px; padding: 0 14px 0 8px; border: 2px solid var(--color-card-edge); border-radius: var(--radius-wobble-1); background: var(--color-paper); color: var(--color-ink); font-weight: 700; cursor: pointer; }
     .face-choice app-pictogram { inline-size: 40px; block-size: 40px; }
     .face-choice.chosen { border-color: var(--color-pasture); background: var(--color-pasture-light); }
     .field { display: grid; gap: 4px; margin-block-end: 10px; font-weight: 700; color: var(--color-earth); }
     .field input { min-block-size: 48px; padding: 0 12px; border: 2px solid var(--color-card-edge); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: 1.1rem var(--font-reading); min-inline-size: 0; }
     .field.big input { font: 700 1.4rem var(--font-hand); text-align: end; font-variant-numeric: tabular-nums; }
-    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
     .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-block-end: 12px; }
     .choices.three { grid-template-columns: 1fr 1fr 1fr; }
     .choice {
@@ -226,6 +232,9 @@ const BUYER_FACES: readonly CounterpartyFaceCode[] = ['hen', 'caretaker', 'truck
   `,
 })
 export class SaleGesturePage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
+  protected readonly currencyWord = currencyWord;
   protected readonly purchases = inject(Purchases);
   private readonly office = inject(Office);
   private readonly sales = inject(Sales);
@@ -236,18 +245,18 @@ export class SaleGesturePage {
 
   protected readonly methods = METHODS;
   protected readonly faces = BUYER_FACES;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.currentLot()?.campaignId ?? '');
   protected readonly lotName = computed(() => {
     const lot = this.office.lots().find((one) => one.campaignId === this.lotId());
     return lot === undefined ? null : `${lot.siteName} · Jour ${lot.campaignDay}`;
   });
-  protected readonly today = computed(() => this.office.sites()[0]?.today ?? '');
+  protected readonly today = computed(() => this.office.today());
 
   protected readonly step = signal<Step>('whom');
   protected readonly buyerId = signal('');
   protected readonly creating = signal(false);
   protected readonly newName = signal('');
-  protected readonly newFace = signal<CounterpartyFaceCode>('hen');
+  protected readonly newFace = signal<CounterpartyFaceCode>('caretaker');
   protected readonly birds = signal('');
   protected readonly byHead = signal(true);
   protected readonly unitPrice = signal('');
@@ -308,7 +317,7 @@ export class SaleGesturePage {
   }
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected chooseBuyer(id: string): void {
@@ -321,7 +330,7 @@ export class SaleGesturePage {
   protected async createBuyer(): Promise<void> {
     if (this.newName().trim() === '' || this.busy()) return;
     this.busy.set(true);
-    const created = await this.purchases.createSupplier(this.newName(), this.newFace(), 'Customer');
+    const created = await this.purchases.createCounterparty(this.newName(), this.newFace(), 'Customer');
     this.busy.set(false);
     if ('problem' in created) return this.problem.set(created.problem === 'NoNetwork' ? 'Créer un acheteur demande le réseau.' : SERVER_ERROR);
     this.creating.set(false);

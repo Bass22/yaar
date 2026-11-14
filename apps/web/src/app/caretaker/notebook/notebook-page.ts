@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import type { BusinessDay } from '@domain/journal';
 import { clip, counted, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
@@ -13,6 +14,7 @@ import { TalkToChef } from '../gestures/talk/talk-to-chef';
 import { LineCorrection } from '../journal/correction/line-correction';
 import { NothingLostReminder } from '../reminder/nothing-lost-reminder';
 import { RefusalNotice } from '../sync/refusal-notice';
+import { PushOffer } from '../push/push-offer';
 import { WeighingCard } from '../weighing/weighing-card';
 import { Pictogram } from '../../ui/pictogram';
 import { PostIt } from '../../ui/post-it';
@@ -28,13 +30,13 @@ import { NotebookCover } from './notebook-cover';
 // opens offline from the last context received. The gestures write on the campaign and the day chosen (K).
 @Component({
   selector: 'app-notebook-page',
-  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, DeliveryCard, LineCorrection, NothingLostReminder, PhotoGesture, RefusalNotice, TalkToChef, NotebookCover, WeighingCard, Pictogram, PostIt, SpeakerButton],
+  imports: [DayJournal, DayStrip, DayTabs, CampaignChoice, DeclarationGesture, DeliveryCard, LineCorrection, NothingLostReminder, PhotoGesture, PushOffer, RefusalNotice, TalkToChef, NotebookCover, WeighingCard, Pictogram, PostIt, SpeakerButton],
   providers: [Notebook],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="notebook">
       <app-notebook-cover [name]="notebook.account()?.name ?? ''" [avatar]="notebook.account()?.avatar ?? null" [siteName]="notebook.site()?.name ?? null" [primary]="notebook.isPrimaryCaretaker()" [waiting]="sync.waiting()" />
-      <section class="notices"><app-refusal-notice /></section>
+      <section class="notices"><app-refusal-notice /><app-push-offer /></section>
 
       @if (notebook.site() === null) {
         <section class="page">
@@ -87,6 +89,12 @@ import { NotebookCover } from './notebook-cover';
           </section>
         }
       }
+      <!-- A flock still to come: its announced deliveries only — litter and feed come before the chicks (Q.11). -->
+      @for (upcoming of notebook.upcomingDeliveries(); track upcoming.campaignId) {
+        <section class="page upcoming">
+          <app-delivery-card [lines]="upcoming.lines" [target]="upcoming.target" />
+        </section>
+      }
       @if (notebook.site() !== null) {
         <section class="warn" aria-label="Prévenir le chef">
           <h2 class="warn-title"><app-pictogram picto="microphone" [decorative]="true" /> Prévenir le chef</h2>
@@ -135,6 +143,12 @@ export class NotebookPage {
   protected readonly correction = viewChild(LineCorrection);
   protected readonly deaths = DEATHS;
   protected readonly bags = BAGS;
+
+  constructor() {
+    // A tap on a notification opens the notebook on the flock it names (Y.4); one it does not have leaves the choice.
+    const asked = inject(ActivatedRoute, { optional: true })?.snapshot.queryParamMap.get('campaign');
+    if (asked) this.notebook.chooseCampaign(asked);
+  }
 
   /** « HIER », « AVANT-HIER » under the violet banner; nothing for today. */
   protected readonly pastDay = computed(() => {

@@ -56,8 +56,8 @@ export type Refusal =
   | { readonly kind: 'CorrectsItself' }
   /** The strain is not one of the publisher's. */
   | { readonly kind: 'UnknownStrain' }
-  /** A campaign is opened on the day its chicks are placed, or later: never ahead. */
-  | { readonly kind: 'PlacementInFuture' }
+  /** The placement is more than 30 days ahead (O.5): a mistyped year, most likely. */
+  | { readonly kind: 'PlacementTooFarAhead' }
   /** Placed more than 60 days ago: such a campaign would be over (or the year is mistyped). */
   | { readonly kind: 'PlacementTooOld' }
   /** A planned duration is a whole number of days, from 1 to 60. */

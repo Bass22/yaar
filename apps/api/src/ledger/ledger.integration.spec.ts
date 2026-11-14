@@ -101,7 +101,7 @@ describe('« Qui doit quoi », au bureau', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();
@@ -252,4 +252,23 @@ describe('« Qui doit quoi », au bureau', () => {
     const gardien = tokenOf(OUSMANE, TENANT_A, 'collaborator');
     expect([(await call('GET', 'ledger', undefined, gardien)).status, (await regle(unReglement(720), gardien)).status]).toEqual([403, 403]);
   });
+
+  // Spec: backlog R.8 — « payé d'avance » (le fondateur a lu « il te doit » pour un fournisseur payé avant de livrer)
+  it('un fournisseur payé avant de livrer : son solde dit la part payée d’avance, qui attend sa livraison', async () => {
+    const [BASSIROU, COMMANDE, LIGNE] = [uuid(801), uuid(802), uuid(803)];
+    await db.superuser.counterparty.create({ data: { id: BASSIROU, tenantId: TENANT_A, kind: 'Supplier', name: 'Bassirou', face: 'closed-bag' } });
+    await db.superuser.purchaseOrder.create({ data: { id: COMMANDE, tenantId: TENANT_A, supplierId: BASSIROU, campaignId: BANDE, orderDay: new Date('2026-11-12'), currency: 'XOF' } });
+    await db.superuser.orderLine.create({ data: { id: LIGNE, tenantId: TENANT_A, orderId: COMMANDE, position: 0, costTypeId: ALIMENT, quantity: 10, unitPrice: 18_000, bagWeight: 50_000 } });
+    await db.superuser.payment.create({ data: { id: uuid(804), tenantId: TENANT_A, orderId: COMMANDE, paidOn: new Date('2026-11-12'), amount: 180_000, method: 'Wave', recordedBy: LE_GERANT } });
+
+    const ligne = (await livre()).counterparties.find(({ counterpartyId }) => counterpartyId === BASSIROU);
+    // Rien reçu : 180 000 payés, rien de facturable → il a 180 000 d'avance, à livrer
+    expect(ligne).toMatchObject({ balance: 180_000, paidAhead: 180_000 });
+    expect((await livre()).counterparties.find(({ counterpartyId }) => counterpartyId === SEDIMA)).not.toHaveProperty('paidAhead');
+
+    // Bassirou rend 50 000 : il ne garde que 130 000 — la part d'avance ne dépasse jamais ce qu'il doit
+    expect((await regle(unReglement(805, { counterpartyId: BASSIROU, amount: 50_000, direction: 'FromCounterparty' }))).status).toBe(201);
+    expect((await livre()).counterparties.find(({ counterpartyId }) => counterpartyId === BASSIROU)).toMatchObject({ balance: 130_000, paidAhead: 130_000 });
+  });
 });
+

@@ -5,7 +5,7 @@ import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { PrismaService } from '../database/prisma.service';
 import { Public } from './public.decorator';
 import { PIN_HASHER, type PinHasher } from './pin-hasher';
-import { choosePin, signIn } from './sign-in';
+import { choosePin, signIn, UnknownNumberAttempts } from './sign-in';
 import { CLOCK } from './clock.token';
 
 // Whitelist at the border: exactly these fields, all strings, nothing else. A refusal never
@@ -34,6 +34,9 @@ function choosePinRequestOf(body: unknown): ChoosePinRequest {
 @Public()
 @Controller('auth')
 export class SignInController {
+  // One per instance of the API, for its life: the attempts on numbers without an account (R-16).
+  private readonly unknownNumbers = new UnknownNumberAttempts();
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PIN_HASHER) private readonly hasher: PinHasher,
@@ -55,7 +58,7 @@ export class SignInController {
   }
 
   private deps() {
-    return { prisma: this.prisma, hasher: this.hasher, clock: this.clock, jwtSecret: this.config.jwtSecret };
+    return { prisma: this.prisma, hasher: this.hasher, clock: this.clock, jwtSecret: this.config.jwtSecret, unknownNumbers: this.unknownNumbers };
   }
 
   private answer(

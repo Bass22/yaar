@@ -3,10 +3,12 @@ import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, sig
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CampaignOpeningRefusal, OpenCampaignRequest } from '@contracts';
-import { addDays, BusinessDay, DEFAULT_PLANNED_DURATION, MAX_CAMPAIGN_DAYS, STRAINS, validateCampaignOpening, type Species } from '@domain/journal';
+import { addDays, BusinessDay, DEFAULT_PLANNED_DURATION, MAX_CAMPAIGN_DAYS, MAX_DAYS_AHEAD, STRAINS, validateCampaignOpening, type Species } from '@domain/journal';
 import { AuthService } from '../../core/session/auth';
 import { Pictogram } from '../../ui/pictogram';
 import { Office } from '../office';
+import { grouped, typedNumber, typedText } from '../typed-number';
+import { Affixed } from '../../ui/affixed';
 
 type Problem = CampaignOpeningRefusal['kind'] | 'NoSite' | 'NoNetwork' | 'ServerError';
 
@@ -16,7 +18,7 @@ const WORDS: Record<Problem, string> = {
   UnknownStrain: 'Cette souche n’est pas connue.',
   InvalidQuantity: 'L’effectif prévu doit être d’au moins 1 poussin.',
   InvalidBusinessDay: 'La date de mise en place n’est pas une date.',
-  PlacementInFuture: 'La mise en place ne peut pas être dans le futur.',
+  PlacementTooFarAhead: 'La mise en place est au plus dans 30 jours.',
   PlacementTooOld: 'La mise en place date de plus de 60 jours : cette bande serait déjà finie.',
   InvalidPlannedDuration: 'La durée prévue va de 1 à 60 jours.',
   SiteNotFound: 'Ce site n’existe plus.',
@@ -32,7 +34,7 @@ const WORDS: Record<Problem, string> = {
  */
 @Component({
   selector: 'app-open-campaign-page',
-  imports: [Pictogram, RouterLink],
+  imports: [Affixed, Pictogram, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="chick" [decorative]="true" /> Ouvrir une bande</h1>
@@ -68,14 +70,13 @@ const WORDS: Record<Problem, string> = {
       <label class="question headcount">
         <span class="ask"><app-pictogram picto="chick" [decorative]="true" /> Combien de poussins ?</span>
         <span class="figure">
-          <input name="plannedHeadcount" type="number" inputmode="numeric" min="1" step="1" placeholder="—" [value]="headcount()" (input)="headcount.set(valueOf($event))" />
-          <span class="unit">poussins</span>
+          <app-affixed [unit]="'poussins'"><input name="plannedHeadcount" type="text" inputmode="numeric" autocomplete="off" placeholder="—" [value]="grouped(headcount())" (input)="headcount.set(typedNumber($event))" /></app-affixed>
         </span>
       </label>
 
       <label class="question">
         <span class="ask"><app-pictogram picto="sun" [decorative]="true" /> Mis en place le</span>
-        <input class="day" name="placementDay" type="date" [value]="placementDay()" [max]="today() ?? ''" [min]="earliest() ?? ''" (input)="placementDay.set(valueOf($event))" />
+        <input class="day" name="placementDay" type="date" [value]="placementDay()" [max]="latest() ?? ''" [min]="earliest() ?? ''" (input)="placementDay.set(valueOf($event))" />
       </label>
 
       <div class="question">
@@ -175,6 +176,8 @@ const WORDS: Record<Problem, string> = {
   `,
 })
 export class OpenCampaignPage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -203,6 +206,12 @@ export class OpenCampaignPage {
     const day = today === null ? null : BusinessDay(today);
     return day?.ok ? addDays(day.value, -MAX_CAMPAIGN_DAYS) : null;
   });
+  /** Opened ahead at most 30 days (O.5): the caretaker sees it from its day 0. */
+  protected readonly latest = computed(() => {
+    const today = this.today();
+    const day = today === null ? null : BusinessDay(today);
+    return day?.ok ? addDays(day.value, MAX_DAYS_AHEAD) : null;
+  });
   protected readonly placementDay = linkedSignal(() => this.today() ?? '');
 
   protected readonly problem = signal<Problem | null>(null);
@@ -213,7 +222,7 @@ export class OpenCampaignPage {
   }
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected async open(): Promise<void> {

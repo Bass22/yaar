@@ -4,7 +4,7 @@ import type { CampaignId, SiteId } from './ids';
 import type { Instant } from './instant';
 import { Quantity } from './quantity';
 import type { Refusal } from './refusal';
-import { STRAINS, type Strain } from './strain';
+import { strainOf, type Strain } from './strain';
 
 /** A flock on a site, as far as the field rules need to know it. */
 export type Campaign = {
@@ -20,9 +20,11 @@ export type Campaign = {
 export const DEFAULT_PLANNED_DURATION = 45;
 /** No campaign runs longer: the upper bound of a planned duration and of a resumed campaign's age. */
 export const MAX_CAMPAIGN_DAYS = 60;
+/** How far ahead a campaign may be opened, not to forget it (O.5, decision of 2026-11-13). */
+export const MAX_DAYS_AHEAD = 30;
 
 /** What the admin types to open a campaign, before any check. */
-export type CampaignOpeningRequest = {
+export type OpenCampaignRequest = {
   readonly strain: string;
   /** Chicks expected: for budgets and ratios, never the base of the live count. */
   readonly plannedHeadcount: number;
@@ -38,19 +40,20 @@ export type CampaignOpening = {
 };
 
 /**
- * Opening a campaign, judged on the site's today: placement never in the future (the notebook
- * never shows a negative day), at most 60 days back (a campaign already running when the farm
- * starts with the app; older, it would be over).
+ * Opening a campaign, judged on the site's today: placement at most 30 days ahead (opened early
+ * not to forget it; the caretaker sees it from its day 0 only), at most 60 days back (a campaign
+ * already running when the farm starts with the app; older, it would be over — history comes
+ * through the import, Z.6).
  */
-export const validateCampaignOpening = (request: CampaignOpeningRequest, today: BusinessDay): Result<CampaignOpening, Refusal> => {
-  const strain = STRAINS.find(({ code }) => code === request.strain);
-  if (strain === undefined) return err({ kind: 'UnknownStrain' });
+export const validateCampaignOpening = (request: OpenCampaignRequest, today: BusinessDay): Result<CampaignOpening, Refusal> => {
+  const strain = strainOf(request.strain);
+  if (strain === null) return err({ kind: 'UnknownStrain' });
   const plannedHeadcount = Quantity(request.plannedHeadcount);
   if (!plannedHeadcount.ok) return plannedHeadcount;
   const placementDay = BusinessDay(request.placementDay);
   if (!placementDay.ok) return placementDay;
   const age = campaignDay(placementDay.value, today);
-  if (age < 0) return err({ kind: 'PlacementInFuture' });
+  if (age < -MAX_DAYS_AHEAD) return err({ kind: 'PlacementTooFarAhead' });
   if (age > MAX_CAMPAIGN_DAYS) return err({ kind: 'PlacementTooOld' });
   const { plannedDuration } = request;
   if (!Number.isInteger(plannedDuration) || plannedDuration < 1 || plannedDuration > MAX_CAMPAIGN_DAYS) {

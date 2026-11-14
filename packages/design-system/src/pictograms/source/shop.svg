@@ -1,0 +1,8 @@
+<!-- A shop front, for a buyer that is a business (2026-11-13): an awning and a door. To show to the field before adopting. Source of the baked pictogram: edit here, then npm run bake-pictograms. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="10" y="26" width="44" height="30" fill="#F5E7C6" stroke="#6B4A2E" stroke-width="3"/>
+  <path d="M6 14 H58 L54 28 H10 Z" fill="#C0563B" stroke="#6B4A2E" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M19 14 L17 28 M32 14 V28 M45 14 L47 28" stroke="#F5E7C6" stroke-width="4"/>
+  <rect x="16" y="34" width="14" height="22" rx="1" fill="#6B4A2E"/>
+  <rect x="35" y="34" width="13" height="11" fill="#7FB3D5" stroke="#6B4A2E" stroke-width="2.5"/>
+</svg>

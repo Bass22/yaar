@@ -59,7 +59,7 @@ export async function synchronize(outbox: Outbox, session: SessionState, transpo
         await outbox.markRefused(entry.id, outcome.refusal);
         refused += 1;
       } else {
-        await outbox.markSent([entry.id]);
+        await outbox.markSent([entry.id], new Date(now));
         sent += 1;
       }
     }

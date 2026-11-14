@@ -83,3 +83,44 @@ export type SaleRefusalCode =
 export interface SaleRefusal {
   readonly kind: SaleRefusalCode;
 }
+
+/** A planned sale as the office reads it (W.4): buyer by buyer; amounts in whole units of the farm's currency. */
+export interface SaleForecastView {
+  readonly forecastId: string;
+  readonly buyerId: string;
+  /** A day of the week planned, `YYYY-MM-DD`. */
+  readonly week: string;
+  readonly birds: number;
+  readonly pricing: { readonly kind: 'PerBird' | 'PerKilo'; readonly price: number };
+  /** Grams: indicative by the bird, required by the kilo. */
+  readonly averageWeight: number | null;
+  /** What it brings, by the domain's rule. */
+  readonly expectedRevenue: number;
+}
+
+/** Answer of GET /api/v1/campaigns/:id/sale-forecasts (W.4). Admin only. */
+export interface SaleForecastsView {
+  readonly currency: string;
+  readonly closed: boolean;
+  readonly forecasts: readonly SaleForecastView[];
+  readonly expectedRevenue: number;
+  /** The flock's budget, summed; `null` without a budget. */
+  readonly budget: number | null;
+  /** Expected revenue − budget, signed; `null` without a budget. */
+  readonly expectedMargin: number | null;
+  /** The revenue of the sales made. */
+  readonly realized: number;
+}
+
+/** Body of PUT /api/v1/campaigns/:id/sale-forecasts/:forecastId (W.4): a writing of the planned sale, the last prevails. */
+export interface RecordSaleForecastRequest {
+  /** Created by the office (UUID): the identifier of this writing. */
+  readonly id: string;
+  readonly buyerId: string;
+  readonly week: string;
+  readonly birds: number;
+  readonly pricing: { readonly kind: 'PerBird' | 'PerKilo'; readonly price: number };
+  readonly averageWeight: number | null;
+}
+
+export type SaleForecastRefusalCode = 'InvalidRequest' | 'InvalidId' | 'UnknownBuyer' | 'InvalidBusinessDay' | 'WeekBeforePlacement' | 'InvalidBirds' | 'InvalidPrice' | 'InvalidWeight' | 'MissingWeight' | 'CampaignClosed';

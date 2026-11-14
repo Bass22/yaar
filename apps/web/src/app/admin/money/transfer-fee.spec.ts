@@ -3,7 +3,7 @@ import { feeCost, feeTypeOf, takesFee } from './transfer-fee';
 
 // Spec: backlog P.8 — les frais Wave et Orange Money s'écrivent au type « Frais financiers » de
 // l'élevage, encore en usage ; les espèces n'en ont pas (décisions du 2026-11-12).
-const type = (id: string, category: CostTypeView['category'], archived: boolean): CostTypeView => ({ id, category, name: id, behaviour: 'Fixed', orderable: false, archived });
+const type = (id: string, category: CostTypeView['category'], archived: boolean): CostTypeView => ({ id, category, name: id, behaviour: 'Fixed', bagWeight: null, orderable: false, archived });
 
 describe('Les frais d’un transfert', () => {
   it('seuls Wave et Orange Money coûtent des frais ; les espèces, jamais', () => {

@@ -24,7 +24,15 @@ describe('Conteneurs des tests', () => {
     await db?.drop();
   });
 
-  it("le conteneur de ce processus porte l'étiquette du lancement en cours et le numéro du processus Jest qui l'enlèvera", async () => {
+  // Stabilité des tests (2026-11-14) : un conteneur par fichier de test — 44 PostgreSQL allumés ensemble — saturait la machine
+  it('un seul PostgreSQL pour tout le lancement, migré une fois : chaque fichier de test y copie sa base neuve', () => {
+    const run = process.env['YAAR_TEST_RUN'] ?? '';
+    const listed = execFileSync('docker', ['ps', '--filter', `label=${RUN_LABEL}=${run}`, '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
+
+    expect(listed.split('\n').filter((line) => line !== '')).toHaveLength(1);
+  });
+
+  it("le conteneur du lancement porte l'étiquette du lancement en cours et le numéro du processus Jest qui l'enlèvera", async () => {
     const run = process.env['YAAR_TEST_RUN'] ?? '';
     const port = new URL(db.url).port;
 

@@ -37,7 +37,7 @@ describe('Sonde de disponibilité', () => {
 
   it('quand la base répond, la sonde répond 200 sans session', async () => {
     // Given l'API branchée, sous son rôle applicatif, sur une base qui tourne
-    const app = await startApi({ port: 0, databaseUrl: db.appUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias' });
+    const app = await startApi({ port: 0, databaseUrl: db.appUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
     apps.push(app);
 
     // When
@@ -51,7 +51,7 @@ describe('Sonde de disponibilité', () => {
   it("quand la base ne répond pas, la sonde répond 503 sans rien dire de la base, et l'API reste en vie", async () => {
     // Given l'API branchée sur une adresse où aucune base n'écoute
     const nowhere = 'postgresql://yaar:s3cr3t-de-test@127.0.0.1:1/yaar?connect_timeout=2';
-    const app = await startApi({ port: 0, databaseUrl: nowhere, jwtSecret: UN_SECRET, mediaPath: '/data/medias' });
+    const app = await startApi({ port: 0, databaseUrl: nowhere, jwtSecret: UN_SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
     apps.push(app);
     const origin = await app.getUrl();
 
@@ -70,7 +70,7 @@ describe('Sonde de disponibilité', () => {
   it("branchée par erreur sous un superutilisateur, ou sous le propriétaire des tables qui peut défaire la RLS, l'API ne se déclare jamais disponible", async () => {
     for (const databaseUrl of [db.superuserUrl, db.url]) {
       // Given l'API branchée sous un rôle qui n'est pas le sien
-      const app = await startApi({ port: 0, databaseUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias' });
+      const app = await startApi({ port: 0, databaseUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
       apps.push(app);
 
       // When
@@ -86,7 +86,7 @@ describe('Sonde de disponibilité', () => {
     const misconfigured = await createTestDatabase();
     try {
       await misconfigured.superuser.$executeRawUnsafe('ALTER TABLE sites OWNER TO yaar_app');
-      const app = await startApi({ port: 0, databaseUrl: misconfigured.appUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias' });
+      const app = await startApi({ port: 0, databaseUrl: misconfigured.appUrl, jwtSecret: UN_SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
       apps.push(app);
 
       // When

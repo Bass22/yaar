@@ -1,10 +1,14 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { CounterpartyFaceCode, CounterpartyView, CostTypeView, DraftOrderRequest, OrderRefusalCode, OrderView, RecordPaymentRequest, ReferenceData } from '@contracts';
+import type { CounterpartyFaceCode, CounterpartyView, CostTypeView, DraftOrderRequest, OrderRefusalCode, OrderView, PriceCatalogView, RecordPaymentRequest, ReferenceData } from '@contracts';
+import { Money, type CurrencyCode } from '@kit';
+import { suggestedPrice, type KnownPrice } from '@domain/finance';
 import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
 import { OfficeSync, recall, remember } from '../office-sync';
+import { currencyWord } from '../typed-number';
+import { authHeaders } from '../../core/session/auth-headers';
 
 /** What can go wrong with a purchase, said in words by the screens. */
 export type PurchaseProblem = OrderRefusalCode | 'NoSupplier' | 'NoLot' | 'InvalidName' | 'NoNetwork' | 'ServerError' | 'StorageUnavailable';
@@ -41,6 +45,36 @@ export class Purchases {
   /** Whom a cost may be owed to (P.1): a supplier or a collaborator still in use, never a customer. */
   readonly creditors = computed(() => this.counterparties().filter((counterparty) => counterparty.kind !== 'Customer' && !counterparty.archived));
 
+  /** The prices the farm knows (N.5): paid on orders, or set by hand. Read when an order is written. */
+  readonly knownPrices = signal<readonly KnownPrice[]>([]);
+
+  /** Reads the price catalog; without network, no proposal — never a made-up price. */
+  async loadPriceCatalog(): Promise<void> {
+    try {
+      const catalog = await this.get<PriceCatalogView>('/api/v1/price-catalog');
+      const currency = catalog.currency as CurrencyCode;
+      this.knownPrices.set(
+        catalog.prices.flatMap(({ costTypeId, supplierId, unitPrice, at }) => {
+          const price = Money.of(unitPrice, currency);
+          return price.ok ? [{ costTypeId, supplierId, unitPrice: price.value, at }] : [];
+        }),
+      );
+    } catch {
+      this.knownPrices.set([]);
+    }
+  }
+
+  /** The price known for an article from this supplier (N.5), else from anyone; `null` when none. */
+  knownPrice(costTypeId: string, supplierId: string): Money | null {
+    return suggestedPrice(this.knownPrices(), costTypeId, supplierId === '' ? null : supplierId);
+  }
+
+  /** The price an order proposes for an article from this supplier (N.5), as typed digits; empty when none is known. */
+  proposedPrice(costTypeId: string, supplierId: string): string {
+    const price = suggestedPrice(this.knownPrices(), costTypeId, supplierId === '' ? null : supplierId);
+    return price === null ? '' : String(price.amount);
+  }
+
   /** When the figures shown were read; without network, the last reading kept on the device (P.7). */
   readonly readAt = signal<string | null>(null);
 
@@ -73,9 +107,14 @@ export class Purchases {
   readonly customers = computed(() => this.counterparties().filter((counterparty) => counterparty.kind === 'Customer' && !counterparty.archived));
 
   /** A supplier created on the spot, while writing an order (decision of 2026-11-09) — or a buyer, while writing a sale (W.3). */
-  async createSupplier(name: string, face: CounterpartyFaceCode, kind: 'Supplier' | 'Customer' = 'Supplier'): Promise<{ readonly supplier: CounterpartyView } | { readonly problem: PurchaseProblem }> {
-    const supplier: CounterpartyView = { id: crypto.randomUUID(), kind, name: name.trim(), face, archived: false };
-    const problem = await this.send('POST', '/api/v1/counterparties', { id: supplier.id, kind: supplier.kind, name: supplier.name, face });
+  async createCounterparty(
+    name: string,
+    face: CounterpartyFaceCode,
+    kind: CounterpartyView['kind'] = 'Supplier',
+    advancesExpenses = false,
+  ): Promise<{ readonly supplier: CounterpartyView } | { readonly problem: PurchaseProblem }> {
+    const supplier: CounterpartyView = { id: crypto.randomUUID(), kind, name: name.trim(), face, advancesExpenses, archived: false };
+    const problem = await this.send('POST', '/api/v1/counterparties', { id: supplier.id, kind: supplier.kind, name: supplier.name, face, ...(advancesExpenses ? { advancesExpenses } : {}) });
     if (problem !== null) return { problem };
     this.counterparties.update((all) => [...all, supplier]);
     return { supplier };
@@ -116,14 +155,21 @@ export class Purchases {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 
   private get<T>(url: string): Promise<T> {
     return firstValueFrom(this.http.get<T>(url, { headers: this.headers() }));
   }
 
-  private async send(method: 'POST' | 'PUT', url: string, body: unknown): Promise<PurchaseProblem | null> {
+  /** May this counterparty advance money for the farm (R.7)? Kept here as soon as the server took it. */
+  async allowAdvances(counterpartyId: string, advancesExpenses: boolean): Promise<PurchaseProblem | null> {
+    const problem = await this.send('PATCH', `/api/v1/counterparties/${counterpartyId}`, { advancesExpenses });
+    if (problem === null) this.counterparties.update((all) => all.map((one) => (one.id === counterpartyId ? { ...one, advancesExpenses } : one)));
+    return problem;
+  }
+
+  private async send(method: 'POST' | 'PUT' | 'PATCH', url: string, body: unknown): Promise<PurchaseProblem | null> {
     try {
       await firstValueFrom(this.http.request(method, url, { body, headers: this.headers() }));
       return null;
@@ -135,8 +181,8 @@ export class Purchases {
   }
 }
 
-/** An amount said the way it is read: « 925 000 F ». The currency comes from the order, never written in the screen. */
+/** An amount said the way it is read: « 925 000 FCFA » (decision of the founder, 2026-11-13). The currency comes from the order, never written in the screen. */
 export function amountWords(amount: number, currency: string): string {
   const figures = String(Math.trunc(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${figures} ${currency === 'XOF' ? 'F' : currency}`;
+  return `${figures} ${currencyWord(currency)}`;
 }

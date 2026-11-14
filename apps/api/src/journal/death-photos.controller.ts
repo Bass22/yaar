@@ -1,6 +1,4 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
-import { unwrap } from '@kit';
-import { TenantId } from '@domain/journal';
 import type { DeathPhotosView } from '@contracts';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
@@ -14,7 +12,7 @@ export class DeathPhotosController {
 
   @Get('campaigns/:id/death-photos')
   async read(@CurrentSession() session: Session, @Param('id') id: string): Promise<DeathPhotosView> {
-    const view = await this.prisma.runInTenant(session.tenantId, (tx) => deathPhotos(tx, unwrap(TenantId(session.tenantId)), id));
+    const view = await this.prisma.runInTenant(session.tenantId, (tx) => deathPhotos(tx, session.tenantId, id));
     if (view === null) throw new NotFoundException();
     return view;
   }

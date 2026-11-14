@@ -1,8 +1,9 @@
 import { err, Money, ok, type Brand, type CurrencyCode, type MoneyError, type Result } from '@kit';
 import { BusinessDay } from '../journal/business-day';
-import { CampaignId, OrderLineId } from '../journal/ids';
+import { CampaignId, OrderLineId, isCanonicalUuid } from '../journal/ids';
 import type { Instant } from '../journal/instant';
 import { Quantity } from '../journal/quantity';
+import { Weight } from '../journal/weight';
 
 export type PurchaseOrderId = Brand<string, 'PurchaseOrderId'>;
 export type CounterpartyId = Brand<string, 'CounterpartyId'>;
@@ -21,6 +22,9 @@ export type OrderRefusal =
   | { readonly kind: 'CostTypeArchived'; readonly lineId: string }
   | { readonly kind: 'InvalidQuantity'; readonly lineId: string }
   | { readonly kind: 'InvalidUnitPrice'; readonly lineId: string }
+  | { readonly kind: 'MissingBagWeight'; readonly lineId: string }
+  | { readonly kind: 'UnexpectedBagWeight'; readonly lineId: string }
+  | { readonly kind: 'InvalidBagWeight'; readonly lineId: string }
   | { readonly kind: 'DuplicateLine'; readonly lineId: string }
   /** Only a draft changes: once announced, the caretaker's card depends on it. */
   | { readonly kind: 'OrderAnnounced' }
@@ -36,6 +40,11 @@ export type OrderLine = {
   readonly costTypeId: CostTypeId;
   readonly quantity: Quantity;
   readonly unitPrice: Money;
+  /**
+   * The weight of one bag of a feed line, in grams (N.8a): a fact of the purchase, copied from the
+   * type's usual weight or written for this order; `null` for a line that is not feed.
+   */
+  readonly bagWeight: Weight | null;
 };
 
 export type PurchaseOrder = {
@@ -60,22 +69,28 @@ export type DraftOrderInput = {
   readonly campaignId: string;
   readonly orderDay: string;
   readonly reference: string | null;
-  readonly lines: readonly { readonly id: string; readonly costTypeId: string; readonly quantity: number; readonly unitPrice: number }[];
+  readonly lines: readonly { readonly id: string; readonly costTypeId: string; readonly quantity: number; readonly unitPrice: number; readonly bagWeight?: number | null }[];
 };
 
 /** Who and what the farm has: an order is judged against it. */
 export type DraftOrderContext = {
   readonly currency: CurrencyCode;
   readonly counterparties: readonly { readonly id: string; readonly kind: 'Supplier' | 'Customer' | 'Collaborator'; readonly archived: boolean }[];
-  readonly costTypes: readonly { readonly id: string; readonly orderable: boolean; readonly archived: boolean }[];
+  readonly costTypes: readonly {
+    readonly id: string;
+    readonly category: string;
+    /** The usual weight of its bag, in grams; `null` when none (feed bought by weight). */
+    readonly bagWeight: number | null;
+    readonly orderable: boolean;
+    readonly archived: boolean;
+  }[];
 };
 
 /** Deduced, never written: from the announcement, the closing, what each line received, and the payments. */
 export type OrderStatus = 'Draft' | 'Announced' | 'PartiallyReceived' | 'Received' | 'Closed' | 'Settled';
 
-const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const idAs = <Id extends string>(raw: string, expected: Extract<OrderRefusal, { kind: 'InvalidId' }>['expected']): Result<Id, OrderRefusal> =>
-  CANONICAL_UUID.test(raw) ? ok(raw as Id) : err({ kind: 'InvalidId', expected });
+  isCanonicalUuid(raw) ? ok(raw as Id) : err({ kind: 'InvalidId', expected });
 
 /** A draft order, judged whole: header, supplier, every line. The result is frozen. */
 export const draftOrder = (input: DraftOrderInput, context: DraftOrderContext): Result<PurchaseOrder, OrderRefusal> => {
@@ -129,7 +144,18 @@ function lineOf(raw: DraftOrderInput['lines'][number], context: DraftOrderContex
   if (!quantity.ok) return err({ kind: 'InvalidQuantity', lineId: raw.id });
   const unitPrice = Money.of(raw.unitPrice, context.currency);
   if (!unitPrice.ok) return err({ kind: 'InvalidUnitPrice', lineId: raw.id });
-  return ok(Object.freeze({ id: id.value, costTypeId: costTypeId.value, quantity: quantity.value, unitPrice: unitPrice.value }));
+  const bagWeight = bagWeightOf(raw.bagWeight ?? null, costType);
+  if (!bagWeight.ok) return err({ kind: bagWeight.error, lineId: raw.id });
+  return ok(Object.freeze({ id: id.value, costTypeId: costTypeId.value, quantity: quantity.value, unitPrice: unitPrice.value, bagWeight: bagWeight.value }));
+}
+
+// A feed line weighs its bag: written for this order, else the type's usual weight (N.8a).
+function bagWeightOf(written: number | null, costType: DraftOrderContext['costTypes'][number]): Result<Weight | null, 'MissingBagWeight' | 'UnexpectedBagWeight' | 'InvalidBagWeight'> {
+  if (costType.category !== 'Feed') return written === null ? ok(null) : err('UnexpectedBagWeight');
+  const grams = written ?? costType.bagWeight;
+  if (grams === null) return err('MissingBagWeight');
+  const weight = Weight(grams);
+  return weight.ok ? ok(weight.value) : err('InvalidBagWeight');
 }
 
 /** Only a draft changes, judged whole again, under the same identifier. */
@@ -169,7 +195,8 @@ export const orderStatus = (order: PurchaseOrder, received: ReadonlyMap<string, 
 };
 
 // A bonus counts: a line is received once it has at least its quantity.
-const fullyReceived = (order: PurchaseOrder, received: ReadonlyMap<string, number>): boolean => order.lines.every((line) => (received.get(line.id) ?? 0) >= line.quantity);
+/** Every line received at least in full. */
+export const fullyReceived = (order: PurchaseOrder, received: ReadonlyMap<string, number>): boolean => order.lines.every((line) => (received.get(line.id) ?? 0) >= line.quantity);
 
 /** What the lines being typed come to, in the farm's currency: `Σ quantity × unit price`. Exact, never a float. */
 export const orderedAmount = (lines: readonly { readonly quantity: number; readonly unitPrice: number }[], currency: CurrencyCode): Result<Money, MoneyError> => {

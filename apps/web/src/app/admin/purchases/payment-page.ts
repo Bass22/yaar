@@ -8,6 +8,8 @@ import { Pictogram } from '../../ui/pictogram';
 import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, takesFee, TransferFees } from '../money/transfer-fee';
 import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
+import { currencyWord, dayWords, grouped, typedNumber, typedText } from '../typed-number';
+import { Affixed } from '../../ui/affixed';
 
 /** Each way of paying with its picture, its colour and its word. No brand mark: a phone for both mobile moneys. */
 export const METHODS: readonly { readonly code: PaymentMethodCode; readonly picto: PictogramName; readonly tone: string; readonly words: string }[] = [
@@ -19,7 +21,7 @@ const METHOD_WORDS: Record<PaymentMethodCode, string> = { Cash: 'Espèces', Wave
 
 const WORDS: Partial<Record<PurchaseProblem | 'NoMethod', string>> = {
   NoMethod: 'Choisis comment tu as payé.',
-  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 F.',
+  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 FCFA.',
   InvalidBusinessDay: 'La date n’est pas une date.',
   UnknownPaymentMethod: 'Choisis comment tu as payé.',
   OrderNotFound: 'Cette commande n’existe plus.',
@@ -35,7 +37,7 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
  */
 @Component({
   selector: 'app-payment-page',
-  imports: [FeeField, Pictogram, RouterLink],
+  imports: [Affixed, FeeField, Pictogram, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="coin" [decorative]="true" /> Payer {{ supplier() }}</h1>
@@ -67,7 +69,7 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
         <div class="when">
           <label class="field">
             <span>Combien ?</span>
-            <input name="amount" type="number" inputmode="numeric" min="1" step="1" [value]="amount()" (input)="amount.set(valueOf($event))" />
+            <app-affixed [unit]="currencyWord(purchases.currency())"><input name="amount" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(amount())" (input)="amount.set(typedNumber($event))" /></app-affixed>
           </label>
           <label class="field">
             <span>Payé le</span>
@@ -186,6 +188,9 @@ const SERVER_ERROR = 'Le serveur n’a pas pu enregistrer le paiement. Réessaie
   `,
 })
 export class PaymentPage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
+  protected readonly currencyWord = currencyWord;
   protected readonly purchases = inject(Purchases);
   private readonly office = inject(Office);
   private readonly router = inject(Router);
@@ -202,7 +207,7 @@ export class PaymentPage {
 
   /** What is left to pay is offered; nothing when nothing is left. */
   protected readonly amount = linkedSignal(() => (this.left() > 0 ? String(this.left()) : ''));
-  protected readonly paidOn = linkedSignal(() => this.office.sites()[0]?.today ?? '');
+  protected readonly paidOn = linkedSignal(() => this.office.today());
   /** Never chosen for the admin. */
   protected readonly method = signal<PaymentMethodCode | null>(null);
   protected readonly busy = signal(false);
@@ -215,7 +220,7 @@ export class PaymentPage {
   protected readonly feeType = computed(() => feeTypeOf(this.purchases.activeCostTypes()));
   /** Someone else who paid the order for the farm (R.4): any counterparty in use but its supplier. */
   protected readonly payerId = signal('');
-  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived && one.id !== this.order()?.supplierId));
+  protected readonly payers = computed(() => [...this.purchases.counterpartyById().values()].filter((one) => !one.archived && one.advancesExpenses && one.id !== this.order()?.supplierId));
   protected readonly mobileMoney = computed(() => takesFee(this.method()));
   protected readonly payerName = computed(() => (this.payerId() === '' ? null : this.nameOf(this.payerId())));
   private readonly fees = inject(TransferFees);
@@ -237,12 +242,11 @@ export class PaymentPage {
   }
 
   protected dayWords(day: string): string {
-    const [year, month, date] = day.split('-');
-    return `${date}/${month}/${year}`;
+    return dayWords(day);
   }
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected async pay(): Promise<void> {

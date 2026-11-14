@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { RouterLink } from '@angular/router';
 import type { ClosedLotView } from '@contracts';
 import { Pictogram } from '../../ui/pictogram';
-import { Closing, dayWords } from './closing';
+import { Closing } from './closing';
+import { dayWords } from '../typed-number';
 
 // The closed lots (X.2): they stay readable, each leading to its report. Online only.
 @Component({

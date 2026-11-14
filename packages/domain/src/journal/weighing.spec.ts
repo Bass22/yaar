@@ -7,7 +7,7 @@ import { MediaFingerprint } from './media-fingerprint';
 import { CounterDeclaration, Declaration, Retraction, type EventEnvelope, type Fact } from './journal-event';
 import { STRAINS } from './strain';
 import { Weight } from './weight';
-import { averageWeight, validateWeighing, validateWeighingValidation, weightBounds, weightCurve, WEIGHING_WEIGHTS } from './weighing';
+import { answeredWeighingRequests, averageWeight, outOfBounds, validateWeighing, validateWeighingValidation, weightBounds, weightCurve, WEIGHING_WEIGHTS } from './weighing';
 
 // Spec: backlog T.1 — une pesée, sa moyenne et sa validation ; T.3 — les bornes contre une faute de
 // frappe ; cahier des charges « Les pesées » (décisions du 2026-11-12 : bornes de la moitié au double
@@ -68,6 +68,12 @@ describe('Les bornes contre une faute de frappe', () => {
     expect(weightBounds(COBB, 70)).toEqual({ min: Math.round(dernier / 2), max: dernier * 2 });
     expect(weightBounds(COBB, -2)).toEqual(weightBounds(COBB, 0));
   });
+
+  // Refactoring du 2026-11-14 : le cahier et le bureau disaient chacun « hors des bornes » ; la règle est ici
+  it('un poids hors des bornes alerte : sous la moitié ou au-dessus du double ; les bornes elles-mêmes sont dedans', () => {
+    const { min, max } = weightBounds(COBB, 28);
+    expect([outOfBounds(COBB, 28, min - 1), outOfBounds(COBB, 28, min), outOfBounds(COBB, 28, max), outOfBounds(COBB, 28, max + 1)]).toEqual([true, false, false, true]);
+  });
 });
 
 describe('La validation de l’admin, et la courbe réelle', () => {
@@ -109,5 +115,15 @@ describe('La validation de l’admin, et la courbe réelle', () => {
     const annulee = Retraction(signe(5), seconde.id);
 
     expect(weightCurve([seconde, valide(11, 3), annulee], jour('2026-10-12'))).toEqual([]);
+  });
+});
+
+// Refactoring du 2026-11-14 : le cahier et le bureau disaient chacun quelles demandes une pesée a répondues
+describe('Les demandes de pesée auxquelles une pesée répond', () => {
+  it('une pesée en vigueur répond à sa demande ; annulée, elle n’y répond plus', () => {
+    const pesage = Declaration(signe(3), pesee(3, 1820, 1905, 1760, 1880, 1850));
+
+    expect([...answeredWeighingRequests([pesage])]).toEqual([DEMANDE]);
+    expect([...answeredWeighingRequests([pesage, Retraction(signe(5), pesage.id)])]).toEqual([]);
   });
 });

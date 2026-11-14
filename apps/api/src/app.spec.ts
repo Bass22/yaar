@@ -95,6 +95,8 @@ describe("Démarrage de l'API", () => {
       .sort();
 
     expect(routes).toEqual([
+      // The device signs out: its notifications stop (Y.1).
+      'DELETE /api/v1/push-subscription',
       'DELETE /api/v1/sites/:siteId/staff/:userId',
       // The caretaker's notebook, filtered by the server: their sites only, no money (F.3).
       // Admin only: the budget of a campaign by category, against its committed cost (S.1).
@@ -103,9 +105,13 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/campaigns/:id/closing-report',
       // Admin only: how each caretaker answered for the dead, photo or not (K.6).
       'GET /api/v1/campaigns/:id/death-photos',
+      // Admin only: every declaration of a campaign, with its correction and its retraction (O.7).
+      'GET /api/v1/campaigns/:id/journal',
       // Admin only: the money of a campaign — committed, cost per bird, costs and their history (P.3).
       'GET /api/v1/campaigns/:id/money',
       // Admin only: the sales of a campaign, revenue, cashed in, margin, average price (W.3).
+      // Admin only: the planned sales of a flock, buyer by buyer, against its budget (W.4).
+      'GET /api/v1/campaigns/:id/sale-forecasts',
       'GET /api/v1/campaigns/:id/sales',
       // Admin only: the « Suivi » of a lot — cost per bird, mortality, feed, curve, sales from the first (V.3).
       'GET /api/v1/campaigns/:id/tracking',
@@ -115,6 +121,8 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/campaigns/closed',
       'GET /api/v1/caretaker/context',
       // Admin only: the farm's cost types under the base, archived ones marked (N.2).
+      // Admin only: the corrections caretakers wrote, waiting for « Vu » (Y.2b).
+      'GET /api/v1/corrections/to-review',
       'GET /api/v1/cost-types',
       // Admin only: the farm's counterparties, archived ones marked (N.3).
       'GET /api/v1/counterparties',
@@ -126,6 +134,12 @@ describe("Démarrage de l'API", () => {
       'GET /api/v1/media/:sha256',
       // Admin only: the farm's orders, their state deduced from the journal (Q.4).
       'GET /api/v1/orders',
+      // Admin only: the prices the farm knows, paid or set by hand, to propose (N.5).
+      'GET /api/v1/price-catalog',
+      // Admin only: the planned receptions of the open orders, followed by what was received (Q.14).
+      // Every role: the key a browser subscribes with; never the private one (Y.1).
+      'GET /api/v1/push/public-key',
+      'GET /api/v1/receptions',
       // Admin only: the publisher's base, read and never written nor deleted by a route (N.1).
       'GET /api/v1/reference-data',
       // Admin only: a cost type's name and fixed/variable flag — never its category (N.2).
@@ -136,13 +150,19 @@ describe("Démarrage de l'API", () => {
       'PATCH /api/v1/sites/:siteId',
       // Admin only: the avatar and the language of an account (E.9) — neither the role nor the PIN.
       'PATCH /api/v1/users/:userId',
+      // Admin only: a photo joined to an order or a payment, at the time or later (R.6).
+      'POST /api/v1/attachments',
       'POST /api/v1/auth/choose-pin',
       'POST /api/v1/auth/sign-in',
       // Admin only: a campaign on a site of the farm of the session, judged by the domain (O.2).
       'POST /api/v1/campaigns',
       // Admin only, online: close a campaign with its leftovers and its comment, traced (X.2).
       'POST /api/v1/campaigns/:id/closing',
+      // Admin only: a planned sale withdrawn, the earlier writings kept (W.4).
+      'POST /api/v1/campaigns/:id/sale-forecasts/:forecastId/withdraw',
       // Admin only: a cost type under a category of the base (N.2).
+      // Admin only: « Vu », traced; the journal is not touched (Y.2b).
+      'POST /api/v1/corrections/:id/review',
       'POST /api/v1/cost-types',
       // Admin only: archived, never deleted (N.2).
       'POST /api/v1/cost-types/:id/archive',
@@ -164,6 +184,10 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/orders/:id/close',
       // Admin only: a payment of an order, kept once when sent twice (Q.9).
       'POST /api/v1/orders/:id/payments',
+      // Admin only: a planned reception withdrawn, the earlier writings kept (Q.14).
+      'POST /api/v1/orders/:id/receptions/:receptionId/withdraw',
+      // Admin only: a price set by hand for an article, for one supplier or for all (N.5).
+      'POST /api/v1/price-catalog',
       // Admin only: a sale, the amount computed by the server, kept once when sent twice (W.3).
       'POST /api/v1/sales',
       // Admin only: money received later for a sale (W.3).
@@ -184,9 +208,15 @@ describe("Démarrage de l'API", () => {
       'POST /api/v1/weighing-requests',
       // Admin only, online: the budget of a campaign written again, the latest counting, traced (S.1).
       'PUT /api/v1/campaigns/:id/budget',
+      // Admin only: a writing of a planned sale, the last prevails (W.4).
+      'PUT /api/v1/campaigns/:id/sale-forecasts/:forecastId',
       'PUT /api/v1/media/:sha256',
       // Admin only: a draft rewritten whole (Q.4).
       'PUT /api/v1/orders/:id',
+      // Admin only: a writing of a planned reception — a new day reschedules it (Q.14).
+      'PUT /api/v1/orders/:id/receptions/:receptionId',
+      // Every role: the device signed in subscribes, to the person on it (Y.1).
+      'PUT /api/v1/push-subscription',
       'PUT /api/v1/sites/:siteId/primary-caretaker',
       'PUT /api/v1/sites/:siteId/staff/:userId',
     ]);

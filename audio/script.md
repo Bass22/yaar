@@ -145,6 +145,9 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 |---|---|---|---|
 | `delivery-announced` | Le chef a commandé. Quand le camion arrive, appuie sur le bouton vert, et compte ce qui est arrivé. | Carte de livraison annoncée (Q.7 : une carte pour toutes les lignes attendues) | |
 | `delivery-choose` | Qu'est-ce que le camion a apporté ? Touche chaque chose, puis appuie sur « Je compte ». | Plusieurs lignes attendues : le choix s'ouvre (Q.7) | |
+| `feed-starter` | Aliment de démarrage. | Le compteur s'ouvre sur un aliment de démarrage, juste avant « Combien de sacs reçus ? » (N.9 : le sac jaune) | |
+| `feed-grower` | Aliment de croissance. | Même chose, aliment de croissance (N.9 : le sac vert) | |
+| `feed-finisher` | Aliment de finition. | Même chose, aliment de finition (N.9 : le sac brun) | |
 | `delivery-how-many` | Combien de sacs reçus ? Sur l'écran, chaque paquet dessiné fait quatre sacs. Compte, et corrige si besoin. | Le compteur s'ouvre sur des sacs | |
 | `delivery-how-many-boxes` | Combien de cartons de poussins reçus ? Compte les cartons. | Le compteur s'ouvre sur des cartons de poussins (Q.7) | |
 | `delivery-how-many-units` | Combien en as-tu reçu ? Compte, et corrige si besoin. | Le compteur s'ouvre sur autre chose (Q.7) | |
@@ -157,6 +160,13 @@ Un téléphone = une personne (décision du 2026-11-08) : l'entrée ne demande q
 | `delivery-paper` | Dernière chose : le papier du livreur. Prends-le en photo. S'il n'y a pas de papier, appuie sur le bouton gris. | Après la dernière ligne comptée | |
 | `delivery-paper-camera-refused` | L'appareil photo ne s'ouvre pas. Appuie sur « Pas de papier », et garde le papier pour le chef. | Photo du papier illisible (Q.8) | |
 | `delivery-paper-saved` | C'est noté, et le papier est bien gardé. Merci ! | Réception avec papier | |
+
+## 8 bis. Notifications (Y.1)
+
+| Id | Phrase | Quand | Wolof |
+|---|---|---|---|
+| `push-ask` | Le chef peut te prévenir sur ce téléphone : une livraison, une pesée, le rappel du soir. Appuie sur Oui, puis sur « Autoriser ». | Carte « Le chef peut te prévenir » (Y.1) | |
+| `push-on` | C'est fait : le chef pourra te prévenir. | Le téléphone est abonné | |
 
 ## 9. Pesée
 
@@ -287,4 +297,4 @@ Enregistrés **seuls**, chacun dans un fichier, avec l'intonation d'une fin de p
 | `unit-kilo`, `unit-kilos` | kilo, kilos | |
 | `unit-grams` | grammes | |
 
-**Volume total** : environ 467 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.
+**Volume total** : environ 472 fichiers par langue, dont 285 pour les phrases dites une fois par nombre (les jours de la bande de 1 à 60, les poulets de la pesée de 1 à 5, le reste de 1 à 20) — compter deux à trois heures d'enregistrement, pauses comprises, en une ou deux séances.

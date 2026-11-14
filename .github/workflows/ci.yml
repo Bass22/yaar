@@ -75,3 +75,10 @@ jobs:
       - name: Lint, tests, typage et build de tous les projets (pas de base fiable)
         if: steps.base.outputs.sha == ''
         run: npx nx run-many -t lint test typecheck build
+
+      # Le budget de la vue gardien (Z.1) : sur le build de production, dans le Chrome de la machine
+      # de CI, le cahier démarre en moins de 2,5 s en 3G et sa route pèse moins de 200 Ko gzip.
+      - name: Budget de performance de la vue gardien
+        run: |
+          npx nx build web
+          node tools/perf-budget.mjs

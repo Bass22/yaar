@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, Injectable, computed, inject, input
 import type { CostTypeView, PaymentMethodCode, RecordCostRequest } from '@contracts';
 import { CLOCK } from '../../core/clock';
 import { OfficeSync } from '../office-sync';
+import { grouped, typedNumber, typedText } from '../typed-number';
 
 const MOBILE_MONEY: Partial<Record<PaymentMethodCode, string>> = { Wave: 'Wave', OrangeMoney: 'Orange Money' };
 
@@ -80,7 +81,7 @@ export const FEE_REFUSAL = 'Les frais : des francs entiers, ou rien si c’est l
         } @else {
           <span>Frais {{ methodWords() }} payés par toi</span>
         }
-        <input name="fee" type="number" inputmode="numeric" min="0" step="1" [value]="value()" (input)="value.set(valueOf($event))" />
+        <input name="fee" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(value())" (input)="value.set(typedNumber($event))" />
         <small>{{ payer() === null ? 'Laisse vide si c’est l’autre qui paie les frais.' : 'Ils se déduisent de ce qu’il doit. Laisse vide s’ils restent à sa charge.' }}</small>
       </label>
     }
@@ -97,6 +98,8 @@ export const FEE_REFUSAL = 'Les frais : des francs entiers, ou rien si c’est l
   `,
 })
 export class FeeField {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
   readonly method = input<PaymentMethodCode | null>(null);
   /** False where no fee can be written: no « Frais financiers » type, or no flock to carry it. */
   readonly available = input(true);
@@ -111,6 +114,6 @@ export class FeeField {
   });
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 }

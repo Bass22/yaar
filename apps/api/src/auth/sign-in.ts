@@ -1,25 +1,58 @@
 import { err, ok, unwrap, type Clock, type Result } from '@kit';
-import { Instant, instantOf, TenantId, type Role } from '@domain/journal';
+import { Instant, instantOf, TenantId, type Role, isCanonicalUuid } from '@domain/journal';
 import type { AccountAvatar, AudioLanguage, ChoosePinRefusal, ChoosePinRequest, SignInRefusal, SignInRequest, SignInResponse } from '@contracts';
 import { languageOf } from '../users/account-profile';
-import type { AuditAction } from '@prisma/client';
+import type { AuditAction, Prisma } from '@prisma/client';
 import { recordAudit } from '../audit/audit';
 import type { PrismaService } from '../database/prisma.service';
 import { issueAccessToken } from './access-token';
 import { Pin, typedPin } from './pin';
-import { afterFailure, retryAt } from './pin-attempts';
+import { ACCOUNT_FAILURES_PER_DAY, accountRetryAt, afterFailure, DAY_MS, retryAt, type PinAttempts } from './pin-attempts';
 import type { PinHash, PinHasher } from './pin-hasher';
 import { SESSION_LIFETIME_SECONDS } from './session-policy';
+import { E164 } from './phone';
 
 export type SignInDependencies = {
   readonly prisma: PrismaService;
   readonly hasher: PinHasher;
   readonly clock: Clock;
   readonly jwtSecret: string;
+  /** The attempts on numbers without an account, kept by this instance of the API (R-16). */
+  readonly unknownNumbers: UnknownNumberAttempts;
 };
 
-const E164 = /^\+[1-9][0-9]{7,14}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** Why an attempt waits: its device failed too often, or the account is hammered from devices it never used. */
+type Wait = { readonly retryAt: Instant; readonly reason: 'TooManyAttempts' | 'TooManyFailuresOnAccount' };
+
+/**
+ * The attempts on numbers that have no account (E.10, R-16), counted exactly as on a real one —
+ * per device, and per number over a day —, so that the answers never tell whether a number is
+ * used. In memory: the API has one instance. Bounded: the oldest numbers go first, and a refused
+ * attempt adds nothing.
+ */
+export class UnknownNumberAttempts {
+  private readonly numbers = new Map<string, { devices: Map<string, PinAttempts>; failures: Instant[] }>();
+
+  constructor(private readonly capacity = 10_000) {}
+
+  /** Counts the attempt before it is checked, or says how long to wait. */
+  reserve(phone: string, deviceId: string, now: Instant): Wait | null {
+    const entry = this.numbers.get(phone) ?? { devices: new Map<string, PinAttempts>(), failures: [] };
+    entry.failures = entry.failures.filter((at) => Date.parse(at) > Date.parse(now) - DAY_MS);
+    const device = entry.devices.get(deviceId) ?? { failures: 0, lastFailureAt: null };
+    const deviceWait = retryAt(device, now);
+    if (deviceWait !== null) return { retryAt: deviceWait, reason: 'TooManyAttempts' };
+    // No device ever signed in to a number without an account: none is spared, as on a real one.
+    const accountWait = accountRetryAt(entry.failures, false, now);
+    if (accountWait !== null) return { retryAt: accountWait, reason: 'TooManyFailuresOnAccount' };
+    entry.devices.set(deviceId, afterFailure(device, now));
+    entry.failures.push(now);
+    this.numbers.delete(phone);
+    this.numbers.set(phone, entry);
+    if (this.numbers.size > this.capacity) this.numbers.delete(this.numbers.keys().next().value as string);
+    return null;
+  }
+}
 
 // An argon2id digest of a random PIN nobody knows, with the parameters of the real ones: an
 // unknown number is checked against it, so that it costs the same work as a wrong PIN and the
@@ -44,7 +77,7 @@ type Account = {
  * provisional one, is only said so to whoever typed it. Every instant is the server's.
  */
 export async function signIn(request: SignInRequest, deps: SignInDependencies): Promise<Result<SignInResponse, SignInRefusal>> {
-  if (!E164.test(request.phone) || !UUID.test(request.deviceId)) {
+  if (!E164.test(request.phone) || !isCanonicalUuid(request.deviceId)) {
     return err({ kind: 'InvalidRequest' });
   }
   const now = instantOf(deps.clock.now());
@@ -68,7 +101,7 @@ export async function signIn(request: SignInRequest, deps: SignInDependencies): 
  * cannot sign in in the collaborator's place. Counted like any sign-in.
  */
 export async function choosePin(request: ChoosePinRequest, deps: SignInDependencies): Promise<Result<SignInResponse, ChoosePinRefusal>> {
-  if (!E164.test(request.phone) || !UUID.test(request.deviceId) || typeof request.newPin !== 'string') {
+  if (!E164.test(request.phone) || !isCanonicalUuid(request.deviceId) || typeof request.newPin !== 'string') {
     return err({ kind: 'InvalidRequest' });
   }
   const now = instantOf(deps.clock.now());
@@ -107,27 +140,35 @@ async function checkCredentials(phone: string, rawPin: string, deviceId: string,
   }
   const user = await prisma.findUserForSignIn(phone);
   if (user === null) {
+    const wait = deps.unknownNumbers.reserve(phone, deviceId, now);
+    if (wait !== null) {
+      return err({ kind: 'TooManyAttempts', retryAt: wait.retryAt });
+    }
     await hasher.verify(NOBODY, pin.value);
     return err({ kind: 'InvalidCredentials' });
   }
-  const lastFailureAt = user.pinLastFailureAt === null ? null : unwrap(Instant(user.pinLastFailureAt.toISOString()));
-  const attempts = { failures: user.pinFailures, lastFailureAt };
-  const waitUntil = retryAt(attempts, now);
   const tenantId = unwrap(TenantId(user.tenantId));
-  if (waitUntil !== null) {
-    await prisma.runInTenant(tenantId, (tx) =>
-      recordAudit(tx, tenantId, { action: 'SignInRefused', actorId: user.id, subjectId: user.id, deviceId, reason: 'TooManyAttempts' }, new Date(now)),
-    );
-    return err({ kind: 'TooManyAttempts', retryAt: waitUntil });
+  // Counted before the PIN is checked (R-15): attempts sent at the same instant queue on the
+  // device's row, and only the free ones get through.
+  const wait = await prisma.runInTenant(tenantId, async (tx) => {
+    const found = await reserveAttempt(tx, tenantId, user.id, deviceId, now);
+    if (found !== null) {
+      await recordAudit(tx, tenantId, { action: 'SignInRefused', actorId: user.id, subjectId: user.id, deviceId, reason: found.reason }, new Date(now));
+    }
+    return found;
+  });
+  if (wait !== null) {
+    return err({ kind: 'TooManyAttempts', retryAt: wait.retryAt });
   }
   if (!(await hasher.verify(user.pinHash as PinHash, pin.value))) {
-    const next = afterFailure(attempts, now);
-    await prisma.runInTenant(tenantId, async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: { pinFailures: { increment: 1 }, pinLastFailureAt: new Date(next.lastFailureAt ?? now) } });
-      await recordAudit(tx, tenantId, { action: 'SignInFailed', actorId: user.id, subjectId: user.id, deviceId, reason: 'InvalidCredentials' }, new Date(now));
-    });
+    await prisma.runInTenant(tenantId, (tx) =>
+      recordAudit(tx, tenantId, { action: 'SignInFailed', actorId: user.id, subjectId: user.id, deviceId, reason: 'InvalidCredentials' }, new Date(now)),
+    );
     return err({ kind: 'InvalidCredentials' });
   }
+  // The right PIN: the attempt reserved was no failure, whatever the answer that follows (a
+  // blocked account, a PIN to choose). Only a session makes the device known.
+  await prisma.runInTenant(tenantId, (tx) => tx.signInAttempt.updateMany({ where: { userId: user.id, deviceId }, data: { failures: 0, lastFailureAt: null } }));
   return ok({ id: user.id, tenantId, role: user.role, name: user.name, avatar: user.avatar, audioLanguage: user.audioLanguage, blockedAt: user.blockedAt, provisionalPinExpiresAt: user.provisionalPinExpiresAt });
 }
 
@@ -140,7 +181,10 @@ async function openSession(
   action: AuditAction,
 ): Promise<SignInResponse> {
   const language = await deps.prisma.runInTenant(account.tenantId, async (tx) => {
-    await tx.user.update({ where: { id: account.id }, data: { pinFailures: 0, pinLastFailureAt: null, ...change } });
+    if (Object.keys(change).length > 0) await tx.user.update({ where: { id: account.id }, data: change });
+    // The device starts again from zero, and is known to the account from now on (E.10).
+    await tx.$executeRaw`UPDATE sign_in_attempts SET failures = 0, last_failure_at = NULL, known_since = COALESCE(known_since, ${new Date(now)})
+                          WHERE tenant_id = ${account.tenantId}::uuid AND user_id = ${account.id}::uuid AND device_id = ${deviceId}::uuid`;
     await recordAudit(tx, account.tenantId, { action, actorId: account.id, subjectId: account.id, deviceId }, new Date(now));
     return languageOf(tx, account.id, account.audioLanguage);
   });
@@ -158,4 +202,35 @@ async function refuse<R extends { readonly kind: string }>(account: Account, dev
     recordAudit(tx, account.tenantId, { action: 'SignInRefused', actorId: account.id, subjectId: account.id, deviceId, reason: refusal.kind }, new Date(now)),
   );
   return err(refusal);
+}
+
+/**
+ * Reserves an attempt of an account on a device (E.10): locks the device's row, says how long to
+ * wait — its own failures (R-14: a device never pays for another), or, for a device the account
+ * never signed in from, the failures of the whole account over a day — or counts the attempt as
+ * a failure until it succeeds.
+ */
+async function reserveAttempt(tx: Prisma.TransactionClient, tenantId: TenantId, userId: string, deviceId: string, now: Instant): Promise<Wait | null> {
+  await tx.$executeRaw`INSERT INTO sign_in_attempts (tenant_id, user_id, device_id) VALUES (${tenantId}::uuid, ${userId}::uuid, ${deviceId}::uuid) ON CONFLICT DO NOTHING`;
+  const [row] = await tx.$queryRaw<{ failures: number; last_failure_at: Date | null; known_since: Date | null }[]>`
+    SELECT failures, last_failure_at, known_since FROM sign_in_attempts
+     WHERE tenant_id = ${tenantId}::uuid AND user_id = ${userId}::uuid AND device_id = ${deviceId}::uuid
+       FOR UPDATE`;
+  if (row === undefined) throw new Error('The attempt row was not written');
+  const device: PinAttempts = { failures: row.failures, lastFailureAt: row.last_failure_at === null ? null : unwrap(Instant(row.last_failure_at.toISOString())) };
+  const deviceWait = retryAt(device, now);
+  if (deviceWait !== null) return { retryAt: deviceWait, reason: 'TooManyAttempts' };
+  if (row.known_since === null) {
+    const failures = await tx.auditEvent.findMany({
+      where: { action: 'SignInFailed', subjectId: userId, occurredAt: { gt: new Date(Date.parse(now) - DAY_MS) } },
+      select: { occurredAt: true },
+      orderBy: { occurredAt: 'desc' },
+      take: ACCOUNT_FAILURES_PER_DAY,
+    });
+    const accountWait = accountRetryAt(failures.map(({ occurredAt }) => unwrap(Instant(occurredAt.toISOString()))), false, now);
+    if (accountWait !== null) return { retryAt: accountWait, reason: 'TooManyFailuresOnAccount' };
+  }
+  await tx.$executeRaw`UPDATE sign_in_attempts SET failures = failures + 1, last_failure_at = ${new Date(now)}
+                        WHERE tenant_id = ${tenantId}::uuid AND user_id = ${userId}::uuid AND device_id = ${deviceId}::uuid`;
+  return null;
 }

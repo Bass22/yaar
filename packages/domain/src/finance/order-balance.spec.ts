@@ -2,7 +2,7 @@ import { Money, SignedMoney, unwrap, type CurrencyCode } from '@kit';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { Instant } from '../journal/instant';
-import { billableOf, orderBalance, PAYMENT_METHODS, recordPayment, type Payment, type PaymentInput } from './order-balance';
+import { billableOf, orderBalance, paidAhead, PAYMENT_METHODS, recordPayment, type Payment, type PaymentInput } from './order-balance';
 import { announceOrder, closeOrder, draftOrder, orderStatus, type PurchaseOrder } from './purchase-order';
 
 // Spec: backlog Q.3 — facturable, paiements et solde ; architecture §4 (facturable, dette) ;
@@ -38,7 +38,7 @@ const laCommande = (): PurchaseOrder => {
     {
       currency: XOF,
       counterparties: [{ id: uuid(31), kind: 'Supplier', archived: false }],
-      costTypes: [41, 42, 43].map((rank) => ({ id: uuid(rank), orderable: true, archived: false })),
+      costTypes: [41, 42, 43].map((rank) => ({ id: uuid(rank), category: 'Feed', bagWeight: 50_000, orderable: true, archived: false })),
     },
   );
   return unwrap(announceOrder(unwrap(draft), unwrap(Instant('2026-10-12T09:00:00.000Z'))));
@@ -185,3 +185,25 @@ describe("L'argent d'une commande", () => {
     });
   });
 });
+
+// Spec: backlog R.8 — « payé d'avance » (le fondateur a lu « il te doit » pour un fournisseur payé avant de livrer)
+describe('Payé d’avance', () => {
+  it('payé, rien encore reçu : tout ce qui est payé attend sa livraison', () => {
+    expect(paidAhead(laCommande(), recu({}), [paye(61, 180_000)])).toEqual(F(180_000));
+  });
+
+  it('reçu en partie : ce qui est payé au-delà du facturable — 400 000 payés, 10 sacs reçus (175 000) → 225 000', () => {
+    expect(paidAhead(laCommande(), recu({ [ALIMENT]: 10 }), [paye(61, 400_000)])).toEqual(F(225_000));
+  });
+
+  it('payé moins que reçu : rien d’avance, la commande doit encore', () => {
+    expect(paidAhead(laCommande(), recu({ [ALIMENT]: 20 }), [paye(61, 100_000)])).toEqual(F(0));
+  });
+
+  it('une commande entièrement reçue, ou close, n’a plus rien à livrer : un trop-payé y est une vraie dette du fournisseur', () => {
+    const toutRecu = recu({ [VETO]: 1, [ALIMENT]: 20, [POUSSINS]: 1000 });
+    const close = unwrap(closeOrder(laCommande(), recu({}), unwrap(Instant('2026-10-20T09:00:00.000Z'))));
+    expect([paidAhead(laCommande(), toutRecu, [paye(61, 1_000_000)]), paidAhead(close, recu({}), [paye(61, 180_000)])]).toEqual([F(0), F(0)]);
+  });
+});
+

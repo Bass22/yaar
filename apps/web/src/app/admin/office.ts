@@ -6,6 +6,12 @@ import { CLOCK } from '../core/clock';
 import { AuthService } from '../core/session/auth';
 
 const OFFICE_KEY = 'yaar.office';
+/** The lot the office works on (O.6), kept on this device for the person who chose it. */
+const LOT_KEY = 'yaar.office.lot';
+
+/** How the office says the day of a lot: « Jour 23 », or « dans 3 jours » before its placement (O.5). */
+export const dayLabelOf = (campaignDay: number): string =>
+  campaignDay >= 0 ? `Jour ${campaignDay}` : `dans ${-campaignDay} jour${campaignDay < -1 ? 's' : ''}`;
 
 /** A lot of the farm as the office lists it: a running campaign on its site. */
 export type OfficeLot = {
@@ -13,6 +19,8 @@ export type OfficeLot = {
   readonly siteId: string;
   readonly siteName: string;
   readonly campaignDay: number;
+  /** « Jour 23 » ; a campaign opened ahead (O.5) says « dans 3 jours » until its day 0. */
+  readonly dayLabel: string;
   /** `null` while the chicks received are unknown: said, never shown as zero. */
   readonly liveCount: number | null;
 };
@@ -40,11 +48,20 @@ export class Office {
   });
   readonly lots = computed((): OfficeLot[] =>
     (this.kept()?.context.sites ?? []).flatMap((site) =>
-      site.campaigns.map((campaign) => ({ campaignId: campaign.campaignId, siteId: site.siteId, siteName: site.name, campaignDay: campaign.campaignDay, liveCount: campaign.liveCount })),
+      site.campaigns.map((campaign) => ({ campaignId: campaign.campaignId, siteId: site.siteId, siteName: site.name, campaignDay: campaign.campaignDay, dayLabel: dayLabelOf(campaign.campaignDay), liveCount: campaign.liveCount })),
     ),
   );
+  private readonly chosenLot = signal<string | null>(this.keptLot());
+  /**
+   * The lot the office works on (O.6, after bureau-admin-v2.html « Changer de lot »): chosen once,
+   * kept on this device, changed when one wants; the first running lot until one is chosen — with
+   * a single lot, that one. Every page of a lot names it, so that nothing is written on the wrong one.
+   */
+  readonly currentLot = computed(() => this.lots().find((lot) => lot.campaignId === this.chosenLot()) ?? this.lots()[0] ?? null);
   /** The farm's sites, with the day it is on each. */
   readonly sites = computed(() => (this.kept()?.context.sites ?? []).map(({ siteId, name, today }) => ({ siteId, name, today })));
+  /** The office's today: the first site's business day — what every money writing defaults to. */
+  readonly today = computed(() => this.sites()[0]?.today ?? '');
   /** When the figures shown were read, and in which time zone to say it. */
   readonly readAt = computed(() => {
     const kept = this.kept();
@@ -72,6 +89,28 @@ export class Office {
       }
     } catch {
       this.unreachable.set(true);
+    }
+  }
+
+  /** Makes a lot the one the office works on, and keeps it for the next opening. */
+  chooseLot(campaignId: string): void {
+    this.chosenLot.set(campaignId);
+    const session = this.auth.session();
+    if (session.status === 'none') return;
+    try {
+      this.storage.setItem(LOT_KEY, JSON.stringify({ userId: session.userId, campaignId }));
+    } catch {
+      // A full storage only costs choosing again next time.
+    }
+  }
+
+  private keptLot(): string | null {
+    try {
+      const kept = JSON.parse(this.storage.getItem(LOT_KEY) ?? 'null') as { userId?: unknown; campaignId?: unknown } | null;
+      const session = this.auth.session();
+      return kept !== null && session.status !== 'none' && kept.userId === session.userId && typeof kept.campaignId === 'string' ? kept.campaignId : null;
+    } catch {
+      return null;
     }
   }
 

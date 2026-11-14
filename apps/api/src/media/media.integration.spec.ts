@@ -89,7 +89,7 @@ describe('Les médias, déposés par leur empreinte', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume, vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();

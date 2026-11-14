@@ -10,6 +10,12 @@ export type AppConfig = {
   readonly jwtSecret: string;
   /** The media volume (M.1): an absolute path, where files are kept under their fingerprint. */
   readonly mediaPath: string;
+  /** The public VAPID key the browsers subscribe with (Y.1); `null`: notifications are not offered. */
+  readonly vapidPublicKey: string | null;
+  /** Signs what the server sends (Y.2a): never leaves the server; set with the public key and the subject, or none. */
+  readonly vapidPrivateKey?: string | null;
+  /** Who runs the server, for the push services (`mailto:` or `https:`). */
+  readonly vapidSubject?: string | null;
 };
 
 /** Injection token of the validated configuration. */
@@ -19,7 +25,7 @@ const DEFAULT_PORT = 3000;
 
 /** Throws when the environment cannot run the API. A message never repeats a value: it may be a secret. */
 export function loadAppConfig(env: Readonly<Record<string, string | undefined>>): AppConfig {
-  return { databaseUrl: databaseUrlOf(env['DATABASE_URL']), jwtSecret: jwtSecretOf(env['JWT_SECRET']), port: portOf(env['PORT']), mediaPath: mediaPathOf(env['MEDIA_PATH']) };
+  return { databaseUrl: databaseUrlOf(env['DATABASE_URL']), jwtSecret: jwtSecretOf(env['JWT_SECRET']), port: portOf(env['PORT']), mediaPath: mediaPathOf(env['MEDIA_PATH']), ...vapidOf(env) };
 }
 
 /**
@@ -45,6 +51,35 @@ function mediaPathOf(raw: string | undefined): string {
     throw new Error('Configuration : MEDIA_PATH est exigé, un chemin absolu vers le volume des médias (par exemple /data/medias).');
   }
   return raw;
+}
+
+// An uncompressed P-256 point (65 bytes, 0x04 first) in base64url without padding: 87 characters.
+const VAPID_PUBLIC_KEY = /^B[A-Za-z0-9_-]{86}$/;
+
+// The private scalar of P-256 (32 bytes) in base64url; the subject, a mail or a web address.
+const VAPID_PRIVATE_KEY = /^[A-Za-z0-9_-]{43}$/;
+const VAPID_SUBJECT = /^(mailto:\S+@\S+|https:\/\/\S+)$/;
+
+/** The three together, or none: notifications are then neither offered nor sent (fail-closed). */
+function vapidOf(env: Readonly<Record<string, string | undefined>>): Pick<AppConfig, 'vapidPublicKey' | 'vapidPrivateKey' | 'vapidSubject'> {
+  const present = (value: string | undefined): string | null => (value === undefined || value === '' ? null : value);
+  const publicKey = present(env['VAPID_PUBLIC_KEY']);
+  const privateKey = present(env['VAPID_PRIVATE_KEY']);
+  const subject = present(env['VAPID_SUBJECT']);
+  if (publicKey === null && privateKey === null && subject === null) return { vapidPublicKey: null, vapidPrivateKey: null, vapidSubject: null };
+  if (publicKey === null || privateKey === null || subject === null) {
+    throw new Error('Configuration : VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY et VAPID_SUBJECT vont ensemble — les trois, ou aucune.');
+  }
+  if (!VAPID_PUBLIC_KEY.test(publicKey)) {
+    throw new Error('Configuration : VAPID_PUBLIC_KEY doit être une clé publique P-256 en base64url (node tools/vapid-keys.mjs en donne une paire).');
+  }
+  if (!VAPID_PRIVATE_KEY.test(privateKey)) {
+    throw new Error('Configuration : VAPID_PRIVATE_KEY doit être la clé privée P-256 en base64url donnée avec la clé publique.');
+  }
+  if (!VAPID_SUBJECT.test(subject)) {
+    throw new Error('Configuration : VAPID_SUBJECT doit être un contact de l’exploitant, mailto:… ou https://…');
+  }
+  return { vapidPublicKey: publicKey, vapidPrivateKey: privateKey, vapidSubject: subject };
 }
 
 const SHORTEST_SECRET = 32;

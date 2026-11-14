@@ -51,7 +51,10 @@ export const shortDate = (day: BusinessDay): string => new Intl.DateTimeFormat('
   `,
   styles: `
     :host { display: block; }
-    .days { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px; margin: 10px 0 0; }
+    /* One, two or three days (J.4): today, the last, always a little wider. */
+    .days { display: flex; gap: 8px; margin: 10px 0 0; }
+    .day { flex: 1 1 0; }
+    .day:last-child { flex-grow: 1.2; }
     .day {
       min-block-size: var(--touch-target-min); padding: 5px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px;
       background: var(--color-paper); border: 2px solid var(--color-card-edge); box-shadow: var(--shadow-hard-sm);

@@ -39,6 +39,11 @@ export interface CounterpartyLedgerView {
   readonly counterpartyId: string;
   /** Above zero: it owes you; below zero: you owe it; zero: settled. */
   readonly balance: number;
+  /**
+   * Of what a supplier owes you, the part paid ahead on orders still waiting for a delivery (R.8):
+   * goods to come, not money to claim. Absent when none.
+   */
+  readonly paidAhead?: number;
   /** Earliest first. */
   readonly entries: readonly LedgerEntryView[];
 }

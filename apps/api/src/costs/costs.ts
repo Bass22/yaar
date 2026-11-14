@@ -5,22 +5,23 @@ import { Prisma } from '@prisma/client';
 import type { CampaignMoneyView, CostRefusal, CostView, RecordCostRequest } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
-import { birdsOf } from '../journal/caretaker-context';
+import { birdsOf } from '../journal/birds';
 import { PrismaJournal } from '../journal/prisma-journal';
 import { leftoversReceived } from '../campaigns/leftovers';
 import { billablesOf } from '../orders/orders';
+import { currencyOf } from '../tenants/currency';
 
 type Tx = Prisma.TransactionClient;
 type CostRow = Prisma.CostGetPayload<object>;
 
 /**
- * The admin writes a cost (P.1, P.3), online for now (P.7 brings the queue): judged by the domain
+ * The admin writes a cost (P.1, P.3), sent from the office's queue (P.7): judged by the domain
  * against the farm and the site's today, for a campaign of the farm that is not closed. A money
  * entry: the same cost sent again is a duplicate, kept once; its identifier with another content
  * is refused. Traced.
  */
 export async function recordCampaignCost(tx: Tx, admin: Session, request: RecordCostRequest, now: Date): Promise<Result<'Recorded' | 'Duplicate', CostRefusal>> {
-  const campaign = await openCampaign(tx, request.campaignId);
+  const campaign = await runningCampaign(tx, request.campaignId);
   if (!campaign.ok) return campaign;
   const entry = recordCost(inputOf(request, now), await contextOf(tx, admin.tenantId, campaign.value.timeZone, now));
   if (!entry.ok) return err({ kind: entry.error.kind });
@@ -96,7 +97,7 @@ export async function effectiveCampaignCosts(tx: Tx, tenantId: TenantId, campaig
 // The instant of writing is the device's when it says it (P.7, rule 2), the server's otherwise.
 const inputOf = (request: RecordCostRequest, now: Date): CostInput => ({ ...request, recordedAt: request.recordedAt ?? now.toISOString() });
 
-async function openCampaign(tx: Tx, campaignId: string): Promise<Result<{ siteId: string; timeZone: string }, CostRefusal>> {
+async function runningCampaign(tx: Tx, campaignId: string): Promise<Result<{ siteId: string; timeZone: string }, CostRefusal>> {
   const campaign = /^[0-9a-f-]{36}$/.test(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { closedAt: true, site: { select: { id: true, timeZone: true } } } }) : null;
   if (campaign === null) return err({ kind: 'UnknownCampaign' });
   if (campaign.closedAt !== null) return err({ kind: 'CampaignClosed' });
@@ -115,10 +116,6 @@ async function contextOf(tx: Tx, tenantId: string, timeZone: string, now: Date):
     costTypes: costTypes.map(({ id, archivedAt }) => ({ id, archived: archivedAt !== null })),
     counterparties: counterparties.map(({ id, kind, archivedAt }) => ({ id, kind, archived: archivedAt !== null })),
   };
-}
-
-async function currencyOf(tx: Tx, tenantId: string): Promise<CurrencyCode> {
-  return (await tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { currency: true } })).currency as CurrencyCode;
 }
 
 async function write(tx: Tx, admin: Session, entry: CostEntry): Promise<Result<void, CostRefusal>> {

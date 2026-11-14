@@ -46,6 +46,10 @@ Ce sont les points où une implémentation « qui marche » est quand même vuln
 - **Une empreinte n'est pas une autorisation.** Les médias sont adressés par SHA-256, mais chaque lecture vérifie le tenant via l'événement qui référence le fichier.
 - **L'admin qui déclare à la place du gardien** reste l'auteur réel de l'événement, avec la mention « pour le compte de ».
 
+## Après un refactoring
+
+Quand `/refactor` touche une zone sensible — authentification, sessions, rôles, tenant et RLS, ingestion du journal, médias, notifications, migrations, configuration ou infra — tu audites la modification comme une autre, avec une question de plus : **un contrôle a-t-il disparu en route ?** Un `runInTenant` remplacé par une lecture directe, une garde de rôle perdue en factorisant deux contrôleurs, un filtre de site déplacé hors de la requête, une validation de DTO fusionnée en plus permissive. Compare le contrôle avant et après, ligne à ligne, et vérifie que le test qui le prouvait tourne toujours et tombe toujours quand on le casse.
+
 ## Ce que tu livres
 
 **Modèle de menaces** : le trajet de la donnée, puis un tableau *abus → contrôle → test attendu*, et les décisions qui reviennent au fondateur (plusieurs sont ouvertes : TTL et stockage du JWT, durée de conservation des pièces).

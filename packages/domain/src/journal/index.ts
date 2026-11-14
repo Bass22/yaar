@@ -10,16 +10,19 @@ export {
   TimeZone,
   type RecentBusinessDays,
 } from './business-day';
+export { MORNING_REMINDER_HOUR, morningReminderDay } from './morning-reminder';
 export {
   DEFAULT_PLANNED_DURATION,
   MAX_CAMPAIGN_DAYS,
+  MAX_DAYS_AHEAD,
   validateCampaignOpening,
   type Campaign,
   type CampaignOpening,
-  type CampaignOpeningRequest,
+  type OpenCampaignRequest,
 } from './campaign';
 export {
   effectiveJournal,
+  inWritingOrder,
   validateCounterDeclaration,
   type CounterDeclarationContext,
   type JournalLine,
@@ -35,7 +38,7 @@ export {
   type DeclaredQuantity,
 } from './day-summary';
 export { lineDelivery, receivedByLine, type LineDelivery } from './delivery';
-export { CHICKS_PER_BOX, deliveryCounting, receivedOf, type CountingUnit, type DeliveryCounting } from './delivery-counting';
+export { byTheBag, CHICKS_PER_BOX, deliveryCounting, receivedOf, type CountingUnit, type DeliveryCounting } from './delivery-counting';
 export { validateDeliveryTarget, type DeliveryTarget } from './delivery-target';
 export {
   authorizeDeclaration,
@@ -43,9 +46,10 @@ export {
   type DeclarationPolicyContext,
   type SiteStaff,
 } from './declaration-policy';
-export { BAG_WEIGHT, feedConsumption, type FeedConsumption, type FeedConsumptionContext, type SoldBirds } from './feed-consumption';
+export { BAG_WEIGHT, feedBagsWaiting, feedConsumption, type FeedConsumption, type FeedConsumptionContext, type FeedLine, type SoldBirds } from './feed-consumption';
 export {
   CampaignId,
+  isCanonicalUuid,
   JournalEventId,
   OrderLineId,
   SiteId,
@@ -71,14 +75,14 @@ export {
   type JournalEvent,
   type LossType,
 } from './journal-event';
-export { halvesOf, recordLeftovers, type Leftover, type LeftoverInput, type LeftoverRefusal } from './leftovers';
+export { checkFeedCount, halvesOf, recordLeftovers, type FeedCount, type Leftover, type LeftoverInput, type LeftoverRefusal, type UnexplainedFeedGap } from './leftovers';
 export { computeLiveCount, mortality, type LiveCount, type LiveCountContext } from './live-count';
 export { MediaFingerprint } from './media-fingerprint';
 export { Quantity } from './quantity';
 export type { IdName, Refusal, RefusalKind } from './refusal';
 export { validateRetraction, type RetractionContext } from './retraction';
 export type { Role } from './role';
-export { STRAINS, targetAt, type Species, type Strain, type StrainTarget } from './strain';
+export { STRAINS, strainOf, targetAt, type Species, type Strain, type StrainTarget } from './strain';
 export { validateDeclaration, type DeclarationContext } from './validate-declaration';
 export { Weight } from './weight';
-export { averageWeight, validateWeighing, validateWeighingValidation, weightBounds, weightCurve, WEIGHING_WEIGHTS, type WeighingTarget, type WeightPoint } from './weighing';
+export { answeredWeighingRequests, averageWeight, outOfBounds, validateWeighing, validateWeighingValidation, weightBounds, weightCurve, WEIGHING_WEIGHTS, type WeighingTarget, type WeightPoint } from './weighing';

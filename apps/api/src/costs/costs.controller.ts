@@ -1,15 +1,15 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, HttpStatus, Inject, NotFoundException, Param, Post, Res } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Res } from '@nestjs/common';
 import type { Clock, Result } from '@kit';
-import { TenantId } from '@domain/journal';
-import { unwrap } from '@kit';
 import type { CampaignMoneyView, CostRefusal, RecordCostRequest } from '@contracts';
 import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { campaignMoney, recordCampaignCost, reviseCampaignCost } from './costs';
+import { writtenStatus } from '../http/written';
 
-// The costs of a campaign (P.3): admin only — amounts never go to the caretaker. Online until the
-// office's queue (P.7). No route deletes nor rewrites a cost: it is corrected by a counter-entry.
+// The costs of a campaign (P.3): admin only — amounts never go to the caretaker. The office's queue
+// (P.7) may send a cost again: the same id is a duplicate. No route deletes nor rewrites a cost: it
+// is corrected by a counter-entry.
 @Roles('admin')
 @Controller()
 export class CostsController {
@@ -20,7 +20,7 @@ export class CostsController {
 
   @Get('campaigns/:id/money')
   async money(@CurrentSession() session: Session, @Param('id') id: string): Promise<CampaignMoneyView> {
-    const money = await this.prisma.runInTenant(session.tenantId, (tx) => campaignMoney(tx, unwrap(TenantId(session.tenantId)), id));
+    const money = await this.prisma.runInTenant(session.tenantId, (tx) => campaignMoney(tx, session.tenantId, id));
     if (money === null) throw new NotFoundException();
     return money;
   }
@@ -64,5 +64,5 @@ function answer(result: Result<'Recorded' | 'Duplicate', CostRefusal>, response:
     if (result.error.kind === 'CostNotFound') throw new NotFoundException();
     throw result.error.kind === 'CostAlreadyExists' ? new ConflictException(result.error) : new BadRequestException(result.error);
   }
-  response.status(result.value === 'Duplicate' ? HttpStatus.OK : HttpStatus.CREATED);
+  response.status(writtenStatus(result.value));
 }

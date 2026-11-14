@@ -8,7 +8,7 @@ import type { OutboxEntry } from '../../core/outbox/outbox';
 import { AuthService } from '../../core/session/auth';
 import { tenantOf } from '../../core/session/session-store';
 import { JournalSync, OUTBOX } from '../../core/sync/journal-sync';
-import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, weighingRequestsOf, type NotebookCampaign, type NotebookDay } from './notebook-view';
+import { campaignDaysOf, campaignsOf, daysOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, type NotebookCampaign, type NotebookDay, summaryOf, weighingRequestsOf } from './notebook-view';
 
 const CONTEXT_KEY = 'yaar.context';
 const MINUTE = 60_000;
@@ -60,7 +60,26 @@ export class Notebook {
   readonly campaigns = computed((): NotebookCampaign[] => {
     const site = this.site();
     const today = this.days()[2];
-    return site === null || today === undefined ? [] : campaignsOf(site.campaigns, today.day);
+    // A campaign still to come is not running (Q.11): its deliveries alone are shown, below.
+    return site === null || today === undefined ? [] : campaignsOf(site.campaigns, today.day).filter(({ campaignDay }) => campaignDay >= 0);
+  });
+  /**
+   * The deliveries announced for a campaign still to come (Q.11, decision of 2026-11-13): litter
+   * and feed arrive before the chicks. Counted for today, on that campaign; nothing else of it shows.
+   */
+  readonly upcomingDeliveries = computed(() => {
+    const site = this.site();
+    const today = this.days()[2];
+    const oldest = this.days()[0];
+    if (site === null || today === undefined || oldest === undefined) return [];
+    return site.campaigns
+      .filter((campaign) => campaign.placementDay > today.day)
+      .map((campaign) => ({
+        campaignId: campaign.campaignId,
+        lines: expectedDeliveriesOf(campaign, this.entries(), oldest.day),
+        target: { siteId: site.siteId, campaignId: campaign.campaignId, businessDate: today.day } as DeclarationTarget,
+      }))
+      .filter(({ lines }) => lines.length > 0);
   });
   /** The campaign the notebook writes on: the only one, or the one chosen at opening — none before. */
   readonly campaign = computed(() => {
@@ -68,8 +87,13 @@ export class Notebook {
     return campaigns.length === 1 ? (campaigns[0] ?? null) : (campaigns.find((campaign) => campaign.campaignId === this.chosenCampaignId()) ?? null);
   });
   private readonly campaignContext = computed(() => this.site()?.campaigns.find((campaign) => campaign.campaignId === this.campaign()?.campaignId) ?? null);
-  /** The day chosen; today when none is, or once the chosen one has left the three days. */
-  readonly day = computed(() => this.days().find((day) => day.day === this.chosenDay()) ?? this.days()[2] ?? null);
+  /** The days the chosen campaign has (J.4): from its placement only — J0 shows today alone. */
+  readonly campaignDays = computed(() => {
+    const campaign = this.campaignContext();
+    return campaign === null ? this.days() : campaignDaysOf(this.days(), campaign.placementDay);
+  });
+  /** The day chosen; today when none is, or once the chosen one has left the days of the campaign. */
+  readonly day = computed(() => this.campaignDays().find((day) => day.day === this.chosenDay()) ?? this.days()[2] ?? null);
   private readonly journal = computed(() => {
     const campaign = this.campaignContext();
     const site = this.site();
@@ -79,7 +103,7 @@ export class Notebook {
   });
   readonly tabs = computed(() => {
     const campaign = this.campaignContext();
-    return campaign === null ? [] : this.days().map((day) => ({ ...day, summary: summaryOf(this.journal(), campaign.campaignId, day.day) }));
+    return campaign === null ? [] : this.campaignDays().map((day) => ({ ...day, summary: summaryOf(this.journal(), campaign.campaignId, day.day) }));
   });
   readonly lines = computed(() => {
     const campaign = this.campaignContext();

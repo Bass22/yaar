@@ -28,6 +28,7 @@ const RAMASSEUR = uuid(32);
 const ALIMENT = uuid(41);
 const POUSSINS = uuid(42);
 const GARDIENNAGE = uuid(43);
+const ALIMENT_AU_KG = uuid(44);
 const OUSMANE = uuid(51);
 const LE_GERANT = uuid(54);
 const GERANT_DE_B = uuid(55);
@@ -123,7 +124,8 @@ describe('Les commandes, au bureau', () => {
     });
     await db.superuser.costType.createMany({
       data: [
-        { id: ALIMENT, tenantId: TENANT_A, category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable' },
+        { id: ALIMENT, tenantId: TENANT_A, category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable', bagWeight: 50_000 },
+        { id: ALIMENT_AU_KG, tenantId: TENANT_A, category: 'Feed', name: 'Aliment au kg', behaviour: 'Variable' },
         { id: POUSSINS, tenantId: TENANT_A, category: 'Chicks', name: 'Poussins Cobb', behaviour: 'Variable' },
         { id: GARDIENNAGE, tenantId: TENANT_A, category: 'Labour', name: 'Gardiennage', behaviour: 'Fixed' },
       ],
@@ -156,14 +158,38 @@ describe('Les commandes, au bureau', () => {
       currency: 'XOF',
       status: 'Draft',
       lines: [
-        { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, received: 0 },
-        { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, received: 0 },
+        // The bag of feed weighs the usual weight of its type, copied (N.8a); chicks have none.
+        { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: 50_000, received: 0 },
+        { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, bagWeight: null, received: 0 },
       ],
       billable: 0,
       paid: 0,
       payments: [],
+      // No photo joined yet (R.6)
+      attachments: [],
     });
     expect(await traceOf(uuid(1))).toEqual([{ action: 'OrderDrafted', actorId: LE_GERANT, deviceId: ORDINATEUR, siteId: NORD }]);
+  });
+
+  // Spec: backlog N.8a — le poids d'un sac d'aliment, en base (décisions du fondateur du 2026-11-13)
+  it('le poids d’un sac : écrit pour la commande, il est gardé ; Aliment au kg sans poids est refusé ; un poids hors de l’aliment aussi', async () => {
+    const auKg = (rank: number, bagWeight?: number) => uneCommande(rank, { lines: [{ id: uuid(rank * 10 + 1), costTypeId: ALIMENT_AU_KG, quantity: 1, unitPrice: 7_500, ...(bagWeight === undefined ? {} : { bagWeight }) }] });
+
+    expect((await prepare(auKg(80, 15_000))).status).toBe(201);
+    expect((await laCommande(uuid(80)))?.lines).toEqual([{ id: uuid(801), costTypeId: ALIMENT_AU_KG, quantity: 1, unitPrice: 7_500, bagWeight: 15_000, received: 0 }]);
+    expect((await prepare(uneCommande(81, { lines: [{ id: uuid(811), costTypeId: ALIMENT, quantity: 2, unitPrice: 16_000, bagWeight: 40_000 }] }))).status).toBe(201);
+    expect((await laCommande(uuid(81)))?.lines[0]?.bagWeight).toBe(40_000);
+
+    const sansPoids = await prepare(auKg(82));
+    const poussinsPeses = await prepare(uneCommande(83, { lines: [{ id: uuid(831), costTypeId: POUSSINS, quantity: 10, unitPrice: 550, bagWeight: 40 }] }));
+    const poidsNul = await prepare(auKg(84, 0));
+    expect([sansPoids.status, await kindOf(sansPoids), poussinsPeses.status, await kindOf(poussinsPeses), poidsNul.status, await kindOf(poidsNul)]).toEqual([400, 'MissingBagWeight', 400, 'UnexpectedBagWeight', 400, 'InvalidBagWeight']);
+    expect(await db.superuser.purchaseOrder.count({ where: { id: { in: [uuid(82), uuid(83), uuid(84)] } } })).toBe(0);
+  });
+
+  it('un poids qui n’est pas un nombre est refusé à la frontière', async () => {
+    const response = await prepare(uneCommande(85, { lines: [{ id: uuid(851), costTypeId: ALIMENT, quantity: 1, unitPrice: 1, bagWeight: '50' as unknown as number }] }));
+    expect([response.status, await kindOf(response)]).toEqual([400, 'InvalidRequest']);
   });
 
   it('les règles du domaine refusent (400, avec le motif) sans rien écrire : un client pour fournisseur, un type non commandable, aucune ligne', async () => {
@@ -253,7 +279,7 @@ describe('Les commandes, au bureau', () => {
 
   it("la commande d'un autre élevage n'existe pas (404) et ne se voit pas", async () => {
     await db.superuser.counterparty.create({ data: { id: uuid(97), tenantId: TENANT_B, kind: 'Supplier', name: 'Fournisseur de B', face: 'truck' } });
-    await db.superuser.costType.create({ data: { id: uuid(96), tenantId: TENANT_B, category: 'Feed', name: 'Aliment de B', behaviour: 'Variable' } });
+    await db.superuser.costType.create({ data: { id: uuid(96), tenantId: TENANT_B, category: 'Feed', name: 'Aliment de B', behaviour: 'Variable', bagWeight: 50_000 } });
     const deB = await prepare(
       uneCommande(60, { campaignId: BANDE_DE_B, supplierId: uuid(97), lines: [{ id: uuid(601), costTypeId: uuid(96), quantity: 5, unitPrice: 17_000 }] }),
       tokenOf(GERANT_DE_B, TENANT_B, 'admin'),

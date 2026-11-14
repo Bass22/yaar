@@ -4,7 +4,8 @@ import { firstValueFrom } from 'rxjs';
 import type { RecordWeighingRequest, WeighingsView, WeighingToValidate } from '@contracts';
 import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
-import { recall, remember } from '../office-sync';
+import { readOrRecall } from '../office-sync';
+import { authHeaders } from '../../core/session/auth-headers';
 
 /** Why the office could not do it: the server's refusal, or no network — both said. */
 export type WeighingProblem = string;
@@ -28,7 +29,7 @@ export class Weighings {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 
   private userId(): string {
@@ -38,21 +39,13 @@ export class Weighings {
 
   async load(campaignId: string): Promise<void> {
     const url = `/api/v1/campaigns/${campaignId}/weighings`;
-    try {
-      const view = await firstValueFrom(this.http.get<WeighingsView>(url, { headers: this.headers() }));
-      const at = this.clock.now();
-      remember(this.userId(), url, view, at);
-      this.view.set(view);
-      this.readAt.set(at.toISOString());
-      this.unreachable.set(false);
-    } catch {
-      const kept = recall<WeighingsView>(this.userId(), url);
-      if (kept !== null) {
-        this.view.set(kept.value);
-        this.readAt.set(kept.readAt);
+    await readOrRecall<WeighingsView>(this.http, url, this.userId(), this.headers(), () => this.clock.now(), (reading, online) => {
+      if (reading !== null) {
+        this.view.set(reading.value);
+        this.readAt.set(reading.readAt);
       }
-      this.unreachable.set(true);
-    }
+      this.unreachable.set(!online);
+    });
   }
 
   /** A photo of the scale (T.6), read with the admin's session: a local address to show it, `null` when it cannot be read. */

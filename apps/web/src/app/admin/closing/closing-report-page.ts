@@ -3,7 +3,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { ClosingReportView, LeftoverView } from '@contracts';
 import { Pictogram } from '../../ui/pictogram';
 import { amountWords } from '../purchases/purchases';
-import { Closing, dayWords } from './closing';
+import { Closing } from './closing';
+import { dayWords } from '../typed-number';
 
 // A no-break space between thousands: « 1 000 » never splits across two lines.
 const thousands = (value: number): string => String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -62,6 +63,10 @@ const thousands = (value: number): string => String(value).replace(/\B(?=(\d{3})
         }
       </section>
 
+      @if (view.feedGap !== 0) {
+        <p class="feed-gap" role="note">Sacs d’aliment : {{ gapWords(view.feedGap) }}.&ngsp;<span class="feed-gap-comment">{{ view.feedGapComment }}</span></p>
+      }
+
       @if (view.comment !== null) {
         <section class="sheet" aria-label="Commentaire">
           <h2><app-pictogram picto="pencil" [decorative]="true" /> Commentaire</h2>
@@ -94,6 +99,8 @@ const thousands = (value: number): string => String(value).replace(/\B(?=(\d{3})
     li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-block-end: 1px dashed var(--color-card-edge); color: var(--color-ink); }
     .unknown { color: var(--color-muted); font-weight: 400; font-style: italic; }
     .to, .none { margin: 8px 0 0; color: var(--color-muted); }
+    .feed-gap { margin: 10px 0 0; padding: 8px 10px; border-inline-start: 4px solid var(--color-orange); background: var(--color-orange-light); color: var(--color-ink); font-weight: 700; }
+    .feed-gap-comment { font-weight: 400; white-space: pre-wrap; }
     .comment { margin: 0; white-space: pre-wrap; line-height: 1.6; color: var(--color-ink); background-image: repeating-linear-gradient(transparent 0 calc(1.6em - 1px), var(--color-card-edge) calc(1.6em - 1px) 1.6em); }
     .missing { padding: 10px; border-inline-start: 4px solid var(--color-orange); background: var(--color-orange-light); color: var(--color-earth); font-weight: 700; }
     a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
@@ -122,10 +129,17 @@ export class ClosingReportPage {
   }
 
   /** « 2 sacs et un entamé », « 1 sac », « un entamé ». */
-  protected quantity({ unit, whole, opened }: LeftoverView): string {
+  protected quantity({ unit, whole, opened, openedWeight }: LeftoverView): string {
     const word = unit === 'bag' ? (whole > 1 ? 'sacs' : 'sac') : whole > 1 ? 'unités' : 'unité';
     const full = whole > 0 ? `${thousands(whole)} ${word}` : '';
-    return opened ? (full === '' ? 'un entamé' : `${full} et un entamé`) : full;
+    // The grams left in the opened bag of feed, when known (N.8d)
+    const entame = openedWeight === null ? 'un entamé' : `un entamé (${thousands(Math.round(openedWeight / 1000))} kg)`;
+    return opened ? (full === '' ? entame : `${full} et ${entame}`) : full;
+  }
+
+  /** « 1 de moins qu’attendu », « 2 de plus qu’attendu » (N.8d). */
+  protected gapWords(gap: number): string {
+    return gap < 0 ? `${thousands(-gap)} de moins qu’attendu` : `${thousands(gap)} de plus qu’attendu`;
   }
 
   private async load(campaignId: string): Promise<void> {

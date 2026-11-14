@@ -5,6 +5,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { Pin, type PinRefusal } from '../auth/pin';
 import type { PinHasher } from '../auth/pin-hasher';
 import { recordAudit } from '../audit/audit';
+import { E164 } from '../auth/phone';
 
 // Provisioning of a farm (CdC « Onboarding assisté »): a tenant, its first site and its first
 // admin, created by hand by the operator — never through a route. It runs as the owner of the
@@ -46,7 +47,6 @@ export type BootstrapDependencies = {
   readonly now: () => Date;
 };
 
-export const E164 = /^\+[1-9][0-9]{7,14}$/;
 const ISO_4217 = /^[A-Z]{3}$/;
 
 export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, ids, now }: BootstrapDependencies): Promise<Result<Bootstrapped, BootstrapRefusal>> {
@@ -87,11 +87,16 @@ export async function bootstrapTenant(input: BootstrapInput, { prisma, hasher, i
       await tx.user.create({ data: { id: adminId, tenantId, phone: input.adminPhone, name: adminName, role: 'admin', pinHash } });
       // The list every farm starts with (N.2): checked types in service, unchecked ones archived.
       await tx.costType.createMany({
-        data: DEFAULT_COST_TYPES.map(({ name, category, checked }) => ({
+        // One millisecond apart, in the order of the list: the office shows them in that order
+        // (the feeds by the age of the flock, N.7).
+        data: DEFAULT_COST_TYPES.map(({ name, category, bagWeight, feedStage, checked }, rank) => ({
           id: ids(),
+          createdAt: new Date(now().getTime() + rank),
           tenantId,
           category,
           name,
+          bagWeight,
+          feedStage,
           behaviour: COST_CATEGORIES.find((entry) => entry.category === category)?.behaviour ?? 'Variable',
           archivedAt: checked ? null : now(),
         })),

@@ -28,6 +28,7 @@ const ALIMENT_DEMARRAGE = uuid(41);
 const POUSSINS = uuid(42);
 const GARDIENNAGE = uuid(43);
 const ANCIEN_ALIMENT = uuid(44);
+const ALIMENT_AU_KG = uuid(45);
 const LIGNE_ALIMENT = uuid(51);
 const LIGNE_POUSSINS = uuid(52);
 const LE_MATIN = unwrap(Instant('2026-11-09T08:00:00.000Z'));
@@ -41,11 +42,13 @@ const lElevage = (): DraftOrderContext => ({
     { id: RAMASSEUR, kind: 'Customer', archived: false },
     { id: ANCIEN_FOURNISSEUR, kind: 'Supplier', archived: true },
   ],
+  // The usual weight of a bag, in grams (N.8a): 50 kg for the starter feed; none for feed bought by weight.
   costTypes: [
-    { id: ALIMENT_DEMARRAGE, orderable: true, archived: false },
-    { id: POUSSINS, orderable: true, archived: false },
-    { id: GARDIENNAGE, orderable: false, archived: false },
-    { id: ANCIEN_ALIMENT, orderable: true, archived: true },
+    { id: ALIMENT_DEMARRAGE, category: 'Feed', bagWeight: 50_000, orderable: true, archived: false },
+    { id: POUSSINS, category: 'Chicks', bagWeight: null, orderable: true, archived: false },
+    { id: GARDIENNAGE, category: 'Labour', bagWeight: null, orderable: false, archived: false },
+    { id: ANCIEN_ALIMENT, category: 'Feed', bagWeight: 50_000, orderable: true, archived: true },
+    { id: ALIMENT_AU_KG, category: 'Feed', bagWeight: null, orderable: true, archived: false },
   ],
 });
 
@@ -120,6 +123,40 @@ describe('Une commande', () => {
         refus('InvalidUnitPrice', { lineId: LIGNE_ALIMENT }),
         refus('InvalidUnitPrice', { lineId: LIGNE_ALIMENT }),
       ]);
+    });
+
+    // Spec: backlog N.8a — le poids d'un sac d'aliment, en base (décisions du fondateur du 2026-11-13)
+    describe('le poids d’un sac d’aliment', () => {
+      const ligne = (costTypeId: string, bagWeight?: number | null) =>
+        draftOrder(uneCommande({ lines: [{ id: LIGNE_ALIMENT, costTypeId, quantity: 1, unitPrice: 7_500, ...(bagWeight === undefined ? {} : { bagWeight }) }] }), lElevage());
+      const poids = (result: ReturnType<typeof ligne>) => (result.ok ? result.value.lines[0]?.bagWeight : result.error);
+
+      it('une ligne d’aliment sans poids écrit recopie le poids habituel de son type : 50 kg', () => {
+        expect(poids(ligne(ALIMENT_DEMARRAGE))).toBe(50_000);
+        expect(poids(ligne(ALIMENT_DEMARRAGE, null))).toBe(50_000);
+      });
+
+      it('un poids écrit pour cette commande l’emporte sur le poids habituel : un sac de 40 kg', () => {
+        expect(poids(ligne(ALIMENT_DEMARRAGE, 40_000))).toBe(40_000);
+      });
+
+      it('Aliment au kg n’a pas de poids habituel : sans poids écrit, la ligne est refusée ; avec 15 kg, elle passe', () => {
+        expect(ligne(ALIMENT_AU_KG)).toEqual(refus('MissingBagWeight', { lineId: LIGNE_ALIMENT }));
+        expect(poids(ligne(ALIMENT_AU_KG, 15_000))).toBe(15_000);
+      });
+
+      it('une ligne qui n’est pas de l’aliment ne porte aucun poids', () => {
+        expect(poids(ligne(POUSSINS))).toBeNull();
+        expect(ligne(POUSSINS, 1_000)).toEqual(refus('UnexpectedBagWeight', { lineId: LIGNE_ALIMENT }));
+      });
+
+      it('un poids en grammes entiers, au-dessus de zéro', () => {
+        expect([ligne(ALIMENT_AU_KG, 0), ligne(ALIMENT_AU_KG, -15_000), ligne(ALIMENT_AU_KG, 15_000.5)]).toEqual([
+          refus('InvalidBagWeight', { lineId: LIGNE_ALIMENT }),
+          refus('InvalidBagWeight', { lineId: LIGNE_ALIMENT }),
+          refus('InvalidBagWeight', { lineId: LIGNE_ALIMENT }),
+        ]);
+      });
     });
 
     it('deux lignes ne portent pas le même identifiant ; un identifiant mal formé est refusé ; une date qui n’en est pas une aussi', () => {

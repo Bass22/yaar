@@ -39,6 +39,7 @@ export const PICTOGRAM_NAMES = [
   'received-bags',
   'round-check',
   'scale',
+  'shop',
   'speaker',
   'stamp-done',
   'stamp-pending',

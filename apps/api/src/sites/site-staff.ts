@@ -3,8 +3,7 @@ import type { Prisma } from '@prisma/client';
 import type { SiteStaffRefusal } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+import { isCanonicalUuid } from '@domain/journal';
 
 /**
  * Locks the site for the rest of the transaction: two admins changing the staff of one site at
@@ -13,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * exist here.
  */
 async function lockSite(tx: Prisma.TransactionClient, siteId: string): Promise<boolean> {
-  if (!UUID.test(siteId)) {
+  if (!isCanonicalUuid(siteId)) {
     return false;
   }
   const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sites WHERE id = ${siteId}::uuid FOR UPDATE`;
@@ -22,7 +21,7 @@ async function lockSite(tx: Prisma.TransactionClient, siteId: string): Promise<b
 
 // Only collaborators are assigned: an admin already reaches every site of the tenant.
 async function collaboratorOf(tx: Prisma.TransactionClient, userId: string): Promise<Result<string, SiteStaffRefusal>> {
-  const user = UUID.test(userId) ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }) : null;
+  const user = isCanonicalUuid(userId) ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }) : null;
   if (user === null) {
     return err({ kind: 'AccountNotFound' });
   }
@@ -67,7 +66,7 @@ export async function removeFromSite(tx: Prisma.TransactionClient, admin: Sessio
   if (!(await lockSite(tx, siteId))) {
     return err({ kind: 'SiteNotFound' });
   }
-  const removed = UUID.test(userId) ? await tx.siteAssignment.deleteMany({ where: { siteId, userId } }) : { count: 0 };
+  const removed = isCanonicalUuid(userId) ? await tx.siteAssignment.deleteMany({ where: { siteId, userId } }) : { count: 0 };
   if (removed.count === 0) {
     return err({ kind: 'AssignmentNotFound' });
   }

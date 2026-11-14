@@ -139,13 +139,38 @@ describe('Entrée du cahier', () => {
     expect(element.querySelector('[role="alert"]')?.textContent).toContain("Trop d'essais. Réessaie à");
   });
 
+  it('un numéro tapé avec ses espaces s’affiche par groupes, et part sans eux', async () => {
+    const { element, click, type, refresh } = await open();
+    const input = element.querySelector('input[type="tel"]') as HTMLInputElement;
+    input.value = '+221 77 123 45 67';
+    input.dispatchEvent(new Event('input'));
+    await refresh();
+    expect(input.value).toBe('+221 77 123 45 67');
+    await click('.go');
+    await type('7351');
+    await click('app-keypad .validate');
+    expect(http.expectOne('/api/v1/auth/sign-in').request.body).toMatchObject({ phone: '+221771234567' });
+  });
+
+  it('un numéro qui n’est pas du Sénégal reste tel quel, ses espaces seuls retirés', async () => {
+    const { element, refresh } = await open();
+    const input = element.querySelector('input[type="tel"]') as HTMLInputElement;
+    input.value = '+33 6 12 34 56 78';
+    input.dispatchEvent(new Event('input'));
+    await refresh();
+    expect(input.value).toBe('+33612345678');
+  });
+
   it("un premier compte sur ce téléphone passe par son numéro ; son code se valide d'un bouton, son rôle n'étant pas encore connu", async () => {
-    const { element, click, type } = await open();
+    const { element, click, type, refresh } = await open();
 
     expect(element.querySelector('input[type="tel"]')).not.toBeNull();
     const input = element.querySelector('input[type="tel"]') as HTMLInputElement;
     input.value = '+221770000052';
     input.dispatchEvent(new Event('input'));
+    await refresh();
+    // Demande du fondateur du 2026-11-13 : le numéro s'affiche par groupes, comme on le dit ; il part sans espaces
+    expect(input.value).toBe('+221 77 000 00 52');
     await click('.go');
     expect(element.querySelectorAll('.rounds i')).toHaveLength(0);
     await type('7351');

@@ -60,5 +60,8 @@ const COBB_500: readonly GuideRow[] = [
 /** The publisher's strains: the same for every farm, changed only by a release. */
 export const STRAINS: readonly Strain[] = Object.freeze([strain('Cobb500', 'Cobb 500', 'Broiler', COBB_500)]);
 
+/** The strain of the editor's list by its code; `null` for a code it does not have. */
+export const strainOf = (code: string): Strain | null => STRAINS.find((one) => one.code === code) ?? null;
+
 /** The guide's target at a campaign day; `null` outside the table — never a zero. */
 export const targetAt = (strain: Strain, day: number): StrainTarget | null => (Number.isInteger(day) ? (strain.targets[day] ?? null) : null);

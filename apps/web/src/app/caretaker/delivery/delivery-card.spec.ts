@@ -30,8 +30,8 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 const PAPIER = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 7, 7, 0xff, 0xd9]);
 
 // The order of 12/10: 8 bags of 20 already received, 1 000 chicks to come.
-const aliment = (fields: Partial<CaretakerDeliveryLine> = {}): CaretakerDeliveryLine => ({ orderLineId: ALIMENT, name: 'Aliment démarrage', category: 'Feed', expected: 20, received: 8, remaining: 12, ...fields });
-const poussins = (fields: Partial<CaretakerDeliveryLine> = {}): CaretakerDeliveryLine => ({ orderLineId: POUSSINS, name: 'Poussins Cobb', category: 'Chicks', expected: 1000, received: 0, remaining: 1000, ...fields });
+const aliment = (fields: Partial<CaretakerDeliveryLine> = {}): CaretakerDeliveryLine => ({ orderLineId: ALIMENT, name: 'Aliment démarrage', category: 'Feed', feedStage: 'Starter', expected: 20, received: 8, remaining: 12, ...fields });
+const poussins = (fields: Partial<CaretakerDeliveryLine> = {}): CaretakerDeliveryLine => ({ orderLineId: POUSSINS, name: 'Poussins Cobb', category: 'Chicks', feedStage: null, expected: 1000, received: 0, remaining: 1000, ...fields });
 const bande = (lines: CaretakerDeliveryLine[], fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({
   campaignId: BANDE,
   placementDay: '2026-10-14',
@@ -50,6 +50,7 @@ const contexte = (campaign: CaretakerCampaign): CaretakerContext => ({
 const RECORDED = [
   'delivery-choose', 'delivery-how-many', 'delivery-how-many-boxes', 'delivery-how-many-units', 'delivery-received', 'delivery-received-boxes', 'delivery-received-units',
   'delivery-short', 'delivery-expected', 'delivery-bonus', 'confirm', 'delivery-paper', 'delivery-paper-saved', 'delivery-paper-camera-refused', 'written-thanks', 'photo-phone-full', 'storage-full',
+  'feed-starter', 'feed-grower', 'feed-finisher',
   'number-and',
   ...Array.from({ length: 101 }, (_, value) => `number-${value}`),
 ];
@@ -145,6 +146,38 @@ describe('Le gardien compte la livraison', () => {
       expect(Array.from(card()?.querySelectorAll('.expected li') ?? []).map((line) => line.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Aliment démarrage reste 12 sacs', 'Poussins Cobb reste 20 cartons']);
       expect(card()?.querySelector('.expected li use')?.getAttribute('href')).toContain('closed-bag');
       expect(card()?.textContent).not.toMatch(/F\b|prix|€/);
+    });
+  });
+
+  // Spec: backlog N.9 — le gardien distingue les aliments (décisions du fondateur du 2026-11-13 : une
+  // couleur de sac par stade — démarrage jaune, croissance vert, finition brun —, la voix nomme l'aliment)
+  describe('les aliments', () => {
+    const croissance = aliment({ orderLineId: uuid(23), name: 'Aliment croissance', feedStage: 'Grower', expected: 10, received: 0, remaining: 10 });
+    const finition = aliment({ orderLineId: uuid(24), name: 'Aliment finition', feedStage: 'Finisher', expected: 10, received: 0, remaining: 10 });
+    const auKg = aliment({ orderLineId: uuid(25), name: 'Aliment au kg', feedStage: null, expected: 1, received: 0, remaining: 1 });
+
+    it('chaque aliment a la couleur de son stade, sur la carte comme sur les cases à toucher ; un aliment sans stade et les poussins gardent le sac habituel', async () => {
+      const { card, tap, element } = await ouvre(bande([aliment(), croissance, finition, auKg, poussins()]));
+
+      const stades = (lines: Element[]) => lines.map((line) => Array.from(line.classList).find((name) => name.startsWith('stage-')) ?? null);
+      expect(stades(Array.from(card()?.querySelectorAll('.expected li') ?? []))).toEqual(['stage-starter', 'stage-grower', 'stage-finisher', null, null]);
+      await tap('.arrive');
+      expect(stades(Array.from(element.querySelectorAll('app-delivery-card .tile')))).toEqual(['stage-starter', 'stage-grower', 'stage-finisher', null, null]);
+    });
+
+    it('la voix nomme l’aliment avant de faire compter ; rien de plus pour un aliment sans stade ou des poussins', async () => {
+      const { tap, sheet } = await ouvre(bande([finition]));
+      await tap('.arrive');
+
+      expect(sheet('Aliment finition')?.querySelector('.title')?.classList.contains('stage-finisher')).toBe(true);
+      await vi.waitFor(() => expect(heard.at(-1)).toEqual(['fr/feed-finisher', 'fr/delivery-how-many']));
+    });
+
+    it('sans stade, la voix fait compter tout de suite', async () => {
+      const { tap } = await ouvre(bande([auKg]));
+      await tap('.arrive');
+
+      await vi.waitFor(() => expect(heard.at(-1)).toEqual(['fr/delivery-how-many']));
     });
   });
 

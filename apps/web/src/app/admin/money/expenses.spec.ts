@@ -38,20 +38,21 @@ const contexte = (): CaretakerContext => ({
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-11-01', campaignDay: 11, liveCount: 997, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' }] }],
 });
 const tiers = (): CounterpartyView[] => [
-  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
-  { id: OUSMANE, kind: 'Collaborator', name: 'Ousmane', face: 'caretaker', archived: false },
-  { id: uuid(33), kind: 'Customer', name: 'Ramasseur', face: 'hen', archived: false },
-  { id: uuid(34), kind: 'Supplier', name: 'Ancien', face: 'truck', archived: true },
+  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', advancesExpenses: false, archived: false },
+  // Those who may advance money for the farm (R.7): Ousmane and the buyer, not the supplier.
+  { id: OUSMANE, kind: 'Collaborator', name: 'Ousmane', face: 'caretaker', advancesExpenses: true, archived: false },
+  { id: uuid(33), kind: 'Customer', name: 'Ramasseur', face: 'hen', advancesExpenses: true, archived: false },
+  { id: uuid(34), kind: 'Supplier', name: 'Ancien', face: 'truck', advancesExpenses: false, archived: true },
 ];
 // The farm's « Frais financiers » type, only where a test needs it: the fees a payer's transfer cost (R.4).
 const FRAIS = uuid(46);
 let extraTypes: CostTypeView[] = [];
 const types = (): CostTypeView[] => [
   ...extraTypes,
-  { id: uuid(41), category: 'Feed', name: 'Aliment', behaviour: 'Variable', orderable: true, archived: false },
-  { id: SALAIRE, category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', orderable: false, archived: false },
-  { id: EAU, category: 'Utilities', name: 'Eau et électricité', behaviour: 'Variable', orderable: false, archived: false },
-  { id: uuid(45), category: 'Processing', name: 'Déplumage', behaviour: 'Variable', orderable: false, archived: true },
+  { id: uuid(41), category: 'Feed', name: 'Aliment', behaviour: 'Variable', bagWeight: 50_000, orderable: true, archived: false },
+  { id: SALAIRE, category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', bagWeight: null, orderable: false, archived: false },
+  { id: EAU, category: 'Utilities', name: 'Eau et électricité', behaviour: 'Variable', bagWeight: null, orderable: false, archived: false },
+  { id: uuid(45), category: 'Processing', name: 'Déplumage', behaviour: 'Variable', bagWeight: null, orderable: false, archived: true },
 ];
 const NOTE = 'Facture SDE d’octobre, payée au guichet de Thiès. Le compteur a été relevé par le gardien le 30, la facture suivante viendra en décembre — à vérifier avec le voisin qui partage la ligne.';
 const eau = (fields: Partial<CostView> = {}): CostView => ({
@@ -179,7 +180,7 @@ describe('Les dépenses, au bureau', () => {
     it("l'engagé et le coût par poulet viennent du serveur, chacun avec son bouton d'écoute", async () => {
       const { all } = await ouvre('/admin/achats/depenses');
 
-      expect(all('.totals .total').map(text)).toEqual([expect.stringContaining('Engagé à date 957 500 F'), expect.stringContaining('Coût par poulet 1 030 F')]);
+      expect(all('.totals .total').map(text)).toEqual([expect.stringContaining('Engagé à date 957 500 FCFA'), expect.stringContaining('Coût par poulet 1 030 FCFA')]);
       expect(all('.totals app-speaker-button')).toHaveLength(2);
     });
 
@@ -189,13 +190,26 @@ describe('Les dépenses, au bureau', () => {
       expect(text(all('.totals .total')[1])).toContain('pas encore connu');
     });
 
-    it('chaque dépense dit sa date, son type, son montant, son statut, « reçu ✓ » et sa note en entier ; la plus récente en haut', async () => {
+    it('chaque dépense dit sa date, son type, son montant, son statut, son reçu et sa note en entier ; la plus récente en haut', async () => {
       const { all } = await ouvre('/admin/achats/depenses');
 
       const [owed, water] = all('.cost');
-      expect(text(owed)).toMatch(/Salaire du gardien.*12\/11\/2026.*45 000 F.*À payer à Ousmane/);
-      expect(text(water)).toMatch(/Eau et électricité.*10\/11\/2026.*12 500 F.*Payé.*reçu ✓/);
+      expect(text(owed)).toMatch(/Salaire du gardien.*12\/11\/2026.*45 000 FCFA.*À payer à Ousmane/);
+      expect(text(water)).toMatch(/Eau et électricité.*10\/11\/2026.*12 500 FCFA.*Payé.*Reçu/);
+      expect(owed?.querySelector('app-photos .photo')).toBeNull();
       expect(text(water?.querySelector('.cost-note'))).toBe(NOTE);
+    });
+
+    // Spec: backlog R.6 — le reçu d'une dépense s'ouvre d'un tap (avant : « reçu ✓ », sans le voir)
+    it('un tap sur « Reçu » ouvre la photo du reçu, lue au serveur', async () => {
+      const { tap, element, refresh } = await ouvre('/admin/achats/depenses');
+      await tap('.cost:nth-child(2) app-photos .photo');
+      const lecture = http.expectOne(`/api/v1/media/${'e'.repeat(64)}`);
+      lecture.flush(new Blob([RECU], { type: 'image/jpeg' }));
+      await vi.waitFor(async () => {
+        await refresh();
+        expect(element().querySelector<HTMLImageElement>('.photo-viewer img')?.getAttribute('src')).toBe('blob:recu');
+      });
     });
 
     it('« C’est payé » passe une dépense à payer en payée, d’un geste : une contre-écriture qui ne change que le statut', async () => {
@@ -222,7 +236,7 @@ describe('Les dépenses, au bureau', () => {
       await tap('.type:nth-child(3)');
       await keys('4', '2', '000');
 
-      expect(text(element().querySelector('.amount'))).toBe('42 000 F');
+      expect(text(element().querySelector('.amount'))).toBe('42 000 FCFA');
       expect(all('app-banknotes .note').map(text)).toEqual(['10 000', '10 000', '10 000', '10 000', '2 000']);
       expect(element().querySelector<HTMLInputElement>('.status .choice.on')?.textContent).toContain('Payé');
     });
@@ -239,20 +253,21 @@ describe('Les dépenses, au bureau', () => {
     });
 
     // Spec: backlog R.4 — payé par un tiers (décisions du 2026-11-12).
-    it('« Payé par quelqu’un d’autre » se range derrière « Plus de détails » : tout tiers en usage, client compris, jamais un archivé', async () => {
+    it('« Payé par quelqu’un d’autre » se range derrière « Plus de détails » : les tiers qui peuvent avancer des frais (R.7), client compris, jamais un archivé', async () => {
       const { tap, keys, all, element } = await ouvre('/admin/achats/depense');
       await tap('.type:nth-child(1)');
       await keys('1', '0', '0', '000');
 
       expect(text(element().querySelector('.payer-more summary'))).toBe('Plus de détails : payé par quelqu’un d’autre');
-      expect(all('.payer').map(text)).toEqual(['Sedima', 'Ousmane', 'Ramasseur']);
+      // Sedima n'avance pas de frais : la liste reste courte (demande du fondateur du 2026-11-13)
+      expect(all('.payer').map(text)).toEqual(['Ousmane', 'Ramasseur']);
     });
 
     it('payé par l’acheteur : la relecture le dit, à l’écran et à la voix ; Oui envoie la dépense « payée par » lui', async () => {
       const { tap, keys, element, sent, refresh } = await ouvre('/admin/achats/depense');
       await tap('.type:nth-child(1)');
       await keys('1', '0', '0', '000');
-      await tap('.payer:nth-child(3)');
+      await tap('.payer:nth-child(2)');
       expect(element().querySelector<HTMLInputElement>('.status .choice:nth-child(1) input')?.checked).toBe(false);
       await tap('.next');
 
@@ -264,17 +279,17 @@ describe('Les dépenses, au bureau', () => {
     });
 
     it('ses frais pris en charge : la case dit qu’ils se déduisent de ce qu’il doit ; ils partent comme une dépense « Frais financiers » payée par lui', async () => {
-      extraTypes = [{ id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false }];
+      extraTypes = [{ id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', bagWeight: null, orderable: false, archived: false }];
       const { tap, keys, type, element, sent } = await ouvre('/admin/achats/depense');
       await tap('.type:nth-child(2)');
       await keys('1', '0', '0', '000');
       expect(element().querySelector('input[name=fee]')).toBeNull();
-      await tap('.payer:nth-child(3)');
+      await tap('.payer:nth-child(2)');
 
       expect(text(element().querySelector('app-fee-field'))).toContain('Frais de transfert payés par Ramasseur, à ta charge');
       await type('input[name=fee]', '1000');
       await tap('.next');
-      expect(text(element().querySelector('.receipt-card .fee-words'))).toBe('et 1 000 F de frais, à ta charge');
+      expect(text(element().querySelector('.receipt-card .fee-words'))).toBe('et 1 000 FCFA de frais, à ta charge');
       await tap('.confirm');
 
       const cost = await sent('POST', '/api/v1/costs');
@@ -292,7 +307,7 @@ describe('Les dépenses, au bureau', () => {
       const { tap, keys, element } = await ouvre('/admin/achats/depense');
       await tap('.type:nth-child(1)');
       await keys('1', '0', '0', '000');
-      await tap('.payer:nth-child(3)');
+      await tap('.payer:nth-child(2)');
       await tap('.status .choice:nth-child(1) input');
       await tap('.next');
 
@@ -306,10 +321,10 @@ describe('Les dépenses, au bureau', () => {
       await keys('1', '2', '5', '0', '0');
       await tap('.next');
 
-      expect(text(element().querySelector('.receipt-card'))).toMatch(/Eau et électricité.*Poulailler Nord · Jour 11.*12 500 F.*payé aujourd’hui/);
+      expect(text(element().querySelector('.receipt-card'))).toMatch(/Eau et électricité.*Poulailler Nord · Jour 11.*12 500 FCFA.*payé aujourd’hui/);
       await vi.waitFor(() => expect(heard).toContainEqual(expect.arrayContaining(['fr/cost-category-utilities', 'fr/money-amount', 'fr/money-francs', 'fr/cost-paid', 'fr/confirm'])));
       await tap('.actions .no');
-      expect(text(element().querySelector('.amount'))).toBe('12 500 F');
+      expect(text(element().querySelector('.amount'))).toBe('12 500 FCFA');
     });
 
     it('Oui envoie la dépense, avec un identifiant créé ici et la date du jour, puis revient à la liste du lot', async () => {
@@ -376,7 +391,7 @@ describe('Les dépenses, au bureau', () => {
       const first = await sent('POST', '/api/v1/costs');
       first.error(new ProgressEvent('error'));
       await vi.waitFor(() => expect(TestBed.inject(Router).url).toBe(`/admin/achats/depenses?lot=${BANDE}`));
-      await vi.waitFor(() => expect(text(element().querySelector('app-office-pending li'))).toBe('Dépense de 1 000 F en attente d’envoi'));
+      await vi.waitFor(() => expect(text(element().querySelector('app-office-pending li'))).toBe('Dépense de 1 000 FCFA en attente d’envoi'));
 
       globalThis.dispatchEvent(new Event('online'));
       const again = await sent('POST', '/api/v1/costs');
@@ -446,7 +461,7 @@ describe('Les dépenses, au bureau', () => {
     it('« Dupliquer » remplit le geste — type, montant, statut, note — à la date du jour, sans rien enregistrer ; Oui écrit une nouvelle dépense', async () => {
       const { tap, sent, element } = await ouvre(`/admin/achats/depense?lot=${BANDE}&from=${uuid(301)}`);
 
-      expect(text(element().querySelector('.amount'))).toBe('12 500 F');
+      expect(text(element().querySelector('.amount'))).toBe('12 500 FCFA');
       expect(http.match((request) => request.method === 'POST')).toEqual([]);
       await tap('.next');
       expect(text(element().querySelector('.receipt-card'))).toContain('payé aujourd’hui');

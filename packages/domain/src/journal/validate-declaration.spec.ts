@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { addDays, BusinessDay, TimeZone } from './business-day';
 import type { Campaign } from './campaign';
-import { CampaignId, JournalEventId, SiteId, TenantId, UserId } from './ids';
+import { CampaignId, JournalEventId, OrderLineId, SiteId, TenantId, UserId } from './ids';
 import { Instant } from './instant';
 import { Declaration } from './journal-event';
 import { Quantity } from './quantity';
@@ -105,6 +105,22 @@ describe("Validation d'une déclaration", () => {
         });
         expect(validateDeclaration(troisMortsPourLe('2026-11-04'), declarePar(role, { campaign })).ok).toBe(true);
       }
+    });
+  });
+
+  // Spec: backlog Q.11 (décision du fondateur du 2026-11-13) — la litière et l'aliment arrivent avant les poussins
+  describe('les livraisons avant la mise en place', () => {
+    it('une réception peut être datée d’avant la mise en place ; une mort, non', () => {
+      // Given des poussins attendus le 7 novembre ; nous sommes le 5
+      const campaign = uneCampagneEnCours({ placementDay: jour('2026-11-07') });
+      const recue = Declaration(
+        { id: unwrap(JournalEventId(uuid(9))), tenantId: unwrap(TenantId(uuid(2))), siteId: THE_SITE, campaignId: THE_CAMPAIGN, authorId: unwrap(UserId(uuid(5))), businessDate: jour('2026-11-05'), recordedAt: instant('2026-11-05T18:30:00.000Z') },
+        { type: 'Delivery', orderLineId: unwrap(OrderLineId(uuid(70))), receivedQuantity: unwrap(Quantity(20)), deliveryNote: { kind: 'NoPaper' } },
+      );
+
+      // Then les 20 sacs reçus aujourd'hui s'écrivent ; une mort le même jour est refusée
+      expect(validateDeclaration(recue, parLeGardien({ campaign })).ok).toBe(true);
+      expect(validateDeclaration(troisMortsPourLe('2026-11-05'), parLeGardien({ campaign }))).toEqual({ ok: false, error: { kind: 'BusinessDateBeforePlacement' } });
     });
   });
 

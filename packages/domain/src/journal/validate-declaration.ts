@@ -41,7 +41,8 @@ export const validateDeclaration = <Event extends JournalEvent>(
   if (event.businessDate > today) {
     return err({ kind: 'FutureBusinessDate' });
   }
-  if (event.businessDate < campaign.placementDay) {
+  // Before the placement, only what arrives for the flock: litter and feed come before the chicks (Q.11).
+  if (event.businessDate < campaign.placementDay && !('type' in event && event.type === 'Delivery')) {
     return err({ kind: 'BusinessDateBeforePlacement' });
   }
   // Only the admin fills an older day. Any other role gets the caretaker's three days.

@@ -6,6 +6,7 @@ import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { archiveCounterparty, configureCounterparty, createCounterparty, listCounterparties } from './counterparties';
+import { objectOf } from '../http/body';
 
 // The farm's counterparties (N.3): office only — the caretaker never sees them. No route deletes
 // one: it is archived (decision of 2026-11-09).
@@ -46,31 +47,33 @@ export class CounterpartiesController {
 const isKind = (value: unknown): value is CreateCounterpartyRequest['kind'] => (COUNTERPARTY_KINDS as readonly unknown[]).includes(value);
 const isFace = (value: unknown): value is CreateCounterpartyRequest['face'] => (COUNTERPARTY_FACES as readonly unknown[]).includes(value);
 
-function objectOf(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new BadRequestException({ kind: 'InvalidRequest' });
-  }
-  return body as Record<string, unknown>;
-}
-
 // Whitelist at the border: id, kind, name, face — never a farm.
 function createRequestOf(body: unknown): CreateCounterpartyRequest {
   const values = objectOf(body);
-  const { id, kind, name, face } = values;
-  if (Object.keys(values).sort().join() !== 'face,id,kind,name' || typeof id !== 'string' || !isKind(kind) || typeof name !== 'string' || !isFace(face)) {
+  const { id, kind, name, face, advancesExpenses } = values;
+  const keys = Object.keys(values).sort().join();
+  if (
+    (keys !== 'face,id,kind,name' && keys !== 'advancesExpenses,face,id,kind,name') ||
+    typeof id !== 'string' ||
+    !isKind(kind) ||
+    typeof name !== 'string' ||
+    !isFace(face) ||
+    (advancesExpenses !== undefined && typeof advancesExpenses !== 'boolean')
+  ) {
     throw new BadRequestException({ kind: 'InvalidRequest' });
   }
-  return { id, kind, name, face };
+  return { id, kind, name, face, ...(advancesExpenses === undefined ? {} : { advancesExpenses }) };
 }
 
-// At least one of name and face, each of its type; never the kind, never a farm.
+// At least one of name, face and « advances expenses », each of its type; never the kind, never a farm.
 function configureRequestOf(body: unknown): ConfigureCounterpartyRequest {
   const values = objectOf(body);
   const keys = Object.keys(values);
   const valid =
     keys.length > 0 &&
-    keys.every((key) => key === 'name' || key === 'face') &&
+    keys.every((key) => key === 'name' || key === 'face' || key === 'advancesExpenses') &&
     (!('name' in values) || typeof values['name'] === 'string') &&
+    (!('advancesExpenses' in values) || typeof values['advancesExpenses'] === 'boolean') &&
     (!('face' in values) || isFace(values['face']));
   if (!valid) {
     throw new BadRequestException({ kind: 'InvalidRequest' });

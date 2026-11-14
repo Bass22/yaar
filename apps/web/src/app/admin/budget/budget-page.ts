@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
+import { SaleForecasts } from './sale-forecasts';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { BudgetLineView, BudgetView, CostCategoryCode } from '@contracts';
@@ -8,6 +9,9 @@ import { Pictogram } from '../../ui/pictogram';
 import { CATEGORY_PICTO } from '../money/expenses';
 import { Office } from '../office';
 import { amountWords } from '../purchases/purchases';
+import { currencyWord, grouped, typedNumber } from '../typed-number';
+import { CurrentLot, currentLotOf } from '../lots/current-lot';
+import { authHeaders } from '../../core/session/auth-headers';
 
 /** The categories of the base, as the office says them (CLAUDE.md glossary). */
 const CATEGORY_WORDS: Record<CostCategoryCode, string> = {
@@ -37,33 +41,23 @@ const amountOf = (typed: string): number | null | undefined => {
 // left — or the overrun, said by picto, colour and word. Online only.
 @Component({
   selector: 'app-budget-page',
-  imports: [Pictogram, RouterLink],
+  imports: [CurrentLot, Pictogram, RouterLink, SaleForecasts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="coin" [decorative]="true" /> Budget</h1>
     <a class="back" routerLink="..">Revenir aux lots</a>
-    @if (lots().length > 1) {
-      <div class="lots" role="radiogroup" aria-label="Quel lot ?">
-        @for (lot of lots(); track lot.campaignId) {
-          <label class="lot">
-            <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
-          </label>
-        }
-      </div>
-    }
+    <app-current-lot />
 
     @if (view(); as budget) {
       @if (lot(); as current) {
-        <p class="current">La bande du {{ current.siteName }} · Jour {{ current.campaignDay }}</p>
       }
       <p class="hint">Un plan par poste, jamais une dette : il ne change ni l’engagé ni les tiers. {{ thousands(budget.plannedHeadcount) }} poussins prévus.</p>
       @for (line of budget.lines; track line.category) {
         <div class="post" [attr.data-category]="line.category">
           <span class="name"><app-pictogram [picto]="picto(line.category)" [decorative]="true" /> {{ words[line.category] }}</span>
           <label class="field">
-            <input class="amount" type="text" inputmode="numeric" [value]="typed(line)" (input)="type(line.category, $event)" [disabled]="budget.closed" [attr.aria-label]="'Budget ' + words[line.category] + ', en francs'" />
-            <span>F</span>
+            <input class="amount" type="text" inputmode="numeric" [value]="grouped(typed(line))" (input)="type(line.category, $event)" [disabled]="budget.closed" [attr.aria-label]="'Budget ' + words[line.category] + ', en francs'" />
+            <span>{{ currencyWord(budget.currency) }}</span>
           </label>
           @if (line.budget === null && line.suggested !== null) {
             <small class="suggested">proposé d’après tes bandes closes</small>
@@ -87,6 +81,8 @@ const amountOf = (typed: string): number | null | undefined => {
       @if (refusal(); as said) {
         <p class="refusal" role="alert">{{ said }}</p>
       }
+      <!-- What the flock should bring, against this budget (W.4) -->
+      <app-sale-forecasts [campaignId]="budget.campaignId" />
     } @else if (unreachable()) {
       <p class="unreachable" role="alert">Pas de réseau : le budget se lit en ligne. Réessaie plus tard.</p>
     }
@@ -103,13 +99,13 @@ const amountOf = (typed: string): number | null | undefined => {
     .current { margin: 0 0 4px; font: 700 1.1rem var(--font-hand); color: var(--color-ink); }
     .hint { margin: 0 0 8px; color: var(--color-muted); font-size: 0.9rem; }
     .post {
-      display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; margin-block-start: 8px;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; margin-block-start: 8px;
       background: var(--color-shell); border: 2px solid var(--color-card-edge); border-radius: var(--radius-wobble-2); box-shadow: var(--shadow-hard-sm);
     }
     .name { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--color-ink); }
     .name app-pictogram { inline-size: 26px; block-size: 26px; }
     .field { display: inline-flex; align-items: center; gap: 4px; color: var(--color-muted); }
-    .amount { inline-size: 8em; min-block-size: 44px; padding: 0 8px; border: 2px solid var(--color-card-edge); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: 700 1.05rem var(--font-hand); text-align: end; font-variant-numeric: tabular-nums; }
+    .amount { inline-size: 6.5em; min-block-size: 44px; padding: 0 8px; border: 2px solid var(--color-card-edge); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: 700 1.05rem var(--font-hand); text-align: end; font-variant-numeric: tabular-nums; }
     .suggested { grid-column: 1 / -1; justify-self: end; color: var(--color-muted); font-style: italic; }
     .committed { color: var(--color-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .variance { justify-self: end; font-weight: 700; color: var(--color-pasture); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -129,8 +125,9 @@ export class BudgetPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly words = CATEGORY_WORDS;
+  protected readonly currencyWord = currencyWord;
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = currentLotOf(this.office, this.route);
   protected readonly lot = computed(() => this.lots().find((lot) => lot.campaignId === this.lotId()) ?? null);
   protected readonly view = signal<BudgetView | null>(null);
   protected readonly unreachable = signal(false);
@@ -146,14 +143,16 @@ export class BudgetPage {
     });
   }
 
+  protected readonly grouped = grouped;
+
   /** What the box shows: what was typed, or the budget written, or the proposal. */
   protected typed(line: BudgetLineView): string {
     return this.edits().get(line.category) ?? String(line.budget ?? line.suggested ?? '');
   }
 
   protected type(category: string, event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.edits.update((edits) => new Map(edits).set(category, value));
+    // Kept without the spaces of thousands, shown with them (Q.10).
+    this.edits.update((edits) => new Map(edits).set(category, typedNumber(event)));
   }
 
   /** « 1 050 », never split across two lines. */
@@ -201,6 +200,6 @@ export class BudgetPage {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 }

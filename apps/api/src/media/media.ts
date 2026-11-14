@@ -45,6 +45,9 @@ export async function readMedia(tx: Tx, tenantId: string, sha256: string): Promi
   if (cited !== null) return media;
   // A receipt cited by a cost (P.5) is read like a photo of the journal.
   const receipt = await tx.cost.findFirst({ where: { receipt: sha256 }, select: { id: true } });
-  return receipt === null ? null : media;
+  if (receipt !== null) return media;
+  // A photo joined to an order or a payment (R.6), likewise.
+  const joined = await tx.attachment.findFirst({ where: { mediaSha256: sha256 }, select: { id: true } });
+  return joined === null ? null : media;
 }
 

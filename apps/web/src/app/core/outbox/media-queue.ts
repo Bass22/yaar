@@ -1,4 +1,5 @@
 import type { SessionState } from '../session/session-store';
+import { committed, done } from './idb';
 
 /** Says how long a media is kept on the server (architecture §7). */
 export type RetentionClass = 'OperationalProof' | 'SupportingDocument';
@@ -148,21 +149,4 @@ export async function synchronizeMedia(queue: MediaQueue, session: SessionState,
 export async function fingerprintOf(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes as Uint8Array<ArrayBuffer>);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function done<T>(start: () => IDBRequest): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const request = start();
-    request.onsuccess = () => resolve(request.result as T);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// A write counts once its transaction is committed: before that, a crash would lose it.
-function committed(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
 }

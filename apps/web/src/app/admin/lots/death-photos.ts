@@ -1,9 +1,10 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type { DeathPhotosView } from '@contracts';
 import { AuthService } from '../../core/session/auth';
 import { Pictogram } from '../../ui/pictogram';
+import { authHeaders } from '../../core/session/auth-headers';
 
 // For a lot, how each caretaker answered for the dead (K.6; CdC « Photo des morts »): how many of
 // its death declarations were photographed, of those answered; those without an answer — written
@@ -57,7 +58,7 @@ export class DeathPhotos {
   private async load(campaignId: string): Promise<void> {
     const session = this.auth.session();
     try {
-      this.view.set(await firstValueFrom(this.http.get<DeathPhotosView>(`/api/v1/campaigns/${campaignId}/death-photos`, { headers: new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` }) })));
+      this.view.set(await firstValueFrom(this.http.get<DeathPhotosView>(`/api/v1/campaigns/${campaignId}/death-photos`, { headers: authHeaders(session) })));
     } catch {
       this.view.set(null);
     }

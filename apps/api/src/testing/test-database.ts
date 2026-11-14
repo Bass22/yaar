@@ -1,8 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
@@ -11,10 +9,10 @@ import { resolve } from 'node:path';
 // Infrastructure tests run against PostgreSQL itself (row-level security, constraints,
 // triggers): a stub would prove nothing. Adapted from build-track (test-database.ts).
 //
-// One container per Jest worker, one database per spec file: booting a container per spec
-// made build-track's suite time out at random on a busy machine. The migrations run once per
-// container, into a template database that every spec file copies (CREATE DATABASE … TEMPLATE):
-// running the Prisma command line once per file made the whole suite exceed its time limits.
+// One container for the whole run, started and migrated once by Jest's global setup
+// (apps/api/jest.test-containers.js), one database per spec file, copied from the migrated
+// template (CREATE DATABASE … TEMPLATE). A container kept here in a module variable was started
+// anew for every spec file — Jest loads modules per file — and saturated the machine.
 
 export type TestDatabase = {
   /** Connection string of the owner of the tables, the role that ran the migrations (D.6). */
@@ -32,24 +30,22 @@ export type TestDatabase = {
   drop(): Promise<void>;
 };
 
-// The major version the compose runs.
-const POSTGRES_IMAGE = 'postgres:16';
-const APP_ROLE = 'yaar_app';
-const APP_ROLE_PASSWORD = 'test-only';
-// The owner of the tables, created like infra/postgres/init-roles.sh creates it.
-const OWNER_ROLE = 'yaar';
-const OWNER_ROLE_PASSWORD = 'test-only-owner';
-const WITHOUT_PRIVILEGES = 'NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION';
-
+// The roles and the template, as the global setup made them (apps/api/jest.test-containers.js).
+const { OWNER_ROLE, OWNER_ROLE_PASSWORD, APP_ROLE, APP_ROLE_PASSWORD, TEMPLATE } = createRequire(__filename)('../../jest.test-containers.js') as {
+  OWNER_ROLE: string;
+  OWNER_ROLE_PASSWORD: string;
+  APP_ROLE: string;
+  APP_ROLE_PASSWORD: string;
+  TEMPLATE: string;
+};
 const prismaConfig = resolve(__dirname, '../../prisma.config.ts');
 const clientFor = (url: string): PrismaClient => new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
 // The CLI installed in node_modules, not `npx`: no package lookup, no network.
 const prismaCli = createRequire(__filename).resolve('prisma/build/index.js');
-
-/** The worker's container, started once and reused; the run removes it when it ends. */
-let container: Promise<StartedPostgreSqlContainer> | null = null;
-const TEMPLATE = 'yaar_template';
 let created = 0;
+// PostgreSQL refuses to copy a template while another copy of it starts (55006): the spec files
+// of the workers start together, so a copy waits its turn.
+const TEMPLATE_BUSY = /55006|being accessed by other users/;
 
 async function onCluster<T>(clusterUrl: string, work: (cluster: PrismaClient) => Promise<T>): Promise<T> {
   const cluster = clientFor(clusterUrl);
@@ -60,37 +56,12 @@ async function onCluster<T>(clusterUrl: string, work: (cluster: PrismaClient) =>
   }
 }
 
-// Set by the global setup of Jest (apps/api/jest.test-containers.js), which removes these
-// containers at the end of the run, or at the next run if this one is killed.
-function labelsOfThisRun(): Record<string, string> {
-  const run = process.env['YAAR_TEST_RUN'];
-  const pid = process.env['YAAR_TEST_RUN_PID'];
-  if (run === undefined || pid === undefined) {
-    throw new Error('The test run has no label: run the API tests through apps/api/jest.config.js.');
+function clusterOfThisRun(): string {
+  const url = process.env['YAAR_TEST_CLUSTER_URL'];
+  if (url === undefined || url === '') {
+    throw new Error('The test run has no PostgreSQL: run the API tests through apps/api/jest.config.js.');
   }
-  return { 'yaar.test-run': run, 'yaar.test-run-pid': pid };
-}
-
-function startContainer(): Promise<StartedPostgreSqlContainer> {
-  container ??= new PostgreSqlContainer(POSTGRES_IMAGE)
-    .withLabels(labelsOfThisRun())
-    // The superuser of a PostgreSQL can run programs: its password is drawn for the run, even
-    // though the port is only published for the time of the tests.
-    .withPassword(randomBytes(24).toString('hex'))
-    .start()
-    .then(async (started) => {
-      // Roles are shared by every database of the cluster: they are created once, here, as the
-      // database server is initialised in the stack (infra/postgres/init-roles.sh).
-      await onCluster(started.getConnectionUri(), async (cluster) => {
-        await cluster.$executeRawUnsafe(`CREATE ROLE ${OWNER_ROLE} LOGIN PASSWORD '${OWNER_ROLE_PASSWORD}' ${WITHOUT_PRIVILEGES}`);
-        await cluster.$executeRawUnsafe(`CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_ROLE_PASSWORD}' ${WITHOUT_PRIVILEGES}`);
-        await cluster.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE}" OWNER ${OWNER_ROLE}`);
-      });
-      // Migrated as the owner, never as the superuser: the tables belong to the owner.
-      migrate(asRole(started.getConnectionUri(), TEMPLATE, OWNER_ROLE, OWNER_ROLE_PASSWORD));
-      return started;
-    });
-  return container;
+  return url;
 }
 
 function asRole(clusterUrl: string, database: string, role: string, password: string): string {
@@ -108,16 +79,21 @@ export function migrate(databaseUrl: string): void {
   });
 }
 
-export async function createTestDatabase(options: { migrated?: boolean } = {}): Promise<TestDatabase> {
-  const clusterUrl = (await startContainer()).getConnectionUri();
+export async function createTestDatabase(): Promise<TestDatabase> {
+  const clusterUrl = clusterOfThisRun();
   // Unique per Jest worker (a process) and per spec file (a counter).
   const name = `yaar_test_${process.pid}_${++created}`;
-  // A copy of the migrated template, or an empty database when the test applies migrations itself.
-  await onCluster(clusterUrl, (cluster) =>
-    cluster.$executeRawUnsafe(
-      options.migrated === false ? `CREATE DATABASE "${name}" OWNER ${OWNER_ROLE}` : `CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE}" OWNER ${OWNER_ROLE}`,
-    ),
-  );
+  // A copy of the migrated template.
+  const statement = `CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE}" OWNER ${OWNER_ROLE}`;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await onCluster(clusterUrl, (cluster) => cluster.$executeRawUnsafe(statement));
+      break;
+    } catch (error) {
+      if (attempt >= 50 || !TEMPLATE_BUSY.test(String(error))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200));
+    }
+  }
 
   const superuserUrl = new URL(clusterUrl);
   superuserUrl.pathname = `/${name}`;

@@ -75,6 +75,9 @@ describe('La livraison annoncée, au cahier du gardien', () => {
         { id: BANDE, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
         // A second flock on the same site, placed later: its orders are its own.
         { id: PETITS, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-12'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
+        // Two flocks opened ahead (O.5), placed on the 17th and the 20th: the first one has an order announced (Q.11).
+        { id: uuid(80), tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-17'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
+        { id: uuid(81), tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-10-20'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
       ],
     });
     await db.superuser.user.create({ data: { id: OUSMANE, tenantId: TENANT, role: 'collaborator', phone: '+221770000001', name: 'Ousmane', pinHash: PIN_HASH } });
@@ -82,7 +85,7 @@ describe('La livraison annoncée, au cahier du gardien', () => {
     await db.superuser.counterparty.create({ data: { id: SEDIMA, tenantId: TENANT, kind: 'Supplier', name: 'Sedima', face: 'closed-bag' } });
     await db.superuser.costType.createMany({
       data: [
-        { id: ALIMENT, tenantId: TENANT, category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable' },
+        { id: ALIMENT, tenantId: TENANT, category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable', feedStage: 'Starter' },
         { id: POUSSINS, tenantId: TENANT, category: 'Chicks', name: 'Poussins Cobb', behaviour: 'Variable' },
       ],
     });
@@ -93,6 +96,8 @@ describe('La livraison annoncée, au cahier du gardien', () => {
     await uneCommande(4, { announcedAt: new Date('2026-10-12T09:10:00.000Z'), closedAt: new Date('2026-10-13T09:00:00.000Z') });
     // 5: announced for the second flock.
     await uneCommande(5, { announcedAt: new Date('2026-10-12T09:15:00.000Z') }, PETITS);
+    // 6: announced for the flock still to come: litter and feed arrive before the chicks.
+    await uneCommande(6, { announcedAt: new Date('2026-10-13T09:00:00.000Z') }, uuid(80));
     await recoit(201, uuid(21), 8);
     await recoit(301, uuid(31), 20);
     await recoit(302, uuid(32), 1050);
@@ -118,22 +123,33 @@ describe('La livraison annoncée, au cahier du gardien', () => {
 
   const livraisons = () => context.sites[0]?.campaigns[0]?.deliveries;
 
-  it('une commande annoncée ajoute une livraison attendue à la bande : chaque ligne avec son type, la quantité attendue, le reçu et le reste à venir', () => {
+  // N.9 : le stade de l'aliment donne au gardien la couleur du sac ; ailleurs, aucun
+  it('une commande annoncée ajoute une livraison attendue à la bande : chaque ligne avec son type, son stade d’aliment, la quantité attendue, le reçu et le reste à venir', () => {
     expect(livraisons()).toEqual([
       {
         orderId: uuid(2),
         lines: [
-          { orderLineId: uuid(21), name: 'Aliment démarrage', category: 'Feed', expected: 20, received: 8, remaining: 12 },
-          { orderLineId: uuid(22), name: 'Poussins Cobb', category: 'Chicks', expected: 1000, received: 0, remaining: 1000 },
+          { orderLineId: uuid(21), name: 'Aliment démarrage', category: 'Feed', feedStage: 'Starter', expected: 20, received: 8, remaining: 12 },
+          { orderLineId: uuid(22), name: 'Poussins Cobb', category: 'Chicks', feedStage: null, expected: 1000, received: 0, remaining: 1000 },
         ],
       },
     ]);
   });
 
+  // Spec: backlog Q.11 (décision du fondateur du 2026-11-13)
+  it('une bande à venir arrive au cahier avant J0 si une livraison est annoncée pour elle, et seulement alors', () => {
+    const campaigns = context.sites[0]?.campaigns ?? [];
+    const aVenir = campaigns.find(({ campaignId }) => campaignId === uuid(80));
+
+    expect(aVenir?.campaignDay).toBe(-3);
+    expect(aVenir?.deliveries.map(({ orderId }) => orderId)).toEqual([uuid(6)]);
+    expect(campaigns.some(({ campaignId }) => campaignId === uuid(81))).toBe(false);
+  });
+
   it("chaque bande n'attend que ses commandes : deux bandes sur un site ne se mélangent pas", () => {
     const parBande = Object.fromEntries((context.sites[0]?.campaigns ?? []).map((campaign) => [campaign.campaignId, campaign.deliveries.map(({ orderId }) => orderId)]));
 
-    expect(parBande).toEqual({ [BANDE]: [uuid(2)], [PETITS]: [uuid(5)] });
+    expect(parBande).toEqual({ [BANDE]: [uuid(2)], [PETITS]: [uuid(5)], [uuid(80)]: [uuid(6)] });
   });
 
   it("un brouillon n'ajoute aucune livraison ; une commande entièrement reçue, ou close, n'en a plus", () => {

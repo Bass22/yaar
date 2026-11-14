@@ -1,6 +1,7 @@
 import { err, Money, ok, SignedMoney, type CurrencyCode, type Result } from '@kit';
 import { halvesOf, type Leftover, type LiveCount } from '../journal';
 import { NOTE_MAX_LENGTH } from './cost';
+import { isCanonicalUuid } from '../journal/ids';
 
 /**
  * Stock of a type the campaign paid for, counted in halves: a received order line counts two
@@ -52,12 +53,11 @@ export type LeftoverTransfer = {
 
 export type TransferRefusal = { readonly kind: 'InvalidId' } | { readonly kind: 'SameCampaign' } | { readonly kind: 'OtherSite' } | { readonly kind: 'DestinationClosed' };
 
-const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Sends the leftovers to the campaign the admin chose: another one of the same site, not closed. */
 export function transferLeftovers(leftovers: readonly LeftoverValue[], context: TransferContext, currency: CurrencyCode): Result<LeftoverTransfer, TransferRefusal> {
   const { from, to } = context;
-  if (![from.campaignId, from.siteId, to.campaignId, to.siteId].every((id) => CANONICAL_UUID.test(id))) return err({ kind: 'InvalidId' });
+  if (![from.campaignId, from.siteId, to.campaignId, to.siteId].every((id) => isCanonicalUuid(id))) return err({ kind: 'InvalidId' });
   if (to.campaignId === from.campaignId) return err({ kind: 'SameCampaign' });
   if (to.siteId !== from.siteId) return err({ kind: 'OtherSite' });
   if (to.closed) return err({ kind: 'DestinationClosed' });

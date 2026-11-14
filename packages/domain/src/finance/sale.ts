@@ -5,6 +5,7 @@ import type { CounterpartyKind } from './counterparty';
 import type { LedgerEntry } from './ledger';
 import { PAYMENT_METHODS, type PaymentMethod } from './order-balance';
 import type { CounterpartyId } from './purchase-order';
+import { isCanonicalUuid } from '../journal/ids';
 
 export type SaleId = Brand<string, 'SaleId'>;
 export type SaleReceiptId = Brand<string, 'SaleReceiptId'>;
@@ -67,12 +68,11 @@ export type SaleRefusal =
   /** Birds are sold to a customer, never to a supplier or a collaborator. */
   | { readonly kind: 'NotACustomer' };
 
-const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** A sale (W.1), judged against the farm: a customer in use, at least one bird, a price, a day not ahead of today. */
 export function recordSale(input: SaleInput, context: SaleContext): Result<Sale, SaleRefusal> {
-  if (!CANONICAL_UUID.test(input.id)) return err({ kind: 'InvalidId', expected: 'SaleId' });
-  if (!CANONICAL_UUID.test(input.campaignId)) return err({ kind: 'InvalidId', expected: 'CampaignId' });
+  if (!isCanonicalUuid(input.id)) return err({ kind: 'InvalidId', expected: 'SaleId' });
+  if (!isCanonicalUuid(input.campaignId)) return err({ kind: 'InvalidId', expected: 'CampaignId' });
   const soldOn = BusinessDay(input.soldOn);
   if (!soldOn.ok) return err({ kind: 'InvalidBusinessDay' });
   if (soldOn.value > context.today) return err({ kind: 'SoldInFuture' });
@@ -109,8 +109,8 @@ function pricingOf(pricing: SaleInput['pricing'], currency: CurrencyCode): Resul
 
 /** Money received for a sale: at least one unit, a method, a day not ahead of today. More than the sale is allowed. */
 export function recordSaleReceipt(input: SaleReceiptInput, context: Pick<SaleContext, 'currency' | 'today'>): Result<SaleReceipt, SaleRefusal> {
-  if (!CANONICAL_UUID.test(input.id)) return err({ kind: 'InvalidId', expected: 'SaleReceiptId' });
-  if (!CANONICAL_UUID.test(input.saleId)) return err({ kind: 'InvalidId', expected: 'SaleId' });
+  if (!isCanonicalUuid(input.id)) return err({ kind: 'InvalidId', expected: 'SaleReceiptId' });
+  if (!isCanonicalUuid(input.saleId)) return err({ kind: 'InvalidId', expected: 'SaleId' });
   const paidOn = BusinessDay(input.paidOn);
   if (!paidOn.ok) return err({ kind: 'InvalidBusinessDay' });
   if (paidOn.value > context.today) return err({ kind: 'PaidInFuture' });

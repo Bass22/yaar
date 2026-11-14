@@ -27,7 +27,7 @@ const commande = (): PurchaseOrder =>
   unwrap(
     draftOrder(
       { id: uuid(20), supplierId: SEDIMA, campaignId: BANDE, orderDay: '2026-10-12', reference: null, lines: [{ id: uuid(21), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500 }] },
-      { currency: XOF, counterparties: [{ id: SEDIMA, kind: 'Supplier', archived: false }], costTypes: [{ id: ALIMENT, orderable: true, archived: false }] },
+      { currency: XOF, counterparties: [{ id: SEDIMA, kind: 'Supplier', archived: false }], costTypes: [{ id: ALIMENT, category: 'Feed', bagWeight: 50_000, orderable: true, archived: false }] },
     ),
   );
 const paiement = (rank: number, amount: number, paidOn = '2026-10-13') => unwrap(recordPayment({ id: uuid(rank), orderId: uuid(20), paidOn, amount, method: 'Wave' }, XOF));

@@ -9,8 +9,44 @@ const OK = { DATABASE_URL: UNE_BASE, JWT_SECRET: UN_SECRET, MEDIA_PATH: '/data/m
 
 describe("Configuration de l'API", () => {
   it("la configuration se lit dans l'environnement : la base, et le port (3000 par défaut)", () => {
-    expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000, mediaPath: '/data/medias' });
-    expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081, mediaPath: '/data/medias' });
+    expect(loadAppConfig(OK)).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 3000, mediaPath: '/data/medias', vapidPublicKey: null, vapidPrivateKey: null, vapidSubject: null });
+    expect(loadAppConfig({ ...OK, PORT: '8081' })).toEqual({ databaseUrl: UNE_BASE, jwtSecret: UN_SECRET, port: 8081, mediaPath: '/data/medias', vapidPublicKey: null, vapidPrivateKey: null, vapidSubject: null });
+  });
+
+  // Spec: backlog Y.1 — la clé publique des notifications : facultative (sans elle, rien n'est proposé), jamais fausse
+  it('VAPID_PUBLIC_KEY est facultative ; présente, elle doit être une clé publique P-256 en base64url, et le message ne la répète pas', () => {
+    const key = `B${'A'.repeat(86)}`;
+    const rest = { VAPID_PRIVATE_KEY: 'p'.repeat(43), VAPID_SUBJECT: 'mailto:contact@exemple.sn' };
+    expect(loadAppConfig({ ...OK, ...rest, VAPID_PUBLIC_KEY: key }).vapidPublicKey).toBe(key);
+    expect(loadAppConfig({ ...OK, VAPID_PUBLIC_KEY: '' }).vapidPublicKey).toBeNull();
+    for (const wrong of ['cle-trop-courte', `B${'A'.repeat(85)}+`, `${key}A`]) {
+      expect(() => loadAppConfig({ ...OK, ...rest, VAPID_PUBLIC_KEY: wrong })).toThrow(/VAPID_PUBLIC_KEY/);
+      expect(() => loadAppConfig({ ...OK, ...rest, VAPID_PUBLIC_KEY: wrong })).not.toThrow(new RegExp(wrong.slice(0, 12)));
+    }
+  });
+
+  // Spec: backlog Y.2a — envoyer demande la paire et un contact : les trois ensemble, ou aucune
+  it('la clé privée et le contact (VAPID_SUBJECT, mailto: ou https:) vont avec la clé publique : les trois, ou aucune ; le message ne répète jamais la clé privée', () => {
+    const publicKey = `B${'A'.repeat(86)}`;
+    const privateKey = 'p'.repeat(43);
+    const all = { ...OK, VAPID_PUBLIC_KEY: publicKey, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: 'mailto:contact@exemple.sn' };
+    expect(loadAppConfig(all)).toMatchObject({ vapidPublicKey: publicKey, vapidPrivateKey: privateKey, vapidSubject: 'mailto:contact@exemple.sn' });
+    expect(loadAppConfig({ ...all, VAPID_SUBJECT: 'https://yaar.exemple.sn' }).vapidSubject).toBe('https://yaar.exemple.sn');
+    // Il en manque une : le message dit qu'elles vont ensemble
+    for (const partial of [{ ...all, VAPID_PRIVATE_KEY: '' }, { ...all, VAPID_SUBJECT: '' }, { ...OK, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: 'mailto:contact@exemple.sn' }]) {
+      expect(() => loadAppConfig(partial)).toThrow(/les trois, ou aucune/);
+    }
+    for (const wrong of [
+      { ...all, VAPID_PRIVATE_KEY: '' },
+      { ...all, VAPID_SUBJECT: '' },
+      { ...OK, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: 'mailto:contact@exemple.sn' },
+      { ...all, VAPID_PRIVATE_KEY: 'trop-courte' },
+      { ...all, VAPID_SUBJECT: 'contact@exemple.sn' },
+      { ...all, VAPID_SUBJECT: 'http://yaar.exemple.sn' },
+    ]) {
+      expect(() => loadAppConfig(wrong)).toThrow(/VAPID/);
+      expect(() => loadAppConfig(wrong)).not.toThrow(new RegExp(privateKey));
+    }
   });
 
   // Spec: backlog M.1 — le volume des médias (architecture §7)

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
 import type { CaretakerWeighingRequest } from '@contracts';
-import { STRAINS, WEIGHING_WEIGHTS, weightBounds } from '@domain/journal';
+import { outOfBounds, strainOf, WEIGHING_WEIGHTS } from '@domain/journal';
 import { clip, counted, weight, type PhrasePart } from '../../core/audio/phrase';
 import { Voice } from '../../core/audio/voice';
 import { CLOCK } from '../../core/clock';
@@ -11,11 +11,10 @@ import { Keypad } from '../../ui/keypad';
 import { Pictogram } from '../../ui/pictogram';
 import { Sheet } from '../../ui/sheet';
 import { SpeakerButton } from '../../ui/speaker-button';
-import { Stamp } from '../../ui/stamp';
+import { Stamp, STAMP_MS } from '../../ui/stamp';
 import type { DeclarationTarget } from '../notebook/notebook';
 import { ScaleDisplay, scaleDigits } from './scale-display';
 
-const STAMP_MS = 1500;
 type Photo = { readonly bytes: Uint8Array; readonly url: string };
 /** Five digits: up to 99.999 kg — the farm's scale weighs 40 kg at most. */
 const MAX_DIGITS = 5;
@@ -197,10 +196,7 @@ export class WeighingCard {
   protected readonly typed = computed(() => Number(this.digits() || '0'));
   protected readonly photoUrl = computed(() => this.photos()[this.at()]?.url ?? null);
   protected readonly complete = computed(() => this.weights().every((grams) => grams !== null) && this.photos().every((photo) => photo !== null));
-  private readonly bounds = computed(() => {
-    const strain = STRAINS.find(({ code }) => code === this.strain());
-    return strain === undefined ? null : weightBounds(strain, this.campaignDay());
-  });
+  private readonly strainOfFlock = computed(() => strainOf(this.strain() ?? ''));
 
   protected digitsOf(grams: number): string {
     return scaleDigits(grams);
@@ -265,8 +261,8 @@ export class WeighingCard {
   protected take(): void {
     const grams = this.typed();
     if (grams < 1 || this.photos()[this.at()] === null) return;
-    const bounds = this.bounds();
-    if (!this.warned() && bounds !== null && (grams < bounds.min || grams > bounds.max)) {
+    const strain = this.strainOfFlock();
+    if (!this.warned() && strain !== null && outOfBounds(strain, this.campaignDay(), grams)) {
       this.warned.set(true);
       void this.voice.say([clip('weighing-implausible')]);
       return;

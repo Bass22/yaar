@@ -8,11 +8,9 @@ import { GestureButton } from '../../../ui/gesture-button';
 import { Pictogram } from '../../../ui/pictogram';
 import { PostIt } from '../../../ui/post-it';
 import { Sheet } from '../../../ui/sheet';
-import { Stamp } from '../../../ui/stamp';
+import { Stamp, STAMP_MS } from '../../../ui/stamp';
 import type { DeclarationTarget } from '../../notebook/notebook';
 import { REDUCE_PHOTO } from '../../../core/media/reduce-photo';
-
-const STAMP_MS = 1500;
 
 type Trouble = 'camera' | 'full' | 'storage';
 

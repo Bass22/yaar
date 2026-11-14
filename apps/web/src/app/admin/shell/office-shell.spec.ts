@@ -19,7 +19,7 @@ const token = `e30.${btoa(JSON.stringify({ sub: LE_GERANT, tenant: TENANT })).re
 const NOW = new Date('2026-11-06T08:00:00.000Z');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
-const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: uuid(4), placementDay: '2026-10-15', campaignDay: 22, liveCount: 938, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500', ...fields });
+const uneBande = (fields: Partial<CaretakerCampaign> = {}): CaretakerCampaign => ({ campaignId: uuid(4), placementDay: '2026-10-15', campaignDay: 22, liveCount: 1898, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500', ...fields });
 const contexte = (): CaretakerContext => ({
   chef: { name: 'Le gérant', phone: '+221770000003' },
   sites: [
@@ -64,8 +64,18 @@ describe('La coquille du bureau', () => {
     const { element } = await ouvre('/lots');
 
     const lots = Array.from(element.querySelectorAll('.lot')).map((lot) => lot.textContent?.replace(/\s+/g, ' ').trim());
-    expect(lots).toEqual([expect.stringMatching(/Poulailler Nord.*Jour 22.*938 vivants/), expect.stringMatching(/Poulailler Sud.*Jour 3.*vivants pas encore connus/)]);
+    // Vu à 360 px le 2026-11-13 : « 1898 » s'écrivait collé ; une espace insécable entre les milliers
+    expect(element.querySelector('.lot .alive')?.textContent?.trim()).toBe('1\u00a0898 vivants');
+    expect(lots).toEqual([expect.stringMatching(/Poulailler Nord.*Jour 22.*1 898 vivants/), expect.stringMatching(/Poulailler Sud.*Jour 3.*vivants : aucun poussin reçu/)]);
     expect(element.querySelector('nav.tabs a.active')?.textContent?.trim()).toBe('Lots');
+  });
+
+  // Spec: backlog O.5 (décision du 2026-11-13) — une bande ouverte en avance se dit « dans N jours »
+  it('une bande ouverte en avance se dit à venir : « dans 3 jours », jamais « Jour -3 »', async () => {
+    const { element } = await ouvre('/lots', (request) => request.flush({ chef: null, sites: [{ siteId: uuid(3), name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-11-06', primaryCaretakerId: null, campaigns: [uneBande({ campaignDay: -3, liveCount: null })] }] }));
+
+    expect(element.querySelector('.lot')?.textContent?.replace(/\s+/g, ' ')).toContain('dans 3 jours');
+    expect(element.querySelector('.lot')?.textContent).not.toContain('Jour -3');
   });
 
   it('l’accueil montre les lots en cours, puis ce qui est à traiter — rien pour l’instant, et il le dit', async () => {

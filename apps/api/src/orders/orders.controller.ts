@@ -4,7 +4,10 @@ import type { DraftOrderRequest, OrderRefusal, OrderView, RecordPaymentRequest }
 import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
+import { AfterCommit, type AfterCommitTask } from '../database/after-commit';
+import { SiteNotifications } from '../notifications/site-notifications';
 import { announcePurchaseOrder, closePurchaseOrder, draftPurchaseOrder, listOrders, payPurchaseOrder, revisePurchaseOrder } from './orders';
+import { writtenStatus } from '../http/written';
 
 // The farm's purchase orders (Q.4): admin only — prices never go to the caretaker. Online, like
 // the rest of the office (rule 3). No route deletes an order: it is closed.
@@ -14,6 +17,7 @@ export class OrdersController {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(CLOCK) private readonly clock: Clock,
+    private readonly notifications: SiteNotifications,
   ) {}
 
   @Get()
@@ -37,8 +41,10 @@ export class OrdersController {
 
   @Post(':id/announce')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async announce(@CurrentSession() session: Session, @Param('id') id: string): Promise<void> {
+  async announce(@CurrentSession() session: Session, @Param('id') id: string, @AfterCommit() later: (task: AfterCommitTask) => void): Promise<void> {
     answer(await this.prisma.runInTenant(session.tenantId, (tx) => announcePurchaseOrder(tx, session, id, this.clock.now())));
+    // The caretakers of the site are told once the announcement is committed (Y.2a).
+    later(() => this.notifications.deliveryAnnounced(session.tenantId, id));
   }
 
   @Post(':id/close')
@@ -53,7 +59,7 @@ export class OrdersController {
     const request = paymentOf(body);
     const result = await this.prisma.runInTenant(session.tenantId, (tx) => payPurchaseOrder(tx, session, id, request, this.clock.now()));
     answer(result.ok ? { ok: true, value: undefined } : result);
-    response.status(result.ok && result.value === 'Duplicate' ? HttpStatus.OK : HttpStatus.CREATED);
+    if (result.ok) response.status(writtenStatus(result.value));
   }
 }
 
@@ -86,7 +92,13 @@ function requestOf(body: unknown): DraftOrderRequest {
     Array.isArray(body['lines']) &&
     body['lines'].every(
       (line: unknown) =>
-        isObject(line) && hasExactly(line, ['id', 'costTypeId', 'quantity', 'unitPrice']) && typeof line['id'] === 'string' && typeof line['costTypeId'] === 'string' && typeof line['quantity'] === 'number' && typeof line['unitPrice'] === 'number',
+        isObject(line) &&
+        (hasExactly(line, ['id', 'costTypeId', 'quantity', 'unitPrice']) || hasExactly(line, ['id', 'costTypeId', 'quantity', 'unitPrice', 'bagWeight'])) &&
+        typeof line['id'] === 'string' &&
+        typeof line['costTypeId'] === 'string' &&
+        typeof line['quantity'] === 'number' &&
+        typeof line['unitPrice'] === 'number' &&
+        (line['bagWeight'] === undefined || line['bagWeight'] === null || typeof line['bagWeight'] === 'number'),
     );
   if (!valid) {
     throw new BadRequestException({ kind: 'InvalidRequest' });

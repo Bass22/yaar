@@ -135,6 +135,8 @@ export interface CaretakerDeliveryLine {
   /** The farm's name for what comes (« Aliment démarrage »); its category gives the picture. */
   readonly name: string;
   readonly category: 'Feed' | 'Chicks' | 'Health' | 'Bedding' | 'Labour' | 'Equipment' | 'Cleaning' | 'Transport' | 'Processing' | 'Utilities' | 'FinancialCharges' | 'Other';
+  /** The stage of a feed by age (N.9): the colour of its bag on the card, the words the voice says; `null` outside the three feeds by age. */
+  readonly feedStage: 'Starter' | 'Grower' | 'Finisher' | null;
   readonly expected: number;
   readonly received: number;
   /** Never below zero: a bonus leaves nothing to come. */
@@ -198,4 +200,50 @@ export interface DeathPhotosView {
   readonly campaignId: string;
   /** By name. Declarations taken back do not count. */
   readonly caretakers: readonly { readonly authorId: string; readonly name: string; readonly photographed: number; readonly noPhoto: number; readonly unanswered: number }[];
+}
+
+/** Who wrote, and when (UTC): the author's name as the farm knows it. */
+export interface WrittenBy {
+  readonly author: { readonly id: string; readonly name: string };
+  readonly recordedAt: string;
+}
+
+/**
+ * A line of the campaign's journal at the office (O.7): the declaration as written, what counts
+ * today (`null` once taken back), and who corrected or took it back. Never changed, never erased:
+ * the old value stays readable.
+ */
+export interface OfficeJournalLine extends WrittenBy {
+  readonly id: string;
+  readonly siteId: string;
+  readonly businessDate: string;
+  /** The fact as first declared. */
+  readonly declared: FactPayload;
+  /** What counts: the latest correction's fact, or the declared one; `null` once taken back. */
+  readonly fact: FactPayload | null;
+  readonly correction: WrittenBy | null;
+  readonly retraction: WrittenBy | null;
+  /** For a delivery: what was received, by the farm's name. */
+  readonly delivery?: { readonly name: string };
+}
+
+/** Answer of GET /api/v1/campaigns/:id/journal (O.7): every declaration of the campaign, latest day first. Admin only. */
+export interface CampaignJournalView {
+  readonly campaignId: string;
+  readonly siteId: string;
+  readonly placementDay: string;
+  /** The site's business day now: the latest day a declaration may be written for. */
+  readonly today: string;
+  readonly closed: boolean;
+  readonly lines: readonly OfficeJournalLine[];
+  /** Every day from J0 to today — or to the closing —, earliest first (O.8). */
+  readonly days: readonly CampaignDayView[];
+}
+
+/** A day of the campaign as the calendar shows it (O.8): its mortality — nothing said, an explicit zero, or the deaths — and its bags opened. */
+export interface CampaignDayView {
+  readonly day: string;
+  readonly campaignDay: number;
+  readonly mortality: { readonly kind: 'NotDeclared' } | { readonly kind: 'NoLossDeclared' } | { readonly kind: 'DeathsDeclared'; readonly deaths: number };
+  readonly bagsOpened: number;
 }

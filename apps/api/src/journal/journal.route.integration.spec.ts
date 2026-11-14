@@ -185,7 +185,7 @@ describe("L'API reçoit le journal", () => {
       }),
     ]);
     // Under the application role, farm B sees none of it.
-    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
     try {
       expect(await api.runInTenant(unwrap(TenantId(TENANT_B)), (tx) => tx.refusedEvent.count())).toBe(0);
       expect(await api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.refusedEvent.count({ where: { eventId: uuid(90) } }))).toBe(1);
@@ -239,7 +239,7 @@ describe("L'API reçoit le journal", () => {
 
     // Then tout est accepté, et chaque événement relu en base est celui que le domaine a décodé de l'envoi
     expect(outcomes.every((outcome) => (outcome as { status: string }).status === 'Accepted')).toBe(true);
-    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
+    const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
     try {
       const tenantId = unwrap(TenantId(TENANT_A));
       for (const raw of sent) {

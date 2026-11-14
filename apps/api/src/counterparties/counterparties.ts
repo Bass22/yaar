@@ -3,24 +3,18 @@ import { Prisma } from '@prisma/client';
 import type { ConfigureCounterpartyRequest, CounterpartyRefusal, CounterpartyView, CreateCounterpartyRequest } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const NAME_MAX = 60;
-
-function nameOf(raw: string): Result<string, CounterpartyRefusal> {
-  const name = raw.trim();
-  return name === '' || name.length > NAME_MAX ? err({ kind: 'InvalidName' }) : ok(name);
-}
+import { isCanonicalUuid } from '@domain/journal';
+import { nameOf } from '../http/name';
 
 /** The farm's counterparties, by name; archived ones included and marked — they stay readable. */
 export async function listCounterparties(tx: Prisma.TransactionClient): Promise<CounterpartyView[]> {
-  const rows = await tx.counterparty.findMany({ orderBy: [{ name: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, name: true, face: true, archivedAt: true } });
+  const rows = await tx.counterparty.findMany({ orderBy: [{ name: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, name: true, face: true, advancesExpenses: true, archivedAt: true } });
   return rows.map(({ archivedAt, face, ...row }) => ({ ...row, face: face as CounterpartyView['face'], archived: archivedAt !== null }));
 }
 
 /** The admin creates a counterparty of the farm of the session (N.3); the creation is traced. */
 export async function createCounterparty(tx: Prisma.TransactionClient, admin: Session, request: CreateCounterpartyRequest, now: Date): Promise<Result<void, CounterpartyRefusal>> {
-  if (!UUID.test(request.id)) {
+  if (!isCanonicalUuid(request.id)) {
     return err({ kind: 'InvalidRequest' });
   }
   const name = nameOf(request.name);
@@ -28,7 +22,7 @@ export async function createCounterparty(tx: Prisma.TransactionClient, admin: Se
     return name;
   }
   try {
-    await tx.counterparty.create({ data: { id: request.id, tenantId: admin.tenantId, kind: request.kind, name: name.value, face: request.face } });
+    await tx.counterparty.create({ data: { id: request.id, tenantId: admin.tenantId, kind: request.kind, name: name.value, face: request.face, advancesExpenses: request.advancesExpenses ?? false } });
   } catch (error) {
     // The identifier is taken — here, or in another farm, which this transaction does not see.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -42,11 +36,11 @@ export async function createCounterparty(tx: Prisma.TransactionClient, admin: Se
 
 /** The admin changes a counterparty's name or face, never its kind; what changed is traced. */
 export async function configureCounterparty(tx: Prisma.TransactionClient, admin: Session, id: string, change: ConfigureCounterpartyRequest, now: Date): Promise<Result<void, CounterpartyRefusal>> {
-  const current = UUID.test(id) ? await tx.counterparty.findUnique({ where: { id }, select: { name: true, face: true } }) : null;
+  const current = isCanonicalUuid(id) ? await tx.counterparty.findUnique({ where: { id }, select: { name: true, face: true, advancesExpenses: true } }) : null;
   if (current === null) {
     return err({ kind: 'CounterpartyNotFound' });
   }
-  const data: { name?: string; face?: string } = {};
+  const data: { name?: string; face?: string; advancesExpenses?: boolean } = {};
   if (change.name !== undefined) {
     const name = nameOf(change.name);
     if (!name.ok) {
@@ -59,6 +53,9 @@ export async function configureCounterparty(tx: Prisma.TransactionClient, admin:
   if (change.face !== undefined && change.face !== current.face) {
     data.face = change.face;
   }
+  if (change.advancesExpenses !== undefined && change.advancesExpenses !== current.advancesExpenses) {
+    data.advancesExpenses = change.advancesExpenses;
+  }
   const changed = Object.keys(data);
   if (changed.length === 0) {
     return ok(undefined);
@@ -70,7 +67,7 @@ export async function configureCounterparty(tx: Prisma.TransactionClient, admin:
 
 /** Archived, never deleted: no longer offered, still readable. Archiving twice leaves one trace. */
 export async function archiveCounterparty(tx: Prisma.TransactionClient, admin: Session, id: string, now: Date): Promise<Result<void, CounterpartyRefusal>> {
-  const current = UUID.test(id) ? await tx.counterparty.findUnique({ where: { id }, select: { archivedAt: true } }) : null;
+  const current = isCanonicalUuid(id) ? await tx.counterparty.findUnique({ where: { id }, select: { archivedAt: true } }) : null;
   if (current === null) {
     return err({ kind: 'CounterpartyNotFound' });
   }

@@ -22,13 +22,16 @@ CREATE TYPE "user_role" AS ENUM ('admin', 'collaborator');
 CREATE TYPE "journal_event_type" AS ENUM ('Death', 'BagOpened', 'NoLoss', 'Loss', 'Delivery', 'Weighing', 'WeighingValidated', 'TaskDone', 'VoiceMessage', 'Photo');
 
 -- CreateEnum
-CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded', 'SaleRecorded', 'SaleReceiptRecorded', 'WeighingRequested', 'CampaignClosed', 'BudgetRecorded');
+CREATE TYPE "audit_action" AS ENUM ('SignInSucceeded', 'SignInFailed', 'SignInRefused', 'PinChosen', 'AccountCreated', 'AccountBlocked', 'AccountUnblocked', 'SignedOutEverywhere', 'PinReset', 'SiteAssigned', 'SiteUnassigned', 'PrimaryCaretakerDesignated', 'AdminAdded', 'SiteCreated', 'SiteConfigured', 'CampaignOpened', 'CounterpartyCreated', 'CounterpartyConfigured', 'CounterpartyArchived', 'CostTypeCreated', 'CostTypeConfigured', 'CostTypeArchived', 'OrderDrafted', 'OrderRevised', 'OrderAnnounced', 'OrderClosed', 'PaymentRecorded', 'CostRecorded', 'CostRevised', 'SettlementRecorded', 'SaleRecorded', 'SaleReceiptRecorded', 'WeighingRequested', 'CampaignClosed', 'BudgetRecorded', 'CatalogPriceSet', 'AttachmentAdded', 'SaleForecastRecorded', 'SaleForecastWithdrawn', 'ReceptionPlanned', 'ReceptionWithdrawn', 'CorrectionReviewed');
 
 -- CreateEnum
 CREATE TYPE "counterparty_kind" AS ENUM ('Supplier', 'Customer', 'Collaborator');
 
 -- CreateEnum
 CREATE TYPE "cost_category" AS ENUM ('Feed', 'Chicks', 'Health', 'Bedding', 'Labour', 'Equipment', 'Cleaning', 'Transport', 'Processing', 'Utilities', 'FinancialCharges', 'Other');
+
+-- CreateEnum
+CREATE TYPE "feed_stage" AS ENUM ('Starter', 'Grower', 'Finisher');
 
 -- CreateEnum
 CREATE TYPE "cost_behaviour" AS ENUM ('Fixed', 'Variable');
@@ -38,6 +41,12 @@ CREATE TYPE "payment_method" AS ENUM ('Cash', 'Wave', 'OrangeMoney');
 
 -- CreateEnum
 CREATE TYPE "retention_class" AS ENUM ('OperationalProof', 'SupportingDocument');
+
+-- CreateEnum
+CREATE TYPE "forecast_pricing" AS ENUM ('PerBird', 'PerKilo');
+
+-- CreateEnum
+CREATE TYPE "attachment_subject" AS ENUM ('Order', 'Payment');
 
 -- CreateEnum
 CREATE TYPE "cost_payment_kind" AS ENUM ('Paid', 'ToPay', 'PaidBy');
@@ -69,8 +78,6 @@ CREATE TABLE "users" (
     "audio_language" "audio_language",
     "pin_hash" TEXT NOT NULL,
     "provisional_pin_expires_at" TIMESTAMPTZ(3),
-    "pin_failures" INTEGER NOT NULL DEFAULT 0,
-    "pin_last_failure_at" TIMESTAMPTZ(3),
     "blocked_at" TIMESTAMPTZ(3),
     "sessions_valid_from" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -114,6 +121,7 @@ CREATE TABLE "campaigns" (
     "closed_at" TIMESTAMPTZ(3),
     "leftovers_to" UUID,
     "closing_comment" TEXT,
+    "feed_gap_comment" TEXT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "campaigns_pkey" PRIMARY KEY ("id")
@@ -136,6 +144,16 @@ CREATE TABLE "journal_events" (
     "retracts" UUID,
 
     CONSTRAINT "journal_events_pkey" PRIMARY KEY ("tenant_id","id")
+);
+
+-- CreateTable
+CREATE TABLE "correction_reviews" (
+    "tenant_id" UUID NOT NULL,
+    "correction_id" UUID NOT NULL,
+    "reviewed_by" UUID NOT NULL,
+    "reviewed_at" TIMESTAMPTZ(3) NOT NULL,
+
+CONSTRAINT "correction_reviews_pkey" PRIMARY KEY ("tenant_id","correction_id")
 );
 
 -- CreateTable
@@ -176,6 +194,7 @@ CREATE TABLE "counterparties" (
     "id" UUID NOT NULL,
     "kind" "counterparty_kind" NOT NULL,
     "name" TEXT NOT NULL,
+    "advances_expenses" BOOLEAN NOT NULL DEFAULT false,
     "face" TEXT NOT NULL,
     "archived_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -190,10 +209,25 @@ CREATE TABLE "cost_types" (
     "category" "cost_category" NOT NULL,
     "name" TEXT NOT NULL,
     "behaviour" "cost_behaviour" NOT NULL,
+    "bag_weight" INTEGER,
+    "feed_stage" "feed_stage",
     "archived_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "cost_types_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "catalog_prices" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "cost_type_id" UUID NOT NULL,
+    "supplier_id" UUID,
+    "unit_price" INTEGER NOT NULL,
+    "set_at" TIMESTAMPTZ(3) NOT NULL,
+    "set_by" UUID NOT NULL,
+
+    CONSTRAINT "catalog_prices_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -210,12 +244,58 @@ CREATE TABLE "budget_lines" (
 );
 
 -- CreateTable
+CREATE TABLE "morning_reminders" (
+    "tenant_id" UUID NOT NULL,
+    "site_id" UUID NOT NULL,
+    "day" DATE NOT NULL,
+    "sent_at" TIMESTAMPTZ(3) NOT NULL,
+
+CONSTRAINT "morning_reminders_pkey" PRIMARY KEY ("tenant_id","site_id","day")
+);
+
+-- CreateTable
+CREATE TABLE "reception_alerts" (
+    "tenant_id" UUID NOT NULL,
+    "reception_id" UUID NOT NULL,
+    "day" DATE NOT NULL,
+    "sent_at" TIMESTAMPTZ(3) NOT NULL,
+
+CONSTRAINT "reception_alerts_pkey" PRIMARY KEY ("tenant_id","reception_id","day")
+);
+
+-- CreateTable
+CREATE TABLE "push_subscriptions" (
+    "tenant_id" UUID NOT NULL,
+    "device_id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("tenant_id","device_id")
+);
+
+-- CreateTable
+CREATE TABLE "sign_in_attempts" (
+    "tenant_id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "device_id" UUID NOT NULL,
+    "failures" INTEGER NOT NULL DEFAULT 0,
+    "last_failure_at" TIMESTAMPTZ(3),
+    "known_since" TIMESTAMPTZ(3),
+
+    CONSTRAINT "sign_in_attempts_pkey" PRIMARY KEY ("tenant_id","user_id","device_id")
+);
+
+-- CreateTable
 CREATE TABLE "campaign_leftovers" (
     "tenant_id" UUID NOT NULL,
     "campaign_id" UUID NOT NULL,
     "cost_type_id" UUID NOT NULL,
     "whole" INTEGER NOT NULL,
     "opened" BOOLEAN NOT NULL,
+    "opened_weight" INTEGER,
 
     CONSTRAINT "campaign_leftovers_pkey" PRIMARY KEY ("tenant_id","campaign_id","cost_type_id")
 );
@@ -260,8 +340,56 @@ CREATE TABLE "order_lines" (
     "cost_type_id" UUID NOT NULL,
     "quantity" INTEGER NOT NULL,
     "unit_price" INTEGER NOT NULL,
+    "bag_weight" INTEGER,
 
     CONSTRAINT "order_lines_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "planned_receptions" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "reception_id" UUID NOT NULL,
+    "order_id" UUID NOT NULL,
+    "planned_on" DATE,
+    "lines" JSONB,
+    "withdrawn" BOOLEAN NOT NULL,
+    "written_at" TIMESTAMPTZ(3) NOT NULL,
+    "written_by" UUID NOT NULL,
+
+    CONSTRAINT "planned_receptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sale_forecasts" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "forecast_id" UUID NOT NULL,
+    "campaign_id" UUID NOT NULL,
+    "buyer_id" UUID,
+    "week" DATE,
+    "birds" INTEGER,
+    "pricing" "forecast_pricing",
+    "price" INTEGER,
+    "average_weight" INTEGER,
+    "withdrawn" BOOLEAN NOT NULL,
+    "written_at" TIMESTAMPTZ(3) NOT NULL,
+    "written_by" UUID NOT NULL,
+
+    CONSTRAINT "sale_forecasts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "attachments" (
+    "tenant_id" UUID NOT NULL,
+    "id" UUID NOT NULL,
+    "subject_kind" "attachment_subject" NOT NULL,
+    "subject_id" UUID NOT NULL,
+    "media_sha256" TEXT NOT NULL,
+    "attached_at" TIMESTAMPTZ(3) NOT NULL,
+    "attached_by" UUID NOT NULL,
+
+    CONSTRAINT "attachments_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -384,7 +512,16 @@ CREATE UNIQUE INDEX "counterparties_tenant_id_id_key" ON "counterparties"("tenan
 CREATE UNIQUE INDEX "cost_types_tenant_id_id_key" ON "cost_types"("tenant_id", "id");
 
 -- CreateIndex
+CREATE INDEX "catalog_prices_tenant_id_cost_type_id_idx" ON "catalog_prices"("tenant_id", "cost_type_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "catalog_prices_tenant_id_id_key" ON "catalog_prices"("tenant_id", "id");
+
+-- CreateIndex
 CREATE INDEX "budget_lines_tenant_id_campaign_id_idx" ON "budget_lines"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE INDEX "push_subscriptions_tenant_id_user_id_idx" ON "push_subscriptions"("tenant_id", "user_id");
 
 -- CreateIndex
 CREATE INDEX "purchase_orders_tenant_id_campaign_id_idx" ON "purchase_orders"("tenant_id", "campaign_id");
@@ -403,6 +540,27 @@ CREATE INDEX "order_lines_tenant_id_order_id_idx" ON "order_lines"("tenant_id", 
 
 -- CreateIndex
 CREATE UNIQUE INDEX "order_lines_tenant_id_id_key" ON "order_lines"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "planned_receptions_tenant_id_order_id_idx" ON "planned_receptions"("tenant_id", "order_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "planned_receptions_tenant_id_id_key" ON "planned_receptions"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "sale_forecasts_tenant_id_campaign_id_idx" ON "sale_forecasts"("tenant_id", "campaign_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sale_forecasts_tenant_id_id_key" ON "sale_forecasts"("tenant_id", "id");
+
+-- CreateIndex
+CREATE INDEX "attachments_tenant_id_subject_id_idx" ON "attachments"("tenant_id", "subject_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "attachments_tenant_id_id_key" ON "attachments"("tenant_id", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "attachments_tenant_id_subject_kind_subject_id_media_sha256_key" ON "attachments"("tenant_id", "subject_kind", "subject_id", "media_sha256");
 
 -- CreateIndex
 CREATE INDEX "costs_tenant_id_campaign_id_idx" ON "costs"("tenant_id", "campaign_id");
@@ -477,6 +635,15 @@ ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_corrects_f
 ALTER TABLE "journal_events" ADD CONSTRAINT "journal_events_tenant_id_retracts_fkey" FOREIGN KEY ("tenant_id", "retracts") REFERENCES "journal_events"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
+ALTER TABLE "correction_reviews" ADD CONSTRAINT "correction_reviews_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "correction_reviews" ADD CONSTRAINT "correction_reviews_tenant_id_correction_id_fkey" FOREIGN KEY ("tenant_id", "correction_id") REFERENCES "journal_events"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "correction_reviews" ADD CONSTRAINT "correction_reviews_tenant_id_reviewed_by_fkey" FOREIGN KEY ("tenant_id", "reviewed_by") REFERENCES "users"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
 ALTER TABLE "refused_events" ADD CONSTRAINT "refused_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
@@ -501,10 +668,40 @@ ALTER TABLE "counterparties" ADD CONSTRAINT "counterparties_tenant_id_fkey" FORE
 ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
+ALTER TABLE "catalog_prices" ADD CONSTRAINT "catalog_prices_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "catalog_prices" ADD CONSTRAINT "catalog_prices_tenant_id_cost_type_id_fkey" FOREIGN KEY ("tenant_id", "cost_type_id") REFERENCES "cost_types"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "catalog_prices" ADD CONSTRAINT "catalog_prices_tenant_id_supplier_id_fkey" FOREIGN KEY ("tenant_id", "supplier_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
 ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "morning_reminders" ADD CONSTRAINT "morning_reminders_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "morning_reminders" ADD CONSTRAINT "morning_reminders_tenant_id_site_id_fkey" FOREIGN KEY ("tenant_id", "site_id") REFERENCES "sites"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "reception_alerts" ADD CONSTRAINT "reception_alerts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_tenant_id_user_id_fkey" FOREIGN KEY ("tenant_id", "user_id") REFERENCES "users"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sign_in_attempts" ADD CONSTRAINT "sign_in_attempts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sign_in_attempts" ADD CONSTRAINT "sign_in_attempts_tenant_id_user_id_fkey" FOREIGN KEY ("tenant_id", "user_id") REFERENCES "users"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -541,6 +738,27 @@ ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_order_id_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_tenant_id_cost_type_id_fkey" FOREIGN KEY ("tenant_id", "cost_type_id") REFERENCES "cost_types"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "planned_receptions" ADD CONSTRAINT "planned_receptions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "planned_receptions" ADD CONSTRAINT "planned_receptions_tenant_id_order_id_fkey" FOREIGN KEY ("tenant_id", "order_id") REFERENCES "purchase_orders"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sale_forecasts" ADD CONSTRAINT "sale_forecasts_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sale_forecasts" ADD CONSTRAINT "sale_forecasts_tenant_id_campaign_id_fkey" FOREIGN KEY ("tenant_id", "campaign_id") REFERENCES "campaigns"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "sale_forecasts" ADD CONSTRAINT "sale_forecasts_tenant_id_buyer_id_fkey" FOREIGN KEY ("tenant_id", "buyer_id") REFERENCES "counterparties"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "attachments" ADD CONSTRAINT "attachments_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+-- AddForeignKey
+ALTER TABLE "attachments" ADD CONSTRAINT "attachments_tenant_id_media_sha256_fkey" FOREIGN KEY ("tenant_id", "media_sha256") REFERENCES "media"("tenant_id", "sha256") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -649,6 +867,25 @@ GRANT SELECT, INSERT ON "weighing_requests" TO yaar_app;
 GRANT SELECT, INSERT ON "campaign_leftovers" TO yaar_app;
 -- A budget is written again whole, never updated nor deleted (S.1): the latest written counts.
 GRANT SELECT, INSERT ON "budget_lines" TO yaar_app;
+-- PIN attempts are counted and reset, never deleted (E.10).
+GRANT SELECT, INSERT, UPDATE ON "sign_in_attempts" TO yaar_app;
+-- A price set by hand is added, never updated nor deleted: the latest counts (N.5).
+GRANT SELECT, INSERT ON "catalog_prices" TO yaar_app;
+-- A photo joined to an order or a payment is added, never updated nor deleted (R.6).
+GRANT SELECT, INSERT ON "attachments" TO yaar_app;
+-- A planned sale is written line after line, never updated nor deleted: the last prevails (W.4).
+GRANT SELECT, INSERT ON "sale_forecasts" TO yaar_app;
+-- A planned reception is written line after line, never updated nor deleted: the last prevails (Q.14).
+GRANT SELECT, INSERT ON "planned_receptions" TO yaar_app;
+-- One subscription per device, replaced when it subscribes again. DELETE so that a blocked or
+-- signed-out account receives nothing more (Y.1).
+GRANT SELECT, INSERT, UPDATE, DELETE ON "push_subscriptions" TO yaar_app;
+-- « Vu » on a correction: written once, never changed nor removed (Y.2b).
+GRANT SELECT, INSERT ON "correction_reviews" TO yaar_app;
+-- A morning reminder sent: written once, never changed (Y.3).
+GRANT SELECT, INSERT ON "morning_reminders" TO yaar_app;
+-- A reception alert sent: written once, never changed (Q.15).
+GRANT SELECT, INSERT ON "reception_alerts" TO yaar_app;
 -- The application reads the journal and adds to it. Nothing else: no UPDATE, no DELETE.
 GRANT SELECT, INSERT ON "journal_events" TO yaar_app;
 
@@ -661,6 +898,11 @@ ALTER TABLE "tenants" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "tenants"
   USING ("id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+-- The morning reminder goes through every farm (Y.3): a transaction that says so sees the farms —
+-- their rows only, no other table, and reads only (policies add up; the tenant policy keeps
+-- applying everywhere else).
+CREATE POLICY tenant_listing ON "tenants" FOR SELECT
+  USING (current_setting('app.tenant_listing', true) = 'on');
 
 ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "users" FORCE ROW LEVEL SECURITY;
@@ -698,6 +940,51 @@ CREATE POLICY tenant_isolation ON "order_lines"
   USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
   WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 
+ALTER TABLE "planned_receptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "planned_receptions" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "planned_receptions"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "reception_alerts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "reception_alerts" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "reception_alerts"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "morning_reminders" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "morning_reminders" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "morning_reminders"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "correction_reviews" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "correction_reviews" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "correction_reviews"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "push_subscriptions" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "push_subscriptions" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "push_subscriptions"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "sale_forecasts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "sale_forecasts" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "sale_forecasts"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "attachments" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "attachments" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "attachments"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "catalog_prices" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "catalog_prices" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "catalog_prices"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "sign_in_attempts" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "sign_in_attempts" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "sign_in_attempts"
+  USING ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 ALTER TABLE "budget_lines" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "budget_lines" FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON "budget_lines"
@@ -775,6 +1062,27 @@ CREATE POLICY tenant_isolation ON "campaigns"
 ALTER TABLE "costs" ADD CONSTRAINT "costs_payment_shape" CHECK (("payment_kind" IN ('ToPay', 'PaidBy')) = ("counterparty_id" IS NOT NULL));
 ALTER TABLE "costs" ADD CONSTRAINT "costs_corrects_another" CHECK ("corrects" IS DISTINCT FROM "id");
 
+-- The weight of a bag of feed, in grams, above zero (N.8a); none outside feed, checked by the domain.
+ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_bag_weight" CHECK ("bag_weight" IS NULL OR "bag_weight" > 0);
+-- The stage of a feed by age (N.9): only on a feed.
+ALTER TABLE "cost_types" ADD CONSTRAINT "cost_types_feed_stage" CHECK ("feed_stage" IS NULL OR "category" = 'Feed');
+ALTER TABLE "order_lines" ADD CONSTRAINT "order_lines_bag_weight" CHECK ("bag_weight" IS NULL OR "bag_weight" > 0);
+-- The grams left in an opened bag of feed: above zero, and only on an opened bag (N.8d).
+ALTER TABLE "campaign_leftovers" ADD CONSTRAINT "campaign_leftovers_opened_weight" CHECK ("opened_weight" IS NULL OR ("opened_weight" > 0 AND "opened"));
+-- A planned reception says its day and its lines, or is a withdrawal that says nothing (Q.14).
+ALTER TABLE "planned_receptions" ADD CONSTRAINT "planned_receptions_complete" CHECK (
+  ("withdrawn" AND "planned_on" IS NULL AND "lines" IS NULL) OR (NOT "withdrawn" AND "planned_on" IS NOT NULL AND jsonb_typeof("lines") = 'array')
+);
+-- A planned sale says everything — buyer, week, birds, price, and its weight by the kilo —, or is a withdrawal that says nothing (W.4).
+ALTER TABLE "sale_forecasts" ADD CONSTRAINT "sale_forecasts_complete" CHECK (
+  ("withdrawn" AND "buyer_id" IS NULL AND "week" IS NULL AND "birds" IS NULL AND "pricing" IS NULL AND "price" IS NULL AND "average_weight" IS NULL)
+  OR (NOT "withdrawn" AND "buyer_id" IS NOT NULL AND "week" IS NOT NULL AND "birds" >= 1 AND "pricing" IS NOT NULL AND "price" >= 0
+      AND ("average_weight" IS NULL OR "average_weight" > 0) AND ("pricing" = 'PerBird' OR "average_weight" IS NOT NULL))
+);
+-- A price is whole units of the currency, zero allowed, never below (N.5).
+ALTER TABLE "catalog_prices" ADD CONSTRAINT "catalog_prices_unit_price" CHECK ("unit_price" >= 0);
+-- A counter of failures is never below zero (E.10).
+ALTER TABLE "sign_in_attempts" ADD CONSTRAINT "sign_in_attempts_failures" CHECK ("failures" >= 0);
 -- A budget is a plan in whole units, zero allowed, never below (S.1).
 ALTER TABLE "budget_lines" ADD CONSTRAINT "budget_lines_amount" CHECK ("amount" IS NULL OR "amount" >= 0);
 -- A leftover is whole ones, an opened one, or both; never nothing, never below zero (X.1).

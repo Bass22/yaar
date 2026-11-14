@@ -90,10 +90,10 @@ export class PrismaJournal implements IngestionPorts {
     const event = await this.tx.journalEvent.findUnique({ where: { tenantId_id: { tenantId: this.tenantId, id } }, select: { type: true, campaignId: true, retracts: true, corrects: true } });
     if (event === null || event.type === null || event.corrects !== null) return null;
     const [retracted, validated] = await Promise.all([
-      this.tx.journalEvent.count({ where: { retracts: id } }),
+      this.isRetracted(id),
       this.tx.journalEvent.count({ where: { type: 'WeighingValidated', fact: { path: ['weighingId'], equals: id } } }),
     ]);
-    return { type: event.type, campaignId: event.campaignId as CampaignId, retracted: retracted > 0, validated: validated > 0 };
+    return { type: event.type, campaignId: event.campaignId as CampaignId, retracted, validated: validated > 0 };
   }
 
   async dayJournal(campaignId: CampaignId, day: BusinessDay): Promise<readonly JournalEvent[]> {

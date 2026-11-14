@@ -13,8 +13,7 @@ import type { DeclarationTarget } from '../notebook/notebook';
 import type { NotebookDay } from '../notebook/notebook-view';
 import { CountSheets } from './count-sheets';
 import type { Gesture } from './gesture';
-
-const STAMP_MS = 1500;
+import { STAMP_MS } from '../../ui/stamp';
 
 type DeathAnswer = { readonly kind: 'Photographed'; readonly media: string } | { readonly kind: 'NoPhoto' } | null;
 

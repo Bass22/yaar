@@ -6,6 +6,8 @@ export interface LeftoverRequest {
   readonly whole: number;
   /** One more opened and not finished, counted for half. */
   readonly opened: boolean;
+  /** The grams left in the opened bag of feed, when known (N.8d); absent or `null`: half the bag. */
+  readonly openedWeight?: number | null;
 }
 
 export interface CloseCampaignRequest {
@@ -15,6 +17,11 @@ export interface CloseCampaignRequest {
   readonly leftoversTo: string | null;
   /** The admin's free comment on the report; `null` or empty: none. */
   readonly comment: string | null;
+  /**
+   * Why the bags of feed counted differ from those expected (N.8d); needed only when they differ.
+   * Absent, `null` or empty: no explanation.
+   */
+  readonly feedGapComment?: string | null;
 }
 
 export type CampaignClosingRefusal =
@@ -32,7 +39,10 @@ export type CampaignClosingRefusal =
   | { readonly kind: 'SameCampaign' }
   | { readonly kind: 'OtherSite' }
   | { readonly kind: 'DestinationClosed' }
-  | { readonly kind: 'CommentTooLong'; readonly max: number };
+  | { readonly kind: 'CommentTooLong'; readonly max: number }
+  | { readonly kind: 'InvalidOpenedWeight'; readonly costTypeId: string }
+  /** The bags of feed counted differ from those expected, all feeds together, unexplained (N.8d). `gap`: counted − expected. */
+  | { readonly kind: 'UnexplainedFeedGap'; readonly expected: number; readonly counted: number; readonly gap: number };
 
 /** A leftover as the report shows it; its value is absent — never zero — when it is unknown. */
 export interface LeftoverView {
@@ -41,6 +51,8 @@ export interface LeftoverView {
   readonly unit: 'bag' | 'unit';
   readonly whole: number;
   readonly opened: boolean;
+  /** The grams left in the opened bag of feed, when known (N.8d). */
+  readonly openedWeight: number | null;
   readonly value: number | null;
 }
 
@@ -68,6 +80,9 @@ export interface ClosingReportView {
   readonly revenuePerChick: number | null;
   readonly profit: number;
   readonly comment: string | null;
+  /** The bags of feed counted at the closing less those expected, all feeds together (N.8d): below zero, fewer. */
+  readonly feedGap: number;
+  readonly feedGapComment: string | null;
 }
 
 /** A closed campaign in the list of the office: its report is one tap away. */

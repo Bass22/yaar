@@ -3,13 +3,15 @@
 export type CounterpartyKindCode = 'Supplier' | 'Customer' | 'Collaborator';
 
 /** A pictogram of a closed list: the face of the counterparty. */
-export type CounterpartyFaceCode = 'closed-bag' | 'chick' | 'syringe' | 'truck' | 'caretaker' | 'hen' | 'drinker' | 'barn' | 'paper';
+export type CounterpartyFaceCode = 'closed-bag' | 'chick' | 'syringe' | 'truck' | 'caretaker' | 'hen' | 'drinker' | 'barn' | 'paper' | 'shop';
 
 export interface CounterpartyView {
   readonly id: string;
   readonly kind: CounterpartyKindCode;
   readonly name: string;
   readonly face: CounterpartyFaceCode;
+  /** May advance money for the farm (R.7): only such counterparties are offered as « paid by ». */
+  readonly advancesExpenses: boolean;
   /** Archived: no longer offered, still readable wherever it appears. */
   readonly archived: boolean;
 }
@@ -20,12 +22,15 @@ export interface CreateCounterpartyRequest {
   readonly kind: CounterpartyKindCode;
   readonly name: string;
   readonly face: CounterpartyFaceCode;
+  /** Absent: no (R.7). */
+  readonly advancesExpenses?: boolean;
 }
 
-/** At least one of the two; the kind never changes. */
+/** At least one; the kind never changes. */
 export interface ConfigureCounterpartyRequest {
   readonly name?: string;
   readonly face?: CounterpartyFaceCode;
+  readonly advancesExpenses?: boolean;
 }
 
 export type CounterpartyRefusal =

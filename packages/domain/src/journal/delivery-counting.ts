@@ -17,11 +17,14 @@ export type DeliveryCounting = {
  * the order, sent to the phone without any price: feed and bedding by the bag, the animals placed
  * by the box, the rest as they are.
  */
+/** Feed and bedding come and leave by the bag (Q.7, X.1); everything else as it is. */
+export const byTheBag = (category: string): boolean => category === 'Feed' || category === 'Bedding';
+
 export function deliveryCounting(category: string, remaining: number): DeliveryCounting {
   if (category === 'Chicks') {
     return { unit: 'box', perUnit: CHICKS_PER_BOX, expected: Math.ceil(remaining / CHICKS_PER_BOX) };
   }
-  return { unit: category === 'Feed' || category === 'Bedding' ? 'bag' : 'unit', perUnit: 1, expected: remaining };
+  return { unit: byTheBag(category) ? 'bag' : 'unit', perUnit: 1, expected: remaining };
 }
 
 /** What is written as received: the count times what one unit holds — 21 boxes, 1 050 chicks. */

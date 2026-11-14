@@ -34,6 +34,12 @@ export function weightBounds(strain: Strain, day: number): { readonly min: numbe
   return { min: Math.round(target / 2), max: target * 2 };
 }
 
+/** A weight outside the bounds of its day (T.3, T.5): it alerts — the caretaker is asked again, the office sees it red —, it never blocks. */
+export function outOfBounds(strain: Strain, day: number, grams: number): boolean {
+  const { min, max } = weightBounds(strain, day);
+  return grams < min || grams > max;
+}
+
 /** What a validation names, as ingestion reads it; `null` when the journal has no such event. */
 export type WeighingTarget = { readonly type: string; readonly campaignId: CampaignId; readonly retracted: boolean; readonly validated: boolean };
 
@@ -42,6 +48,11 @@ export function validateWeighingValidation(campaignId: CampaignId, target: Weigh
   if (target === null || target.type !== 'Weighing' || target.campaignId !== campaignId || target.retracted) return err({ kind: 'UnknownWeighing' });
   if (target.validated) return err({ kind: 'WeighingAlreadyValidated' });
   return ok(undefined);
+}
+
+/** The weighing requests a weighing still in effect answers (T.2, T.5): the others stay open — on the card, at the office. */
+export function answeredWeighingRequests(events: readonly JournalEvent[]): ReadonlySet<string> {
+  return new Set(effectiveJournal(events).flatMap(({ fact }) => (fact?.type === 'Weighing' ? [fact.weighingRequestId as string] : [])));
 }
 
 /** One point of the real curve: a validated weighing, its day and its average. */

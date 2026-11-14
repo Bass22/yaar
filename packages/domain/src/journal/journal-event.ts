@@ -28,10 +28,10 @@ export type EventEnvelope = {
   readonly recordedAt: Instant;
 };
 
-/** The paper handed over by the driver: photographed, or declared missing. */
 /** Whether the caretaker showed the dead (K.6): photographed, with the photo's fingerprint, or no photo — an answer, never an oversight. */
 export type DeathEvidence = { readonly kind: 'Photographed'; readonly media: MediaFingerprint } | { readonly kind: 'NoPhoto' };
 
+/** The paper handed over by the driver: photographed, or declared missing. */
 export type DeliveryNote =
   | { readonly kind: 'Photographed'; readonly media: MediaFingerprint }
   | { readonly kind: 'NoPaper' };

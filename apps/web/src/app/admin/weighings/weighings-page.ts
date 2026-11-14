@@ -1,16 +1,17 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { WeighingToValidate } from '@contracts';
-import { averageWeight, STRAINS, targetAt, Weight, weightBounds } from '@domain/journal';
+import { averageWeight, outOfBounds, strainOf, targetAt, Weight } from '@domain/journal';
 import { Pictogram } from '../../ui/pictogram';
 import { WeightChart } from '../tracking/weight-chart/weight-chart';
 import { FiguresAge } from '../figures-age';
 import { Office } from '../office';
 import { Weighings } from './weighings';
+import { CurrentLot, currentLotOf } from '../lots/current-lot';
+import { dayWords } from '../typed-number';
 
 /** Grams with a space every three digits: 1843 → « 1 843 ». */
 const grams = (value: number): string => String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-const dayWords = (on: string): string => on.split('-').reverse().join('/');
 const nextDay = (on: string): string => new Date(Date.parse(`${on}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
 
 type Draft = { readonly typed: readonly string[]; readonly problem: string | null; readonly sending: boolean };
@@ -21,22 +22,13 @@ type Draft = { readonly typed: readonly string[]; readonly problem: string | nul
 // curve, validated weighings only, against the strain's target. Stands in for the inbox (O.4).
 @Component({
   selector: 'app-weighings-page',
-  imports: [FiguresAge, Pictogram, RouterLink, WeightChart],
+  imports: [CurrentLot, FiguresAge, Pictogram, RouterLink, WeightChart],
   providers: [Weighings],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="scale" [decorative]="true" /> Pesées</h1>
     <a class="back" routerLink="..">Revenir aux lots</a>
-    @if (lots().length > 1) {
-      <div class="lots" role="radiogroup" aria-label="Quel lot ?">
-        @for (lot of lots(); track lot.campaignId) {
-          <label class="lot">
-            <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
-          </label>
-        }
-      </div>
-    }
+    <app-current-lot />
     <app-figures-age [readAt]="weighings.readAt()" [stale]="weighings.unreachable()" />
 
     <section class="ask-box" aria-label="Demander une pesée">
@@ -184,7 +176,7 @@ export class WeighingsPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = currentLotOf(this.office, this.route);
   protected readonly when = signal<'today' | 'tomorrow'>('today');
   protected readonly asking = signal(false);
   protected readonly askWords = signal<string | null>(null);
@@ -197,7 +189,7 @@ export class WeighingsPage {
   protected readonly photoUrls = signal<ReadonlyMap<string, string>>(new Map());
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly strain = computed(() => STRAINS.find(({ code }) => code === this.weighings.view()?.strain) ?? null);
+  protected readonly strain = computed(() => strainOf(this.weighings.view()?.strain ?? ''));
 
   constructor() {
     effect(() => {
@@ -244,9 +236,7 @@ export class WeighingsPage {
   protected outOfBounds(weighing: WeighingToValidate, typed: string): boolean {
     const strain = this.strain();
     if (strain === null || !/^\d+$/.test(typed)) return false;
-    const { min, max } = weightBounds(strain, weighing.campaignDay);
-    const grams = Number(typed);
-    return grams < min || grams > max;
+    return outOfBounds(strain, weighing.campaignDay, Number(typed));
   }
 
   protected targetOn(campaignDay: number): number | null {

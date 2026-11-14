@@ -43,6 +43,8 @@ export class JournalSync {
     globalThis.addEventListener?.('online', onOnline);
     inject(DestroyRef).onDestroy(() => globalThis.removeEventListener?.('online', onOnline));
     void this.sync();
+    // At opening, never awaited: the notebook opens without waiting for the phone to be tidied (G.6).
+    void this.outbox.then((outbox) => outbox.cleanUp(new Date())).catch(() => 0);
   }
 
   /**
@@ -82,12 +84,25 @@ export class JournalSync {
    * again, and a second correction to the same value changes nothing: the last written prevails.
    */
   async correct(draft: { readonly siteId: string; readonly campaignId: string; readonly businessDate: string; readonly recordedAt: string; readonly corrects: string; readonly fact: FactPayload }): Promise<SyncAnswer> {
+    return this.sendNow({ ...draft, id: crypto.randomUUID() });
+  }
+
+  /**
+   * Sends a retraction now, never through the outbox (C.7, O.7): taking a declaration back is the
+   * admin's, online, and final. Without an answer nothing is kept — the admin tries again.
+   */
+  async retract(draft: { readonly siteId: string; readonly campaignId: string; readonly businessDate: string; readonly recordedAt: string; readonly retracts: string }): Promise<SyncAnswer> {
+    return this.sendNow({ ...draft, id: crypto.randomUUID() });
+  }
+
+  /** One event sent now, online — never through the outbox; without a live session, refused. */
+  private async sendNow(event: JournalEventPayload): Promise<SyncAnswer> {
     this.auth.refresh();
     const session = this.auth.session();
     if (session.status !== 'active') {
       return { kind: 'unauthorized' };
     }
-    return this.send([{ ...draft, id: crypto.randomUUID() }], session.token);
+    return this.send([event], session.token);
   }
 
   /**

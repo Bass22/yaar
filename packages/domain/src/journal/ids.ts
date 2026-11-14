@@ -20,10 +20,13 @@ export type TaskId = Brand<string, 'TaskId'>;
 
 const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** A UUID as the caller made it, in lowercase (rule 2): the one spelling an identifier has. */
+export const isCanonicalUuid = (raw: unknown): raw is string => typeof raw === 'string' && CANONICAL_UUID.test(raw);
+
 const uuidAs =
   <Id extends Brand<string, IdName>>(expected: IdName) =>
   (raw: unknown): Result<Id, Refusal> =>
-    typeof raw === 'string' && CANONICAL_UUID.test(raw) ? ok(raw as Id) : err({ kind: 'InvalidId', expected });
+    isCanonicalUuid(raw) ? ok(raw as Id) : err({ kind: 'InvalidId', expected });
 
 export const JournalEventId = uuidAs<JournalEventId>('JournalEventId');
 export const TenantId = uuidAs<TenantId>('TenantId');

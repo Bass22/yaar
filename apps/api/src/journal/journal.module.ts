@@ -1,9 +1,10 @@
+import { CampaignJournalController } from './campaign-journal.controller';
 import { Module } from '@nestjs/common';
 import { CaretakerController } from './caretaker.controller';
 import { DeathPhotosController } from './death-photos.controller';
 import { JournalController } from './journal.controller';
 
 @Module({
-  controllers: [JournalController, CaretakerController, DeathPhotosController],
+  controllers: [JournalController, CaretakerController, DeathPhotosController, CampaignJournalController],
 })
 export class JournalModule {}

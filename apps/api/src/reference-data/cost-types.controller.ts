@@ -5,6 +5,7 @@ import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { archiveCostType, configureCostType, createCostType, listCostTypes } from './cost-types';
+import { objectOf } from '../http/body';
 
 // The farm's cost types (N.2): office only. No route deletes one: it is archived (decision of 2026-11-09).
 @Roles('admin')
@@ -42,13 +43,6 @@ export class CostTypesController {
 }
 
 const isBehaviour = (value: unknown): value is 'Fixed' | 'Variable' => value === 'Fixed' || value === 'Variable';
-
-function objectOf(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new BadRequestException({ kind: 'InvalidRequest' });
-  }
-  return body as Record<string, unknown>;
-}
 
 // Whitelist at the border: id, category, name, and the fixed/variable flag if chosen — never a farm, never « orderable ».
 // Whether the category is one of the base is the use case's to say, once.

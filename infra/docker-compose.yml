@@ -15,7 +15,8 @@ name: yaar
 
 services:
   db:
-    image: postgres:16
+    # Pinned by digest (R-10): a tag can be moved under us; a digest cannot. Raised by hand.
+    image: postgres:16@sha256:63e83b5a3dc36a917dccb76fe1bd2ac51f1ec9c1deb47ff20d4f04233bf6eae9
     restart: unless-stopped
     environment:
       # The superuser initialises the server, then loses its password (init-roles.sh): it is
@@ -68,6 +69,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:?définir JWT_SECRET dans infra/.env avant de démarrer}
       # The media volume (M.1): photos kept under their fingerprint, never removed.
       MEDIA_PATH: /data/medias
+      # Notifications (Y.1, Y.2a): the pair and the operator's contact, the three or none — none:
+      # notifications are neither offered nor sent. The private key reaches this container only.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     volumes:
       - medias:/data/medias
     depends_on:
@@ -101,10 +107,19 @@ services:
     networks:
       - edge
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost/ || exit 1']
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:8081/healthz || exit 1']
       interval: 10s
       timeout: 3s
       retries: 5
+
+  # The encryption of the backups (Z.4), run on demand by infra/backup/*.sh — never started
+  # with the stack. Cut off from every network: it only turns stdin into stdout.
+  age:
+    profiles: ['tools']
+    build:
+      context: ..
+      dockerfile: infra/docker/age.Dockerfile
+    network_mode: none
 
 networks:
   edge:

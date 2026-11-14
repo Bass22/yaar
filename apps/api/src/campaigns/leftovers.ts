@@ -1,6 +1,6 @@
 import type { CurrencyCode } from '@kit';
 import { leftoverValues, type LeftoverValue, type ReceivedStock } from '@domain/finance';
-import type { Leftover, TenantId } from '@domain/journal';
+import { byTheBag, type Leftover, type TenantId } from '@domain/journal';
 import type { Prisma } from '@prisma/client';
 import { receivedStockOf } from '../orders/orders';
 
@@ -11,13 +11,14 @@ export type WrittenLeftover = Leftover & { readonly name: string; readonly categ
 
 /** The leftovers written at the closing of a campaign (X.2); none before. */
 export async function writtenLeftovers(tx: Tx, campaignId: string): Promise<WrittenLeftover[]> {
-  const rows = await tx.campaignLeftover.findMany({ where: { campaignId }, orderBy: { costTypeId: 'asc' }, select: { costTypeId: true, whole: true, opened: true, costType: { select: { name: true, category: true } } } });
-  return rows.map(({ costTypeId, whole, opened, costType }) => ({
+  const rows = await tx.campaignLeftover.findMany({ where: { campaignId }, orderBy: { costTypeId: 'asc' }, select: { costTypeId: true, whole: true, opened: true, openedWeight: true, costType: { select: { name: true, category: true } } } });
+  return rows.map(({ costTypeId, whole, opened, openedWeight, costType }) => ({
     costTypeId,
     whole,
     opened,
+    openedWeight,
     // Feed and bedding by the bag, the rest by the unit (X.1).
-    unit: costType.category === 'Feed' || costType.category === 'Bedding' ? 'bag' : 'unit',
+    unit: byTheBag(costType.category) ? 'bag' : 'unit',
     name: costType.name,
     category: costType.category,
   }));

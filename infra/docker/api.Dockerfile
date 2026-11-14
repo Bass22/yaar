@@ -6,7 +6,7 @@
 # Adapted from build-track (backend/Dockerfile).
 
 # --- build stage: install everything, generate the database client, bundle the application ---
-FROM node:22-slim AS builder
+FROM node:22-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS builder
 WORKDIR /app
 
 # Deterministic install from the lockfile; `.npmrc` blocks install scripts here too.
@@ -25,7 +25,7 @@ RUN npx prisma generate --config apps/api/prisma.config.ts
 RUN node apps/api/build.mjs
 
 # --- migrate stage: the Prisma command line, the schema and the migrations. Never serves. ---
-FROM node:22-slim AS migrate
+FROM node:22-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS migrate
 ENV NODE_ENV=production
 ENV CHECKPOINT_DISABLE=1
 WORKDIR /app
@@ -60,7 +60,7 @@ USER node
 CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy", "--config", "apps/api/prisma.config.ts"]
 
 # --- runtime stage: production dependencies, the generated client and the bundle ---
-FROM node:22-slim AS runtime
+FROM node:22-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 

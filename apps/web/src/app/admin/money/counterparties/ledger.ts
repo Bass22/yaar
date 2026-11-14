@@ -1,11 +1,11 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
 import type { LedgerView, RecordSettlementRequest, SettlementRefusalCode } from '@contracts';
 import { clip, number, type PhrasePart } from '../../../core/audio/phrase';
 import { CLOCK } from '../../../core/clock';
 import { AuthService } from '../../../core/session/auth';
-import { OfficeSync, recall, remember } from '../../office-sync';
+import { OfficeSync, readOrRecall } from '../../office-sync';
+import { authHeaders } from '../../../core/session/auth-headers';
 
 export type SettlementProblem = SettlementRefusalCode | 'NoMethod' | 'NoNetwork' | 'ServerError' | 'StorageUnavailable';
 
@@ -17,7 +17,8 @@ export function balancePhrase(balance: number): PhrasePart[] {
 
 /**
  * « Qui doit quoi » at the office (R.3): the ledger as the server sums it — the screen adds
- * nothing up — and the settlements written from a counterparty's line. Online until P.7.
+ * nothing up — and the settlements written from a counterparty's line, kept in the office's queue
+ * until they leave (P.7).
  */
 @Injectable()
 export class Ledger {
@@ -35,21 +36,13 @@ export class Ledger {
     const url = '/api/v1/ledger';
     const session = this.auth.session();
     const userId = session.status === 'none' ? '' : session.userId;
-    try {
-      const view = await firstValueFrom(this.http.get<LedgerView>(url, { headers: this.headers() }));
-      const at = this.clock.now();
-      remember(userId, url, view, at);
-      this.view.set(view);
-      this.readAt.set(at.toISOString());
-      this.unreachable.set(false);
-    } catch {
-      const kept = recall<LedgerView>(userId, url);
-      if (kept !== null) {
-        this.view.set(kept.value);
-        this.readAt.set(kept.readAt);
+    await readOrRecall<LedgerView>(this.http, url, userId, this.headers(), () => this.clock.now(), (reading, online) => {
+      if (reading !== null) {
+        this.view.set(reading.value);
+        this.readAt.set(reading.readAt);
       }
-      this.unreachable.set(true);
-    }
+      this.unreachable.set(!online);
+    });
   }
 
   /** A settlement (R.2), kept on the device first and sent when the network allows (P.7); the server keeps it once. */
@@ -59,6 +52,6 @@ export class Ledger {
 
   private headers(): HttpHeaders {
     const session = this.auth.session();
-    return new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` });
+    return authHeaders(session);
   }
 }

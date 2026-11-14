@@ -1,3 +1,4 @@
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -42,11 +43,19 @@ describe('Le cahier du gardien', () => {
     localStorage.setItem('yaar.session', JSON.stringify({ token: token(userId), expiresAt: '2099-01-01T00:00:00.000Z', role: 'collaborator', account: { name, avatar: 'baobab', language: 'wo' } }));
 
   /** Opens the notebook; `answer` is what the server says to the context request, `null` for no network. */
-  const ouvre = async (answer: CaretakerContext | null) => {
+  const ouvre = async (answer: CaretakerContext | null, asked: string | null = null) => {
     const voice = provideHeardVoice(['day-today', 'past-day-yesterday', 'past-day-before-yesterday', 'campaign-young', 'campaign-old', 'no-campaign', 'sign-in-offline']);
     heard = voice.heard;
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: OUTBOX, useValue: Promise.resolve(outbox) }, { provide: CLOCK, useValue: { now: () => NOW } }, ...voice.providers],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: OUTBOX, useValue: Promise.resolve(outbox) },
+        { provide: CLOCK, useValue: { now: () => NOW } },
+        ...voice.providers,
+        // A tap on a notification opens the notebook on the flock it names (Y.4)
+        ...(asked === null ? [] : [{ provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ campaign: asked }) } } }]),
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(NotebookPage);
@@ -135,6 +144,18 @@ describe('Le cahier du gardien', () => {
       expect(notebook.declarationTarget()).toBeNull();
     });
 
+    // Spec: backlog Y.4 — un tap sur une notification ouvre le cahier sur la bande qu'elle nomme
+    it('ouvert depuis une notification, le cahier est sur la bande qu’elle nomme, sans demander ; une bande qu’il n’a pas laisse le choix', async () => {
+      const deux = () => contexte(unSite({ campaigns: [uneBande(), uneBande({ campaignId: PETITS, placementDay: '2026-11-01' })] }));
+      const nommee = await ouvre(deux(), PETITS);
+      expect(nommee.notebook.declarationTarget()?.campaignId).toBe(PETITS);
+      expect(nommee.element.querySelector('.cards .card')).toBeNull();
+
+      TestBed.resetTestingModule();
+      const inconnue = await ouvre(deux(), '00000000-0000-4000-8000-000000000999');
+      expect(inconnue.notebook.declarationTarget()).toBeNull();
+    });
+
     it('la bande choisie devient un intercalaire actif, et le bandeau redit la bande ; un tap sur l’autre onglet change de bande', async () => {
       const { element, click, notebook } = await ouvre(contexte(unSite({ campaigns: [uneBande(), uneBande({ campaignId: PETITS, placementDay: '2026-11-01' })] })));
       await click('.cards .card', 'Les petits');
@@ -147,6 +168,29 @@ describe('Le cahier du gardien', () => {
       expect(heard).toEqual([['wo/campaign-young'], ['wo/campaign-old']]);
       expect(element.querySelector('app-day-strip .campaign')?.textContent).toContain('Les grands · J22');
       expect(notebook.declarationTarget()?.campaignId).toBe(GRANDS);
+    });
+
+    // Spec: backlog Q.11 (décision du fondateur du 2026-11-13) — la litière et l'aliment arrivent avant les poussins
+    it("une bande à venir ne s'ouvre pas comme une bande en cours ; seule sa livraison annoncée se montre, et elle s'écrit pour aujourd'hui sur cette bande", async () => {
+      const livraison = { orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Copeaux', category: 'Bedding' as const, feedStage: null, expected: 30, received: 0, remaining: 30 }] };
+      const aVenir = uneBande({ campaignId: PETITS, placementDay: '2026-11-09', campaignDay: -3, deliveries: [livraison] });
+      const { element, notebook } = await ouvre(contexte(unSite({ campaigns: [aVenir] })));
+
+      // Pas de bande en cours : le cahier le dit, sans jours ni gestes
+      expect(element.querySelector('.notice')?.textContent).toContain('Pas de bande en cours');
+      expect(element.querySelector('.days')).toBeNull();
+      expect(notebook.campaigns()).toEqual([]);
+      // Mais la carte de livraison est là, pour la bande qui arrive, datée d'aujourd'hui
+      expect(element.querySelectorAll('app-delivery-card')).toHaveLength(1);
+      expect(notebook.upcomingDeliveries()).toEqual([{ campaignId: PETITS, lines: [expect.objectContaining({ orderLineId: uuid(21), remaining: 30 })], target: { siteId: NORD, campaignId: PETITS, businessDate: '2026-11-06' } }]);
+    });
+
+    it("une bande à venir sans livraison annoncée ne montre rien de plus", async () => {
+      const { element, notebook } = await ouvre(contexte(unSite({ campaigns: [uneBande(), uneBande({ campaignId: PETITS, placementDay: '2026-11-09', campaignDay: -3 })] })));
+
+      expect(notebook.campaigns().map(({ campaignId }) => campaignId)).toEqual([GRANDS]);
+      expect(notebook.upcomingDeliveries()).toEqual([]);
+      expect(element.querySelector('app-campaign-choice')).toBeNull();
     });
 
     it("sans bande en cours, le cahier le dit — picto, mots, et sa voix au haut-parleur —, sans afficher de jour ni de chiffre", async () => {
@@ -205,6 +249,16 @@ describe('Le cahier du gardien', () => {
       expect(element.querySelector('.days .day:nth-child(1) .zero')).not.toBeNull();
       expect(element.querySelector('.days .day:nth-child(2) .missing')).not.toBeNull();
       expect(element.querySelector('.days .day:nth-child(3) .deaths')?.textContent).toContain('3');
+    });
+
+    // Spec: backlog J.4 (demande du fondateur du 2026-11-13)
+    it("le jour de la mise en place (J0), le cahier ne montre qu'aujourd'hui ; le lendemain (J1), hier et aujourd'hui", async () => {
+      const j0 = await ouvre(contexte(unSite({ campaigns: [uneBande({ placementDay: '2026-11-06', campaignDay: 0 })] })));
+      expect(Array.from(j0.element.querySelectorAll('.days .day')).map((tab) => tab.querySelector('.name')?.textContent)).toEqual(["Aujourd'hui"]);
+
+      TestBed.resetTestingModule();
+      const j1 = await ouvre(contexte(unSite({ campaigns: [uneBande({ placementDay: '2026-11-05', campaignDay: 1 })] })));
+      expect(Array.from(j1.element.querySelectorAll('.days .day')).map((tab) => tab.querySelector('.name')?.textContent)).toEqual(['Hier', "Aujourd'hui"]);
     });
 
     it("choisir hier ouvre la bannière violette « Tu écris pour : HIER », et ce qui s'écrit alors porte la date d'hier ; « Aujourd'hui » la referme", async () => {

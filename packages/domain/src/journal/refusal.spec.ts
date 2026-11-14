@@ -32,7 +32,7 @@ const samples: { readonly [Kind in RefusalKind]: Extract<Refusal, { kind: Kind }
   CorrectionChangesReference: { kind: 'CorrectionChangesReference' },
   CorrectsItself: { kind: 'CorrectsItself' },
   UnknownStrain: { kind: 'UnknownStrain' },
-  PlacementInFuture: { kind: 'PlacementInFuture' },
+  PlacementTooFarAhead: { kind: 'PlacementTooFarAhead' },
   PlacementTooOld: { kind: 'PlacementTooOld' },
   InvalidPlannedDuration: { kind: 'InvalidPlannedDuration', value: 0 },
   UnknownOrderLine: { kind: 'UnknownOrderLine' },
@@ -100,7 +100,7 @@ function explain(refusal: Refusal): string {
       return "une correction ne porte pas l'identifiant de sa déclaration";
     case 'UnknownStrain':
       return 'souche inconnue';
-    case 'PlacementInFuture':
+    case 'PlacementTooFarAhead':
       return 'mise en place dans le futur';
     case 'PlacementTooOld':
       return 'mise en place de plus de 60 jours';

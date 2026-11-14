@@ -66,9 +66,25 @@ describe("Amorçage d'un élevage", () => {
   it("l'élevage naît avec ses types de départ : les cochés en service, avec les drapeaux de leur catégorie ; Déplumage et Congélation décochés, donc archivés", async () => {
     const { tenantId } = unwrap(await amorce(unElevage({ adminPhone: '+221770000077' })));
 
-    const types = await db.superuser.costType.findMany({ where: { tenantId }, select: { name: true, category: true, behaviour: true, archivedAt: true } });
-    expect(types.filter(({ archivedAt }) => archivedAt === null)).toHaveLength(11);
-    expect(types.find(({ name }) => name === 'Aliment')).toMatchObject({ category: 'Feed', behaviour: 'Variable' });
+    const types = await db.superuser.costType.findMany({ where: { tenantId }, select: { name: true, category: true, behaviour: true, bagWeight: true, feedStage: true, archivedAt: true } });
+    expect(types.filter(({ archivedAt }) => archivedAt === null)).toHaveLength(14);
+    // Trois aliments, selon l'âge des poulets (N.7) : chacun se commande, se reçoit et se compte à part
+    for (const name of ['Aliment démarrage', 'Aliment croissance', 'Aliment finition']) {
+      expect(types.find((type) => type.name === name)).toMatchObject({ category: 'Feed', behaviour: 'Variable' });
+    }
+    expect(types.some((type) => type.name === 'Aliment')).toBe(false);
+    // Créés dans l'ordre de l'âge, que le bureau montre (trié par création)
+    const feeds = await db.superuser.costType.findMany({ where: { tenantId, category: 'Feed' }, orderBy: [{ createdAt: 'asc' }, { name: 'asc' }], select: { name: true, bagWeight: true, feedStage: true } }); // départagés par le nom, comme au bureau
+    // L'aliment acheté au poids, rare, vient en dernier (décision du 2026-11-13)
+    expect(feeds).toEqual([
+      // Le poids habituel d'un sac (N.8a) : 50 kg, sauf l'aliment acheté au poids
+      // Le stade (N.9) : la couleur du sac chez le gardien ; aucun pour l'aliment au poids
+      { name: 'Aliment démarrage', bagWeight: 50_000, feedStage: 'Starter' },
+      { name: 'Aliment croissance', bagWeight: 50_000, feedStage: 'Grower' },
+      { name: 'Aliment finition', bagWeight: 50_000, feedStage: 'Finisher' },
+      { name: 'Aliment au kg', bagWeight: null, feedStage: null },
+    ]);
+    expect(types.filter(({ category }) => category !== 'Feed').every(({ bagWeight, feedStage }) => bagWeight === null && feedStage === null)).toBe(true);
     expect(types.find(({ name }) => name === 'Salaire du gardien')).toMatchObject({ category: 'Labour', behaviour: 'Fixed' });
     const unchecked = types.filter(({ archivedAt }) => archivedAt !== null).map(({ name, category }) => ({ name, category }));
     expect(unchecked).toHaveLength(2);

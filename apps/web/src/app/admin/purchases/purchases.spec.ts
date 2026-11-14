@@ -4,10 +4,11 @@ import { HttpTestingController, provideHttpClientTesting, type TestRequest } fro
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { CaretakerContext, CounterpartyView, CostTypeView, DraftOrderRequest, OrderView } from '@contracts';
+import type { CaretakerContext, CounterpartyView, ReceptionsView, CostTypeView, DraftOrderRequest, OrderView } from '@contracts';
 import { CLOCK } from '../../core/clock';
 import { OfficeQueue } from '../../core/outbox/office-queue';
 import { OFFICE_QUEUE } from '../office-sync';
+import { REDUCE_PHOTO } from '../../core/media/reduce-photo';
 import { adminRoutes } from '../admin.routes';
 
 // Spec: backlog Q.5 — l'éditeur de commande ; cahier des charges « Commandes » (au bureau, en
@@ -15,6 +16,8 @@ import { adminRoutes } from '../admin.routes';
 // lisent pas » (un picto d'objet réel et le mot) ; le total de la saisie vient de domain/finance.
 // Et backlog Q.9 — payer une commande ; cahier des charges « Payer une commande » (décision du 2026-11-11).
 
+// A photo of an invoice, as the reducer hands it over (R.6)
+const FACTURE = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
 const uuid = (rank: number): string => `00000000-0000-4000-8000-${String(rank).padStart(12, '0')}`;
 const TENANT = uuid(10);
 const LE_GERANT = uuid(54);
@@ -34,19 +37,22 @@ const contexte = (): CaretakerContext => ({
   sites: [{ siteId: NORD, name: 'Poulailler Nord', timeZone: 'Africa/Dakar', today: '2026-10-12', primaryCaretakerId: null, campaigns: [{ campaignId: BANDE, placementDay: '2026-10-01', campaignDay: 11, liveCount: null, journal: [], deliveries: [], weighingRequests: [], strain: 'Cobb500' }] }],
 });
 const tiers = (): CounterpartyView[] => [
-  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
-  { id: TOUBA_AVICOLE, kind: 'Supplier', name: 'Touba Avicole', face: 'chick', archived: false },
-  { id: uuid(33), kind: 'Supplier', name: 'Ancien fournisseur', face: 'truck', archived: true },
-  { id: uuid(34), kind: 'Customer', name: 'Ramasseur', face: 'hen', archived: false },
+  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', advancesExpenses: false, archived: false },
+  { id: TOUBA_AVICOLE, kind: 'Supplier', name: 'Touba Avicole', face: 'chick', advancesExpenses: false, archived: false },
+  { id: uuid(33), kind: 'Supplier', name: 'Ancien fournisseur', face: 'truck', advancesExpenses: false, archived: true },
+  { id: uuid(34), kind: 'Customer', name: 'Ramasseur', face: 'hen', advancesExpenses: true, archived: false },
 ];
 // The farm's type of the « Frais financiers » category: what a Wave or Orange Money fee is written as (P.8).
 const FRAIS = uuid(45);
+const AU_KG = uuid(46);
 const types = (): CostTypeView[] => [
-  { id: ALIMENT, category: 'Feed', name: 'Aliment', behaviour: 'Variable', orderable: true, archived: false },
-  { id: POUSSINS, category: 'Chicks', name: 'Poussins', behaviour: 'Variable', orderable: true, archived: false },
-  { id: uuid(43), category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', orderable: false, archived: false },
-  { id: uuid(44), category: 'Processing', name: 'Déplumage', behaviour: 'Variable', orderable: false, archived: true },
-  { id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false },
+  { id: ALIMENT, category: 'Feed', name: 'Aliment', behaviour: 'Variable', bagWeight: 50_000, orderable: true, archived: false },
+  { id: POUSSINS, category: 'Chicks', name: 'Poussins', behaviour: 'Variable', bagWeight: null, orderable: true, archived: false },
+  { id: uuid(43), category: 'Labour', name: 'Salaire du gardien', behaviour: 'Fixed', bagWeight: null, orderable: false, archived: false },
+  { id: uuid(44), category: 'Processing', name: 'Déplumage', behaviour: 'Variable', bagWeight: null, orderable: false, archived: true },
+  { id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', bagWeight: null, orderable: false, archived: false },
+  // Feed bought by weight: no usual weight of a bag (N.8a)
+  { id: AU_KG, category: 'Feed', name: 'Aliment au kg', behaviour: 'Variable', bagWeight: null, orderable: true, archived: false },
 ];
 const uneCommande = (fields: Partial<OrderView> = {}): OrderView => ({
   id: uuid(1),
@@ -57,21 +63,22 @@ const uneCommande = (fields: Partial<OrderView> = {}): OrderView => ({
   currency: 'XOF',
   status: 'Draft',
   lines: [
-    { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, received: 0 },
-    { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, received: 0 },
+    { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: null, received: 0 },
+    { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, bagWeight: null, received: 0 },
   ],
   billable: 0,
   paid: 0,
   payments: [],
+  attachments: [],
   ...fields,
 });
 
 describe('Les achats, au bureau', () => {
   let http: HttpTestingController;
 
-  const ouvre = async (url: string, orders: OrderView[] = [uneCommande()]) => {
+  const ouvre = async (url: string, orders: OrderView[] = [uneCommande()], receptions: ReceptionsView = { today: '2026-11-20', receptions: [] }) => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }, { provide: OFFICE_QUEUE, useFactory: () => OfficeQueue.open(new IDBFactory()) }],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'admin', children: adminRoutes }]), { provide: CLOCK, useValue: { now: () => NOW } }, { provide: OFFICE_QUEUE, useFactory: () => OfficeQueue.open(new IDBFactory()) }, { provide: REDUCE_PHOTO, useValue: async () => FACTURE }],
     });
     http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
@@ -85,9 +92,21 @@ describe('Les achats, au bureau', () => {
     const answerReadings = () => {
       http.match('/api/v1/caretaker/context').forEach((request) => request.flush(contexte()));
       http.match('/api/v1/orders').forEach((request) => request.flush(orders));
-      http.match('/api/v1/counterparties').forEach((request) => request.flush(tiers()));
+      http.match('/api/v1/receptions').forEach((request) => request.flush(receptions));
+      http.match({ method: 'GET', url: '/api/v1/corrections/to-review' }).forEach((request) => request.flush([]));
+      http.match({ method: 'GET', url: '/api/v1/counterparties' }).forEach((request) => request.flush(tiers()));
       http.match('/api/v1/cost-types').forEach((request) => request.flush(types()));
       http.match('/api/v1/reference-data').forEach((request) => request.flush({ currency: 'XOF', costCategories: [], lossTypes: [], strains: [] }));
+      // The prices the farm knows (N.5): the bag of feed at 17 500 F from Sedima, then 16 000 F from Touba.
+      http.match('/api/v1/price-catalog').forEach((request) =>
+        request.flush({
+          currency: 'XOF',
+          prices: [
+            { costTypeId: ALIMENT, supplierId: SEDIMA, unitPrice: 17_500, at: '2026-10-12T09:00:00.000Z' },
+            { costTypeId: ALIMENT, supplierId: TOUBA_AVICOLE, unitPrice: 16_000, at: '2026-11-01T09:00:00.000Z' },
+          ],
+        }),
+      );
     };
     answerReadings();
     await refresh();
@@ -112,10 +131,10 @@ describe('Les achats, au bureau', () => {
       await refresh();
       check();
     });
-    const sent = (method: string, url: string) => {
+    const sent = (method: string, url: string | RegExp) => {
       let found: TestRequest | undefined;
       return soon(() => {
-        found = http.match((request) => request.method === method && request.url === url)[0] ?? found;
+        found = http.match((request) => request.method === method && (typeof url === 'string' ? request.url === url : url.test(request.url)))[0] ?? found;
         expect(found).toBeDefined();
       }).then(() => found as TestRequest);
     };
@@ -133,14 +152,214 @@ describe('Les achats, au bureau', () => {
       const { all } = await ouvre('/admin/achats');
 
       const [card] = all('.order');
-      expect(text(card)).toMatch(/Sedima.*Poulailler Nord · Jour 11.*Brouillon.*900 000 F commandés/);
+      expect(text(card)).toMatch(/Sedima.*Poulailler Nord · Jour 11.*Brouillon.*900 000 FCFA commandés/);
       expect(card?.querySelector('.status use')?.getAttribute('href')).toContain('#pencil');
     });
 
     it('une commande reçue en partie dit ce qui est reçu, son facturable, et qu’elle n’est pas payée', async () => {
-      const { all } = await ouvre('/admin/achats', [uneCommande({ status: 'PartiallyReceived', billable: 140_000, lines: [{ id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, received: 8 }] })]);
+      const { all } = await ouvre('/admin/achats', [uneCommande({ status: 'PartiallyReceived', billable: 140_000, lines: [{ id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: null, received: 8 }] })]);
 
-      expect(text(all('.order')[0])).toMatch(/En partie reçue.*140 000 F à payer.*rien payé/);
+      expect(text(all('.order')[0])).toMatch(/En partie reçue.*140 000 FCFA à payer.*rien payé/);
+    });
+
+    // Spec: backlog Q.12 — relire une commande (demande du fondateur du 2026-11-13)
+    describe('relire une commande', () => {
+      const annoncee = () =>
+        uneCommande({
+          status: 'PartiallyReceived',
+          reference: 'BC-0412',
+          billable: 140_000,
+          paid: 100_000,
+          lines: [
+            { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: 50_000, received: 8 },
+            { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, bagWeight: null, received: 1050 },
+          ],
+          payments: [{ id: uuid(61), paidOn: '2026-10-14', amount: 100_000, method: 'Wave', paidBy: TOUBA_AVICOLE, attachments: [] }],
+        });
+
+      it('une commande annoncée s’ouvre en lecture ; un brouillon, toujours dans l’éditeur', async () => {
+        const { tap, all } = await ouvre('/admin/achats', [annoncee(), uneCommande({ id: uuid(2) })]);
+        expect(all('.order a.open').map((link) => link.getAttribute('href'))).toEqual([`/admin/achats/${uuid(1)}/fiche`, `/admin/achats/${uuid(2)}`]);
+        await tap('.order a.open');
+        expect(TestBed.inject(Router).url).toBe(`/admin/achats/${uuid(1)}/fiche`);
+      });
+
+      it('la fiche : chaque ligne avec son prix, son total, son poids de sac, le reçu et le reste ; puis les paiements et qui a payé', async () => {
+        const { element, all } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [annoncee()]);
+
+        expect(text(element().querySelector('.sheet-head'))).toMatch(/Sedima.*12\/10\/2026.*BC-0412.*En partie reçue/);
+        // 20 × 17 500 = 350 000 ; 1 000 × 550 = 550 000 ; un bonus de 50 poussins se dit, signé
+        expect(all('.sheet-line').map(text)).toEqual([
+          'Aliment 20 sacs × 17 500 FCFA = 350 000 FCFA sac de 50 kg reçu 8 reste 12',
+          'Poussins 1 000 poussins × 550 FCFA = 550 000 FCFA reçu 1 050 +50',
+        ]);
+        expect(text(element().querySelector('.sheet-total'))).toBe('Commandé 900 000 FCFA');
+        expect(all('.sheet-payment .payment-words').map(text)).toEqual(['14/10/2026 100 000 FCFA par Wave, payé par Touba Avicole']);
+        // Nothing to type: the sheet is read; a photo is joined from it, nothing else changes
+        expect(element().querySelector('input:not([type=file]), textarea')).toBeNull();
+      });
+
+      // Spec: backlog R.6 — les justificatifs : les joindre, même plus tard, et les voir
+      describe('les justificatifs', () => {
+        const PHOTO = 'a'.repeat(64);
+        beforeEach(() => {
+          vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:photo');
+          vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        });
+        afterEach(() => vi.restoreAllMocks());
+
+        it('la fiche montre les photos de la commande et de chaque paiement ; un tap ouvre la photo, lue au serveur', async () => {
+          const avecPhotos = { ...annoncee(), attachments: [PHOTO], payments: [{ ...annoncee().payments[0]!, attachments: [PHOTO] }] };
+          const { tap, element, refresh } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [avecPhotos]);
+
+          expect(element().querySelectorAll('.order-photos .photo')).toHaveLength(1);
+          expect(element().querySelectorAll('.sheet-payment .photo')).toHaveLength(1);
+          await tap('.order-photos .photo');
+          const lecture = http.expectOne(`/api/v1/media/${PHOTO}`);
+          expect(lecture.request.responseType).toBe('blob');
+          lecture.flush(new Blob([FACTURE], { type: 'image/jpeg' }));
+          await vi.waitFor(async () => {
+            await refresh();
+            expect(element().querySelector<HTMLImageElement>('.photo-viewer img')?.getAttribute('src')).toBe('blob:photo');
+          });
+        });
+
+        it('« Joindre une photo » : la photo part d’abord, puis la jointure — la commande ne change pas ; la liste se relit', async () => {
+          const { element, sent, refresh } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [annoncee()]);
+          const camera = element().querySelector<HTMLInputElement>('.order-photos input[type=file]');
+          Object.defineProperty(camera, 'files', { value: [new File([FACTURE], 'facture.jpg', { type: 'image/jpeg' })], configurable: true });
+          camera?.dispatchEvent(new Event('change'));
+          await refresh();
+
+          const depot = await sent('PUT', /^\/api\/v1\/media\/[0-9a-f]{64}$/);
+          expect(depot.request.params.get('retention')).toBe('SupportingDocument');
+          depot.flush(null, { status: 201, statusText: 'Created' });
+          const jointure = await sent('POST', '/api/v1/attachments');
+          expect(jointure.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), subjectKind: 'Order', subjectId: uuid(1), media: depot.request.url.slice('/api/v1/media/'.length) });
+          // Joined: the orders are read again, to show the new photo
+          http.match('/api/v1/orders');
+          jointure.flush(null, { status: 201, statusText: 'Created' });
+          await vi.waitFor(() => expect(http.match('/api/v1/orders')).not.toHaveLength(0));
+        });
+
+        it('une photo jointe à un paiement part comme paiement, avec l’identifiant de ce paiement', async () => {
+          const { element, sent, refresh } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [annoncee()]);
+          const camera = element().querySelector<HTMLInputElement>('.sheet-payment input[type=file]');
+          Object.defineProperty(camera, 'files', { value: [new File([FACTURE], 'recu.jpg', { type: 'image/jpeg' })], configurable: true });
+          camera?.dispatchEvent(new Event('change'));
+          await refresh();
+
+          (await sent('PUT', /^\/api\/v1\/media\/[0-9a-f]{64}$/)).flush(null, { status: 201, statusText: 'Created' });
+          expect((await sent('POST', '/api/v1/attachments')).request.body).toMatchObject({ subjectKind: 'Payment', subjectId: uuid(61) });
+        });
+      });
+    });
+
+    // Spec: backlog Q.14 — les réceptions prévues (décisions du fondateur du 2026-11-13)
+    describe('les réceptions prévues', () => {
+      // An order of 20 bags of feed and 1 000 chicks: the chicks came, the feed in two times
+      const enDeuxFois = () => uneCommande({ status: 'PartiallyReceived', lines: [{ id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: 50_000, received: 6 }, { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, bagWeight: null, received: 1000 }] });
+      const suivi = (): ReceptionsView => ({
+        today: '2026-11-20',
+        receptions: [
+          { receptionId: uuid(701), orderId: uuid(1), supplierId: SEDIMA, campaignId: BANDE, plannedOn: '2026-11-15', previousDates: ['2026-11-12'], state: 'Late', lines: [{ orderLineId: uuid(11), costTypeId: ALIMENT, expected: 10, received: 6, remaining: 4 }] },
+          { receptionId: uuid(702), orderId: uuid(1), supplierId: SEDIMA, campaignId: BANDE, plannedOn: '2026-11-25', previousDates: [], state: 'Coming', lines: [{ orderLineId: uuid(11), costTypeId: ALIMENT, expected: 10, received: 0, remaining: 10 }] },
+        ],
+      });
+
+      it('la fiche montre ses réceptions prévues : la date (et celle d’avant, si reprogrammée), l’état, ce qui est reçu et ce qui reste', async () => {
+        const { all } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()], suivi());
+        expect(all('.reception').map(text)).toEqual([
+          expect.stringMatching(/15\/11\/2026.*prévue d’abord le 12\/11\/2026.*En retard.*Aliment 6 \/ 10 reçus, reste 4/),
+          expect.stringMatching(/25\/11\/2026.*À venir.*Aliment 0 \/ 10 reçus, reste 10/),
+        ]);
+      });
+
+      it('une commande reçue en une fois n’a rien à prévoir : pas de réception prévue, juste le bouton pour en prévoir une', async () => {
+        const { element } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()]);
+        expect(element().querySelectorAll('.reception')).toHaveLength(0);
+        expect(element().querySelector('button.plan-reception')).not.toBeNull();
+      });
+
+      it('une commande entièrement reçue n’a plus rien à recevoir : pas de réceptions prévues à écrire', async () => {
+        const { element } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [{ ...enDeuxFois(), status: 'Received' }]);
+        expect(element().querySelector('app-order-receptions')).toBeNull();
+      });
+
+      it('la fiche d’un brouillon offre les deux gestes, l’un ou l’autre : « Prévenir le gardien » l’annonce en une fois', async () => {
+        const { all, tap, sent } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [uneCommande()]);
+
+        expect(text(all('.sheet-modes .announce')[0])).toBe('Prévenir le gardien');
+        expect(text(all('app-order-receptions .plan-reception')[0])).toBe('Déclarer des réceptions');
+        await tap('.sheet-modes .announce');
+        (await sent('POST', `/api/v1/orders/${uuid(1)}/announce`)).flush(null, { status: 204, statusText: 'No Content' });
+      });
+
+      it('venu de « Déclarer des réceptions », le formulaire est ouvert ; la première réception prévue part au serveur, qui annonce la commande', async () => {
+        const { element, type, tap, sent } = await ouvre(`/admin/achats/${uuid(1)}/fiche?receptions=declarer`, [uneCommande()]);
+
+        expect(element().querySelector('app-order-receptions .reception-form')).not.toBeNull();
+        await type('app-order-receptions input[name="plannedOn"]', '2026-11-25');
+        await tap('app-order-receptions .write');
+        const request = await sent('PUT', new RegExp(`^/api/v1/orders/${uuid(1)}/receptions/[0-9a-f-]{36}$`));
+        expect((request.request.body as { plannedOn: string }).plannedOn).toBe('2026-11-25');
+      });
+
+      it('une commande annoncée n’offre plus « Prévenir le gardien »', async () => {
+        const { all } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()], suivi());
+        expect(all('.sheet-modes .announce')).toHaveLength(0);
+      });
+
+      it('« Prévoir une réception » : une date, et pour chaque ligne ce qui n’est pas encore prévu, pré-rempli ; une ligne à zéro ne part pas', async () => {
+        const { tap, type, element, sent } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()], { today: '2026-11-20', receptions: [suivi().receptions[0]!] });
+        await tap('button.plan-reception');
+        // Aliment : 20 commandés, 10 déjà prévus → 10 ; poussins : tout reçu, rien prévu → 1 000 proposés
+        expect([element().querySelector<HTMLInputElement>(`.reception-form input[name="q-${uuid(11)}"]`)?.value, element().querySelector<HTMLInputElement>(`.reception-form input[name="q-${uuid(12)}"]`)?.value]).toEqual(['10', '1 000']);
+        await type('.reception-form input[name=plannedOn]', '2026-11-28');
+        await type(`.reception-form input[name="q-${uuid(12)}"]`, '0');
+        await tap('.reception-form button.write');
+
+        const request = await sent('PUT', new RegExp(`^/api/v1/orders/${uuid(1)}/receptions/[0-9a-f-]{36}$`));
+        expect(request.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), plannedOn: '2026-11-28', lines: [{ orderLineId: uuid(11), quantity: 10 }] });
+      });
+
+      it('« Changer la date » d’une réception en retard la reprogramme : même réception, mêmes lignes, nouvelle date', async () => {
+        const { tap, type, sent } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()], suivi());
+        await tap(`.reception[data-id="${uuid(701)}"] button.reschedule`);
+        await type(`.reception[data-id="${uuid(701)}"] input[name=newDate]`, '2026-11-22');
+        await tap(`.reception[data-id="${uuid(701)}"] button.save-date`);
+
+        const request = await sent('PUT', `/api/v1/orders/${uuid(1)}/receptions/${uuid(701)}`);
+        expect(request.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), plannedOn: '2026-11-22', lines: [{ orderLineId: uuid(11), quantity: 10 }] });
+      });
+
+      it('« Retirer » une réception prévue', async () => {
+        const { tap, sent } = await ouvre(`/admin/achats/${uuid(1)}/fiche`, [enDeuxFois()], suivi());
+        await tap(`.reception[data-id="${uuid(702)}"] button.withdraw`);
+        expect((await sent('POST', `/api/v1/orders/${uuid(1)}/receptions/${uuid(702)}/withdraw`)).request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+      });
+
+      it('l’accueil « À traiter » : chaque réception en retard alerte, et mène à sa commande pour la reprogrammer ; sans retard, rien à traiter', async () => {
+        const { all, element } = await ouvre('/admin/accueil', [enDeuxFois()], suivi());
+        expect(all('.todo .late-reception').map(text)).toEqual([expect.stringMatching(/Réception en retard.*Sedima.*15\/11\/2026.*4 sacs Aliment/)]);
+        expect(element().querySelector('.todo .late-reception a')?.getAttribute('href')).toBe(`/admin/achats/${uuid(1)}/fiche`);
+        expect(element().querySelector('.nothing')).toBeNull();
+      });
+
+      it('sans réception en retard, l’accueil dit qu’il n’y a rien à traiter', async () => {
+        const { element } = await ouvre('/admin/accueil', [enDeuxFois()], { today: '2026-11-20', receptions: [suivi().receptions[1]!] });
+        expect(element().querySelectorAll('.late-reception')).toHaveLength(0);
+        expect(text(element().querySelector('.nothing'))).toBe('Rien à traiter pour l’instant.');
+      });
+
+      it('« À recevoir » : les réceptions prévues pas encore reçues, en retard d’abord en rouge, puis aujourd’hui, puis à venir ; chacune mène à sa commande', async () => {
+        // A reception already received has nothing to receive any more: it is not listed
+        const recue = { receptionId: uuid(703), orderId: uuid(1), supplierId: SEDIMA, campaignId: BANDE, plannedOn: '2026-11-12', previousDates: [], state: 'Received' as const, lines: [{ orderLineId: uuid(12), costTypeId: POUSSINS, expected: 1000, received: 1000, remaining: 0 }] };
+        const { all, element } = await ouvre('/admin/achats/a-recevoir', [enDeuxFois()], { ...suivi(), receptions: [recue, ...suivi().receptions] });
+        expect(all('.to-receive').map((node) => node.className.match(/late|today|coming/)?.[0])).toEqual(['late', 'coming']);
+        expect(text(all('.to-receive')[0])).toMatch(/Sedima.*15\/11\/2026.*En retard.*4 sacs.*Aliment/);
+        expect(element().querySelector('.to-receive a')?.getAttribute('href')).toBe(`/admin/achats/${uuid(1)}/fiche`);
+      });
     });
 
     it('sans commande, la page le dit', async () => {
@@ -149,8 +368,9 @@ describe('Les achats, au bureau', () => {
       expect(text(element().querySelector('.none'))).toContain('Aucune commande pour l’instant');
     });
 
-    it('un brouillon s’annonce au gardien d’un geste, et la liste est relue', async () => {
+    it('un brouillon s’annonce au gardien d’un geste — « Prévenir le gardien », tout en une fois —, et la liste est relue', async () => {
       const { tap, sent, all, soon } = await ouvre('/admin/achats');
+      expect(text(all('.order .announce')[0])).toBe('Prévenir le gardien');
 
       await tap('.order .announce');
       (await sent('POST', `/api/v1/orders/${uuid(1)}/announce`)).flush(null, { status: 204, statusText: 'No Content' });
@@ -170,10 +390,20 @@ describe('Les achats, au bureau', () => {
       expect(text(all('.order')[0])).toContain('Annoncée au gardien');
     });
 
-    it('seul un brouillon offre « Annoncer » : une commande annoncée ne le propose plus', async () => {
+    // Spec: backlog Q.15 — prévenir en une fois, ou déclarer des réceptions (décisions du fondateur du 2026-11-14)
+    it('un brouillon offre aussi « Déclarer des réceptions » : la fiche, son formulaire de réception ouvert', async () => {
+      const { all } = await ouvre('/admin/achats');
+
+      const declare = all('.order a.declare')[0];
+      expect(text(declare)).toBe('Déclarer des réceptions');
+      expect(declare?.getAttribute('href')).toBe(`/admin/achats/${uuid(1)}/fiche?receptions=declarer`);
+    });
+
+    it('seul un brouillon offre les deux gestes : une commande annoncée — en une fois ou en plusieurs — ne les propose plus', async () => {
       const { all } = await ouvre('/admin/achats', [uneCommande({ status: 'Announced' })]);
 
       expect(all('.order .announce')).toHaveLength(0);
+      expect(all('.order a.declare')).toHaveLength(0);
       expect(text(all('.order')[0])).toContain('Annoncée au gardien');
     });
 
@@ -205,18 +435,88 @@ describe('Les achats, au bureau', () => {
     it('une ligne se compose d’un type commandable, d’une quantité et d’un prix ; le total se refait pendant la frappe', async () => {
       const { all, tap, type, element } = await ouvre('/admin/achats/nouvelle');
 
-      expect(all('.line:first-child .type-choice').map(text)).toEqual(['Aliment', 'Poussins']);
+      expect(all('.line:first-child .type-choice').map(text)).toEqual(['Aliment', 'Poussins', 'Aliment au kg']);
       await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
       await type('.line:first-child input[name=quantity]', '20');
       await type('.line:first-child input[name=unitPrice]', '17500');
-      expect(text(element().querySelector('.total'))).toContain('350 000 F');
+      expect(text(element().querySelector('.total'))).toContain('350 000 FCFA');
 
       await tap('button.add-line');
       await tap('.line:nth-child(2) .type-choice input[value="' + POUSSINS + '"]');
       await type('.line:nth-child(2) input[name=quantity]', '1000');
       await type('.line:nth-child(2) input[name=unitPrice]', '550');
-      // 20 × 17 500 + 1 000 × 550 = 900 000 F
-      expect(text(element().querySelector('.total'))).toContain('900 000 F');
+      // 20 × 17 500 + 1 000 × 550 = 900 000 FCFA
+      expect(text(element().querySelector('.total'))).toContain('900 000 FCFA');
+    });
+
+    // Spec: backlog N.5 (décisions du fondateur du 2026-11-13) — le catalogue propose, il n'impose rien
+    it('le prix se propose dès qu’on choisit l’article : le dernier payé à ce fournisseur, sinon le dernier de l’article ; jamais 0 pour un article jamais payé', async () => {
+      const { tap, element } = await ouvre('/admin/achats/nouvelle');
+      const prix = (line: string) => element().querySelector<HTMLInputElement>(`${line} input[name=unitPrice]`)?.value;
+
+      await tap('input[name=supplier][value="' + SEDIMA + '"]');
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      expect(prix('.line:first-child')).toBe('17 500');
+
+      await tap('button.add-line');
+      await tap('.line:nth-child(2) .type-choice input[value="' + POUSSINS + '"]');
+      expect(prix('.line:nth-child(2)')).toBe('');
+    });
+
+    it('l’article choisi avant le fournisseur : le prix proposé suit le fournisseur choisi ensuite', async () => {
+      const { tap, element } = await ouvre('/admin/achats/nouvelle');
+      const prix = () => element().querySelector<HTMLInputElement>('.line:first-child input[name=unitPrice]')?.value;
+
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      expect(prix()).toBe('16 000');
+      await tap('input[name=supplier][value="' + SEDIMA + '"]');
+      expect(prix()).toBe('17 500');
+    });
+
+    it('chez un fournisseur qui ne l’a jamais vendu, le dernier prix de l’article ; un prix tapé n’est jamais remplacé', async () => {
+      const { tap, type, element } = await ouvre('/admin/achats/nouvelle');
+      const prix = () => element().querySelector<HTMLInputElement>('.line:first-child input[name=unitPrice]')?.value;
+
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      // Sans fournisseur choisi : le dernier prix de l'article, chez Touba le 1er novembre
+      expect(prix()).toBe('16 000');
+      await type('.line:first-child input[name=unitPrice]', '15000');
+      await tap('input[name=supplier][value="' + SEDIMA + '"]');
+      expect(prix()).toBe('15 000');
+    });
+
+    it('« Prix habituels » : chaque article dit le prix proposé, ou « pas encore de prix » ; l’admin en fixe un pour tous les fournisseurs', async () => {
+      const { element, type, tap, sent, answerReadings, refresh } = await ouvre('/admin/plus/prix');
+      const ligne = (id: string) => text(element().querySelector(`.article[data-type="${id}"]`));
+
+      expect(ligne(ALIMENT)).toContain('proposé : 16 000');
+      expect(ligne(POUSSINS)).toContain('pas encore de prix');
+      expect(element().querySelector('.article[data-type="' + uuid(43) + '"]')).toBeNull();
+
+      await type(`.article[data-type="${POUSSINS}"] input.price`, '450');
+      await tap(`.article[data-type="${POUSSINS}"] button.set`);
+      const fixe = await sent('POST', '/api/v1/price-catalog');
+      expect(fixe.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), costTypeId: POUSSINS, supplierId: null, unitPrice: 450 });
+      fixe.flush(null, { status: 204, statusText: 'No Content' });
+      await refresh();
+      answerReadings();
+      await refresh();
+      expect(element().querySelector<HTMLInputElement>(`.article[data-type="${POUSSINS}"] input.price`)?.value).toBe('');
+    });
+
+    // Spec: backlog Q.10 (demande du fondateur du 2026-11-13) — un montant se lit en le tapant, et l'unité est collée à sa case
+    it('les nombres s’écrivent avec l’espace des milliers ; « sacs », « poussins » et la devise sont collés à leur case : impossible d’inverser prix et quantité', async () => {
+      const { tap, type, element } = await ouvre('/admin/achats/nouvelle');
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      await type('.line:first-child input[name=quantity]', '20');
+      await type('.line:first-child input[name=unitPrice]', '17500');
+      await tap('button.add-line');
+      await tap('.line:nth-child(2) .type-choice input[value="' + POUSSINS + '"]');
+
+      expect(element().querySelector<HTMLInputElement>('.line:first-child input[name=unitPrice]')?.value).toBe('17 500');
+      const affixes = (line: string) => Array.from(element().querySelectorAll(`${line} .affix`)).map((affix) => affix.textContent?.trim());
+      expect(affixes('.line:first-child')).toEqual(['sacs', 'FCFA']);
+      expect(affixes('.line:nth-child(2)')).toEqual(['poussins', 'FCFA']);
     });
 
     it('« Enregistrer » envoie le brouillon, avec des identifiants créés ici, puis revient aux achats', async () => {
@@ -242,6 +542,99 @@ describe('Les achats, au bureau', () => {
       await soon(() => expect(TestBed.inject(Router).url).toBe('/admin/achats'));
     });
 
+    // Spec: backlog Q.13 — la relecture qui attrape les inversions
+    it('sous chaque ligne, la phrase entière : quantité × prix = total', async () => {
+      const { tap, type, element } = await ouvre('/admin/achats/nouvelle');
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      await type('.line:first-child input[name=quantity]', '20');
+      await type('.line:first-child input[name=unitPrice]', '17500');
+
+      expect(text(element().querySelector('.line:first-child .line-readback'))).toBe('20 sacs × 17 500 FCFA = 350 000 FCFA');
+      expect(element().querySelector('.line:first-child .price-warning')).toBeNull();
+    });
+
+    it('un prix trois fois loin du prix habituel avertit — quantité et prix inversés ? — sans rien bloquer', async () => {
+      const { tap, type, element, sent } = await ouvre('/admin/achats/nouvelle');
+      await tap('input[name=supplier][value="' + SEDIMA + '"]');
+      await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+      await type('.line:first-child input[name=quantity]', '17500');
+      await type('.line:first-child input[name=unitPrice]', '20');
+
+      expect(text(element().querySelector('.line:first-child .price-warning'))).toBe('20 FCFA le sac, d’habitude 17 500 FCFA : quantité et prix inversés ?');
+      await tap('form button[type=submit]');
+      expect((await sent('POST', '/api/v1/orders')).request.body).toMatchObject({ lines: [{ quantity: 17_500, unitPrice: 20 }] });
+    });
+
+    // Spec: backlog N.8c — « Sac de 50 kg · changer » (décisions du fondateur du 2026-11-13)
+    describe('le poids d’un sac d’aliment', () => {
+      const poidsDit = (element: () => HTMLElement, line: string) => text(element().querySelector(`${line} .bag-weight`));
+
+      it('une ligne d’aliment dit le poids de son sac, discrètement ; elle part sans poids écrit : le serveur recopie le poids habituel', async () => {
+        const { tap, type, sent, element } = await ouvre('/admin/achats/nouvelle');
+        await tap('input[name=supplier][value="' + SEDIMA + '"]');
+        await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+        expect(poidsDit(element, '.line:first-child')).toContain('Sac de 50 kg');
+        expect(element().querySelector('.line:first-child input[name=bagWeight]')).toBeNull();
+
+        await type('.line:first-child input[name=quantity]', '20');
+        await tap('form button[type=submit]');
+        const request = await sent('POST', '/api/v1/orders');
+        expect((request.request.body as DraftOrderRequest).lines[0]).not.toHaveProperty('bagWeight');
+      });
+
+      it('« changer » ouvre la case des kg : un sac de 40 kg part à 40 000 g', async () => {
+        const { tap, type, sent } = await ouvre('/admin/achats/nouvelle');
+        await tap('input[name=supplier][value="' + SEDIMA + '"]');
+        await tap('.line:first-child .type-choice input[value="' + ALIMENT + '"]');
+        await tap('.line:first-child .bag-weight button');
+        await type('.line:first-child input[name=bagWeight]', '40');
+        await type('.line:first-child input[name=quantity]', '2');
+        await tap('form button[type=submit]');
+
+        const request = await sent('POST', '/api/v1/orders');
+        expect((request.request.body as DraftOrderRequest).lines[0]?.bagWeight).toBe(40_000);
+      });
+
+      it('Aliment au kg demande le poids tout de suite, et compte un seul sac : on écrit le prix total', async () => {
+        const { tap, type, sent, element } = await ouvre('/admin/achats/nouvelle');
+        await tap('input[name=supplier][value="' + SEDIMA + '"]');
+        await tap('.line:first-child .type-choice input[value="' + AU_KG + '"]');
+        expect(element().querySelector('.line:first-child input[name=bagWeight]')).not.toBeNull();
+        expect(element().querySelector<HTMLInputElement>('.line:first-child input[name=quantity]')?.value).toBe('1');
+
+        await type('.line:first-child input[name=bagWeight]', '15');
+        await type('.line:first-child input[name=unitPrice]', '7500');
+        await tap('form button[type=submit]');
+        const request = await sent('POST', '/api/v1/orders');
+        expect((request.request.body as DraftOrderRequest).lines[0]).toMatchObject({ costTypeId: AU_KG, quantity: 1, unitPrice: 7_500, bagWeight: 15_000 });
+      });
+
+      it('une ligne qui n’est pas de l’aliment ne parle pas de poids', async () => {
+        const { tap, element } = await ouvre('/admin/achats/nouvelle');
+        await tap('.line:first-child .type-choice input[value="' + POUSSINS + '"]');
+        expect(element().querySelector('.line:first-child .bag-weight')).toBeNull();
+      });
+
+      it('un brouillon rouvert garde le poids écrit pour lui : 40 kg', async () => {
+        const { element } = await ouvre('/admin/achats/' + uuid(1), [uneCommande({ lines: [{ id: uuid(11), costTypeId: ALIMENT, quantity: 2, unitPrice: 16_000, bagWeight: 40_000, received: 0 }] })]);
+        expect(element().querySelector<HTMLInputElement>('.line:first-child input[name=bagWeight]')?.value).toBe('40');
+      });
+    });
+
+    // Spec: backlog N.8a — un aliment sans poids habituel ne part pas sans son poids
+    it('Aliment au kg, sans poids de sac : la règle du domaine refuse avant tout envoi, et le dit', async () => {
+      const { tap, type, element } = await ouvre('/admin/achats/nouvelle');
+
+      await tap('input[name=supplier][value="' + SEDIMA + '"]');
+      await tap('.line:first-child .type-choice input[value="' + AU_KG + '"]');
+      await type('.line:first-child input[name=quantity]', '1');
+      await type('.line:first-child input[name=unitPrice]', '7500');
+      await tap('form button[type=submit]');
+
+      expect(text(element().querySelector('.refusal'))).toContain('Dis le poids du sac de cet aliment');
+      expect(http.match((request) => request.method === 'POST')).toEqual([]);
+    });
+
     it('la règle du domaine refuse avant tout envoi, et le dit : sans fournisseur, sans type sur une ligne', async () => {
       const { tap, element } = await ouvre('/admin/achats/nouvelle');
 
@@ -254,16 +647,18 @@ describe('Les achats, au bureau', () => {
       expect(http.match((request) => request.method === 'POST')).toEqual([]);
     });
 
-    it('un fournisseur se crée sur place : son nom, son visage ; il est aussitôt choisi', async () => {
+    it('un fournisseur se crée sur place : son nom, son visage — Aliment, Poussins ou Véto seulement — ; il est aussitôt choisi', async () => {
       const { tap, type, sent, element, soon } = await ouvre('/admin/achats/nouvelle');
 
       await tap('.supplier.new input');
+      // Demande du fondateur du 2026-11-13 : ce que l'élevage commande, rien d'autre
+      expect(Array.from(element().querySelectorAll('.faces label')).map(text)).toEqual(['Aliment', 'Poussins', 'Véto']);
       await type('input[name=supplierName]', 'Senegal Aliment');
-      await tap('.faces input[value=truck]');
+      await tap('.faces input[value=closed-bag]');
       await tap('button.create-supplier');
 
       const request = await sent('POST', '/api/v1/counterparties');
-      expect(request.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), kind: 'Supplier', name: 'Senegal Aliment', face: 'truck' });
+      expect(request.request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), kind: 'Supplier', name: 'Senegal Aliment', face: 'closed-bag' });
       request.flush(null, { status: 201, statusText: 'Created' });
       await soon(() => expect(text(element().querySelector('input[name=supplier]:checked')?.closest('label'))).toBe('Senegal Aliment'));
     });
@@ -272,7 +667,7 @@ describe('Les achats, au bureau', () => {
       const { element, tap, sent } = await ouvre(`/admin/achats/${uuid(1)}`);
 
       expect(element().querySelector<HTMLInputElement>('input[name=supplier]:checked')?.value).toBe(SEDIMA);
-      expect(Array.from(element().querySelectorAll<HTMLInputElement>('input[name=quantity]')).map((input) => input.value)).toEqual(['20', '1000']);
+      expect(Array.from(element().querySelectorAll<HTMLInputElement>('input[name=quantity]')).map((input) => input.value)).toEqual(['20', '1 000']);
       await tap('form button[type=submit]');
 
       const request = await sent('PUT', `/api/v1/orders/${uuid(1)}`);
@@ -295,16 +690,16 @@ describe('Les achats, au bureau', () => {
   });
 
   describe('payer une commande', () => {
-    // The order of 12/10, received whole: 20 × 17 500 + 1 000 × 550 = 900 000 F to pay; 400 000 F paid by Wave on 13/10.
+    // The order of 12/10, received whole: 20 × 17 500 + 1 000 × 550 = 900 000 FCFA to pay; 400 000 FCFA paid by Wave on 13/10.
     const recue = (fields: Partial<OrderView> = {}) =>
       uneCommande({
         status: 'Received',
         billable: 900_000,
         paid: 400_000,
-        payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: null }],
+        payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: null, attachments: [] }],
         lines: [
-          { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, received: 20 },
-          { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, received: 1000 },
+          { id: uuid(11), costTypeId: ALIMENT, quantity: 20, unitPrice: 17_500, bagWeight: null, received: 20 },
+          { id: uuid(12), costTypeId: POUSSINS, quantity: 1000, unitPrice: 550, bagWeight: null, received: 1000 },
         ],
         ...fields,
       });
@@ -322,14 +717,14 @@ describe('Les achats, au bureau', () => {
       const { element, all } = await ouvre(PAGE, [recue()]);
 
       expect(text(element().querySelector('h1'))).toContain('Payer Sedima');
-      expect(text(element().querySelector('.balance'))).toMatch(/À payer 900 000 F.*Déjà payé 400 000 F.*Reste à payer 500 000 F/);
-      expect(all('.paid-list li').map(text)).toEqual(['13/10/2026 Wave 400 000 F']);
+      expect(text(element().querySelector('.balance'))).toMatch(/À payer 900 000 FCFA.*Déjà payé 400 000 FCFA.*Reste à payer 500 000 F/);
+      expect(all('.paid-list li').map(text)).toEqual(['13/10/2026 Wave 400 000 FCFA']);
     });
 
     it('le montant proposé est le reste à payer, la date celle du jour ; aucun moyen n’est choisi pour l’admin', async () => {
       const { element, all } = await ouvre(PAGE, [recue()]);
 
-      expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('500000');
+      expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('500 000');
       expect(element().querySelector<HTMLInputElement>('input[name=paidOn]')?.value).toBe('2026-10-12');
       expect(all('.method').map(text)).toEqual(['Espèces', 'Wave', 'Orange Money']);
       expect(all('.method input').filter((input) => (input as HTMLInputElement).checked)).toEqual([]);
@@ -365,10 +760,10 @@ describe('Les achats, au bureau', () => {
       await tap('.method-cash input');
       await type('input[name=amount]', '0');
       await tap('form .go');
-      expect(refus()).toContain('Un montant en francs entiers, d’au moins 1 F');
+      expect(refus()).toContain('Un montant en francs entiers, d’au moins 1 FCFA');
       await type('input[name=amount]', '99.5');
       await tap('form .go');
-      expect(refus()).toContain('Un montant en francs entiers, d’au moins 1 F');
+      expect(refus()).toContain('Un montant en francs entiers, d’au moins 1 FCFA');
       expect(http.match((request) => request.method === 'POST')).toEqual([]);
     });
 
@@ -380,9 +775,9 @@ describe('Les achats, au bureau', () => {
     });
 
     it('payé plus que le facturable : la page dit que le fournisseur doit à l’élevage', async () => {
-      const { element } = await ouvre(PAGE, [recue({ paid: 950_000, payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 950_000, method: 'Cash', paidBy: null }] })]);
+      const { element } = await ouvre(PAGE, [recue({ paid: 950_000, payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 950_000, method: 'Cash', paidBy: null, attachments: [] }] })]);
 
-      expect(text(element().querySelector('.balance'))).toContain('Sedima te doit 50 000 F');
+      expect(text(element().querySelector('.balance'))).toContain('Sedima te doit 50 000 FCFA');
       expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('');
     });
 
@@ -453,17 +848,18 @@ describe('Les achats, au bureau', () => {
     });
 
     // Spec: backlog R.4 — une commande payée par un tiers (décisions du 2026-11-12).
-    it('« Plus de détails » : payé par quelqu’un d’autre — tout tiers en usage, sauf le fournisseur de la commande', async () => {
+    it('« Plus de détails » : payé par quelqu’un d’autre — les tiers qui peuvent avancer des frais (R.7), jamais le fournisseur de la commande', async () => {
       const { all, element } = await ouvre(PAGE, [recue()]);
 
       expect(text(element().querySelector('.payer-more summary'))).toBe('Plus de détails : payé par quelqu’un d’autre');
-      expect(all('.payer').map(text)).toEqual(['Touba Avicole', 'Ramasseur']);
+      // Touba Avicole n'avance pas de frais : seul le Ramasseur est proposé (demande du fondateur du 2026-11-13)
+      expect(all('.payer').map(text)).toEqual(['Ramasseur']);
     });
 
     it('payée par l’acheteur, par Wave, ses frais à ta charge : le paiement nomme qui a payé ; les frais partent « payés par » lui', async () => {
       const { tap, type, sent, element } = await ouvre(PAGE, [recue()]);
 
-      await tap('.payer:nth-child(2)');
+      await tap('.payer:nth-child(1)');
       await tap('.method-wave input');
       expect(text(element().querySelector('app-fee-field'))).toContain('Frais Wave payés par Ramasseur, à ta charge');
       await type('input[name=fee]', '2000');
@@ -478,15 +874,15 @@ describe('Les achats, au bureau', () => {
     it('payée par un tiers en espèces : aucune case « Frais »', async () => {
       const { tap, element } = await ouvre(PAGE, [recue()]);
 
-      await tap('.payer:nth-child(2)');
+      await tap('.payer:nth-child(1)');
       await tap('.method-cash input');
       expect(element().querySelector('input[name=fee]')).toBeNull();
     });
 
     it('un paiement déjà fait par un tiers le dit dans la liste', async () => {
-      const { all } = await ouvre(PAGE, [recue({ payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: uuid(34) }] })]);
+      const { all } = await ouvre(PAGE, [recue({ payments: [{ id: uuid(501), paidOn: '2026-10-13', amount: 400_000, method: 'Wave', paidBy: uuid(34), attachments: [] }] })]);
 
-      expect(all('.paid-list li').map(text)).toEqual(['13/10/2026 Wave, payé par Ramasseur 400 000 F']);
+      expect(all('.paid-list li').map(text)).toEqual(['13/10/2026 Wave, payé par Ramasseur 400 000 FCFA']);
     });
 
     // Spec: backlog P.7 — un paiement saisi sans réseau est gardé sur l'appareil, et part au retour du réseau, une seule fois.

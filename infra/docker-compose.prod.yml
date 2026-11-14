@@ -1,0 +1,25 @@
+# Production overlay (Z.5; docs/deploiement.md): the same stack, configured for a domain. It
+# changes configuration only — never an image, a service or a rule.
+#
+#   docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
+#
+# With SITE_ADDRESS set to a domain that points at the server, Caddy obtains and renews its
+# certificate by itself, serves HTTPS and redirects plain HTTP there. The certificate and its
+# account live in a volume: a restart does not ask for a new one (and does not hit the rate
+# limits of the authority).
+services:
+  web:
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?définir SITE_ADDRESS (le domaine, par exemple app.example.sn) dans infra/.env}
+    # The only doors of the server: 80 (the certificate challenge, then a redirect) and 443.
+    ports: !override
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

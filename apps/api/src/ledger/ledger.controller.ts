@@ -1,14 +1,14 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, HttpStatus, Inject, Post, Res } from '@nestjs/common';
-import { unwrap, type Clock } from '@kit';
-import { TenantId } from '@domain/journal';
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, Post, Res } from '@nestjs/common';
+import { type Clock } from '@kit';
 import type { LedgerView, RecordSettlementRequest } from '@contracts';
 import { CLOCK } from '../auth/clock.token';
 import { CurrentSession, Roles, type Session } from '../auth/session';
 import { PrismaService } from '../database/prisma.service';
 import { farmLedger, recordFarmSettlement } from './ledger';
+import { writtenStatus } from '../http/written';
 
-// « Qui doit quoi » (R.3): admin only — balances never go to the caretaker. Online until the
-// office's queue (P.7). No route changes nor deletes a settlement.
+// « Qui doit quoi » (R.3): admin only — balances never go to the caretaker. The office's queue (P.7)
+// may send a settlement again: the same id is a duplicate. No route changes nor deletes a settlement.
 @Roles('admin')
 @Controller()
 export class LedgerController {
@@ -19,7 +19,7 @@ export class LedgerController {
 
   @Get('ledger')
   ledger(@CurrentSession() session: Session): Promise<LedgerView> {
-    return this.prisma.runInTenant(session.tenantId, (tx) => farmLedger(tx, unwrap(TenantId(session.tenantId))));
+    return this.prisma.runInTenant(session.tenantId, (tx) => farmLedger(tx, session.tenantId));
   }
 
   /** 201 when written, 200 when the same settlement was already there. */
@@ -28,7 +28,7 @@ export class LedgerController {
     const request = requestOf(body);
     const result = await this.prisma.runInTenant(session.tenantId, (tx) => recordFarmSettlement(tx, session, request, this.clock.now()));
     if (!result.ok) throw result.error.kind === 'SettlementAlreadyExists' ? new ConflictException(result.error) : new BadRequestException(result.error);
-    response.status(result.value === 'Duplicate' ? HttpStatus.OK : HttpStatus.CREATED);
+    response.status(writtenStatus(result.value));
   }
 }
 

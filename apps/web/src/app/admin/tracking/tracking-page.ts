@@ -1,12 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { BAG_WEIGHT, STRAINS } from '@domain/journal';
+import { strainOf } from '@domain/journal';
 import { Pictogram } from '../../ui/pictogram';
 import { FiguresAge } from '../figures-age';
 import { Office } from '../office';
 import { amountWords } from '../purchases/purchases';
 import { WeightChart } from './weight-chart/weight-chart';
 import { Tracking } from './tracking';
+import { CurrentLot, currentLotOf } from '../lots/current-lot';
 
 // A no-break space between thousands: « 1 050 » never splits across two lines.
 const thousands = (value: number): string => String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
@@ -19,22 +20,13 @@ const hundredth = (value: number): string => value.toFixed(2).replace('.', ',');
 // data stays blank — a dash, never zero.
 @Component({
   selector: 'app-tracking-page',
-  imports: [FiguresAge, Pictogram, RouterLink, WeightChart],
+  imports: [CurrentLot, FiguresAge, Pictogram, RouterLink, WeightChart],
   providers: [Tracking],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="paper" [decorative]="true" /> Suivi</h1>
     <a class="back" routerLink="..">Revenir aux lots</a>
-    @if (lots().length > 1) {
-      <div class="lots" role="radiogroup" aria-label="Quel lot ?">
-        @for (lot of lots(); track lot.campaignId) {
-          <label class="lot">
-            <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
-          </label>
-        }
-      </div>
-    }
+    <app-current-lot />
     <app-figures-age [readAt]="tracking.readAt()" [stale]="tracking.unreachable()" />
 
     @if (tracking.view(); as view) {
@@ -78,7 +70,7 @@ const hundredth = (value: number): string => value.toFixed(2).replace('.', ',');
             Indice de consommation : — (aucune pesée validée)
           }
         </p>
-        <p class="line bags">{{ view.feed.bagsOpened }} sac{{ view.feed.bagsOpened > 1 ? 's' : '' }} de {{ bagKilos }} kg compté{{ view.feed.bagsOpened > 1 ? 's' : '' }}</p>
+        <p class="line bags">{{ view.feed.bagsOpened }} sac{{ view.feed.bagsOpened > 1 ? 's' : '' }} ouvert{{ view.feed.bagsOpened > 1 ? 's' : '' }} compté{{ view.feed.bagsOpened > 1 ? 's' : '' }}</p>
       </section>
 
       @if (view.sales; as sales) {
@@ -137,10 +129,9 @@ export class TrackingPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
-  protected readonly strain = computed(() => STRAINS.find(({ code }) => code === this.tracking.view()?.strain) ?? null);
+  protected readonly lotId = currentLotOf(this.office, this.route);
+  protected readonly strain = computed(() => strainOf(this.tracking.view()?.strain ?? ''));
   protected readonly strainName = computed(() => this.strain()?.name ?? this.tracking.view()?.strain ?? '');
-  protected readonly bagKilos = BAG_WEIGHT / 1000;
   protected readonly Math = Math;
   protected readonly thousands = thousands;
   protected readonly signed = signed;

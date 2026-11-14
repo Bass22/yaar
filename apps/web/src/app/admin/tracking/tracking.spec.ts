@@ -111,7 +111,7 @@ describe('Le suivi d’un lot, au bureau', () => {
     const { element } = await ouvre('/admin/lots/suivi');
 
     // 62 ÷ 1 000 = 6,2 %
-    expect(text(element().querySelector('.kpi.cost'))).toBe('591 F coût par poulet');
+    expect(text(element().querySelector('.kpi.cost'))).toBe('591 FCFA coût par poulet');
     expect(text(element().querySelector('.kpi.mortality'))).toBe('6,2 % mortalité 62 morts sur 1 000');
     expect(text(element().querySelector('.kpi.days'))).toBe('J23/45 jours');
     // Une espace insécable entre les milliers : « 1 000 » ne se coupe jamais en fin de ligne (vu à 360 px)
@@ -130,7 +130,8 @@ describe('Le suivi d’un lot, au bureau', () => {
 
     // −368 ÷ 1 301 = −28,3 % → −28 %
     expect(text(element().querySelector('.feed .cumulative'))).toBe('Cumul par poulet : 933 g contre 1 301 g dans la table Cobb 500 à J23 −368 g · −28 %');
-    expect(text(element().querySelector('.feed .bags'))).toBe('18 sacs de 50 kg comptés');
+    // Chaque sac compte à son poids (N.8b) : plus de « 50 kg » écrit
+    expect(text(element().querySelector('.feed .bags'))).toBe('18 sacs ouverts comptés');
   });
 
   it('l’indice de consommation face au guide : plus bas que le guide, il est meilleur que la table, en vert', async () => {
@@ -171,9 +172,9 @@ describe('Le suivi d’un lot, au bureau', () => {
   it('dès la première vente : la marge, le prix moyen et le restant à vendre ; rien de cela avant', async () => {
     const { element } = await ouvre('/admin/lots/suivi', suivi({ sales: { margin: -350_000, averagePrice: 2_000, remaining: 838 } }));
 
-    expect(text(element().querySelector('.sales .margin'))).toBe('Marge -350 000 F');
+    expect(text(element().querySelector('.sales .margin'))).toBe('Marge -350 000 FCFA');
     expect(element().querySelector('.sales .margin strong')?.classList.contains('negative')).toBe(true);
-    expect(text(element().querySelector('.sales .average'))).toBe('Prix moyen 2 000 F le poulet');
+    expect(text(element().querySelector('.sales .average'))).toBe('Prix moyen 2 000 FCFA le poulet');
     expect(text(element().querySelector('.sales .remaining'))).toBe('Restant à vendre 838 poulets');
   });
 

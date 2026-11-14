@@ -82,7 +82,7 @@ describe('Les pesées : la demande, la pesée, la validation', () => {
     await db.superuser.siteAssignment.create({ data: { tenantId: TENANT, siteId: NORD, userId: OUSMANE, isPrimary: true } });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: volume, vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();
@@ -174,6 +174,16 @@ describe('Les pesées : la demande, la pesée, la validation', () => {
 
     const journal = ((await (await call('GET', 'caretaker/context', undefined, gardien())).json()) as CaretakerContext).sites[0]?.campaigns.find(({ campaignId }) => campaignId === BANDE)?.journal;
     expect(journal?.map(({ fact }) => fact.type)).toEqual(['Weighing']);
+  });
+
+  // Refactoring du 2026-11-14 : qu'une pesée annulée ne se valide plus n'était prouvé nulle part au serveur
+  it('une pesée annulée ne se valide plus : elle n’existe plus pour la validation', async () => {
+    const admin = gerant();
+    expect((await demande(72, '2026-11-09')).status).toBe(201);
+    expect(await pese(206, 72, [1820, 1905, 1760, 1880, 1850])).toBe('Accepted');
+    expect(await envoie({ id: uuid(307), recordedAt: '2026-11-09T09:50:00.000Z', retracts: uuid(206) }, admin)).toBe('Accepted');
+
+    expect(await envoie({ id: uuid(308), recordedAt: '2026-11-09T09:51:00.000Z', fact: { type: 'WeighingValidated', weighingId: uuid(206) } }, admin)).toBe('UnknownWeighing');
   });
 
   it('un gardien ne lit pas les pesées du bureau (403)', async () => {

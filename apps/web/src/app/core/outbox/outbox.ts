@@ -1,4 +1,5 @@
 import type { JournalEventPayload, JournalRefusal } from '@contracts';
+import { committed, done } from './idb';
 
 /** An event before it has an identifier: the outbox gives it one, once (CLAUDE.md §4 rule 2). */
 export type EventDraft = JournalEventPayload extends infer Payload ? (Payload extends unknown ? Omit<Payload, 'id'> : never) : never;
@@ -21,7 +22,13 @@ export type OutboxEntry = {
   readonly refusal?: JournalRefusal;
   /** The caretaker heard the refusal and touched « J'ai compris » (G.5): it is no longer shown. */
   readonly refusalSeen?: boolean;
+  /** When the server took it (G.6), in UTC: it leaves the phone 120 days later. */
+  readonly sentAt?: string;
 };
+
+/** How long an event the server has stays on the phone (G.6): the notebook reads it from the server after. */
+export const SENT_KEPT_DAYS = 120;
+const DAY_MS = 24 * 3_600 * 1_000;
 
 /** The phone's storage could not keep the event: the user is told, nothing is shown as written. */
 export class OutboxUnavailable extends Error {
@@ -80,9 +87,39 @@ export class Outbox {
     }
   }
 
-  async markSent(ids: readonly string[]): Promise<void> {
+  async markSent(ids: readonly string[], at: Date = new Date()): Promise<void> {
     for (const id of ids) {
-      await this.update(id, (entry) => ({ ...entry, state: 'sent' }));
+      await this.update(id, (entry) => ({ ...entry, state: 'sent', sentAt: entry.sentAt ?? at.toISOString() }));
+    }
+  }
+
+  /**
+   * Empties the phone of what it no longer needs (G.6): an event the server took more than 120
+   * days ago, a refusal the caretaker has seen. An event pending or in doubt never leaves, whatever
+   * its age. One sent before this rule has no date: it takes this one, and goes 120 days later.
+   * Returns how many events left.
+   */
+  async cleanUp(now: Date): Promise<number> {
+    try {
+      const transaction = this.db.transaction(STORE, 'readwrite');
+      const store = transaction.objectStore(STORE);
+      const entries = (await done(() => store.getAll())) as OutboxEntry[];
+      let removed = 0;
+      for (const entry of entries) {
+        if (entry.state === 'refused' && entry.refusalSeen === true) {
+          store.delete(entry.seq);
+          removed += 1;
+        } else if (entry.state === 'sent' && entry.sentAt === undefined) {
+          store.put({ ...entry, sentAt: now.toISOString() });
+        } else if (entry.state === 'sent' && entry.sentAt !== undefined && now.getTime() - Date.parse(entry.sentAt) >= SENT_KEPT_DAYS * DAY_MS) {
+          store.delete(entry.seq);
+          removed += 1;
+        }
+      }
+      await committed(transaction);
+      return removed;
+    } catch (error) {
+      throw new OutboxUnavailable(error);
     }
   }
 
@@ -90,7 +127,7 @@ export class Outbox {
     await this.update(id, (entry) => ({ ...entry, state: 'refused', refusal }));
   }
 
-  /** The refusals the caretaker has heard: kept, no longer shown (G.5); G.6 may clean them up. */
+  /** The refusals the caretaker has heard: no longer shown (G.5), then cleaned up (G.6). */
   async acknowledgeRefusals(ids: readonly string[]): Promise<void> {
     for (const id of ids) {
       await this.update(id, (entry) => (entry.state === 'refused' ? { ...entry, refusalSeen: true } : null));
@@ -164,21 +201,4 @@ export class Outbox {
       throw new OutboxUnavailable(error);
     }
   }
-}
-
-function done<T>(start: () => IDBRequest): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const request = start();
-    request.onsuccess = () => resolve(request.result as T);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// A write counts once its transaction is committed: before that, a crash would lose it.
-function committed(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
 }

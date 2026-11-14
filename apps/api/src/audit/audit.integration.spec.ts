@@ -135,7 +135,9 @@ describe('Trace des actions sensibles', () => {
 
     it("le premier choix du PIN est tracé, par le collaborateur lui-même", async () => {
       tick();
-      expect((await post('auth/choose-pin', { phone: '+221770000052', provisionalPin, newPin: '6284', deviceId: TELEPHONE_DU_GARDIEN })).status).toBe(200);
+      const chosen = await post('auth/choose-pin', { phone: '+221770000052', provisionalPin, newPin: '6284', deviceId: TELEPHONE_DU_GARDIEN });
+      // On a refusal, its reason shows in the failure
+      expect([chosen.status, chosen.status === 200 ? '' : await chosen.text()]).toEqual([200, '']);
 
       expect((await trace()).find((entry) => entry.action === 'PinChosen')).toMatchObject({ action: 'PinChosen', actorId: AWA, subjectId: AWA, deviceId: TELEPHONE_DU_GARDIEN });
     });
@@ -160,7 +162,7 @@ describe('Trace des actions sensibles', () => {
     });
 
     it("une entrée ne se modifie ni ne se supprime : ni par l'application, ni même par un superutilisateur", async () => {
-      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' });
+      const api = new PrismaService({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null });
       try {
         await expect(api.runInTenant(unwrap(TenantId(TENANT_A)), (tx) => tx.auditEvent.deleteMany())).rejects.toThrow(/permission denied|42501/);
       } finally {

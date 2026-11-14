@@ -91,7 +91,7 @@ describe('Le suivi d’un lot, au bureau', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();
@@ -145,6 +145,43 @@ describe('Le suivi d’un lot, au bureau', () => {
     // Then à J20 il reste 1 000 − 40 − 460 = 500 vivants : 6 sacs ÷ 500 = 600 g ;
     // cumul 100 + 520,83 + 600 = 1 220,83 → 1 221 g ; écart 1 221 − 1 301 = −80 g
     expect((await suivi()).feed).toMatchObject({ cumulative: 1221, variance: -80 });
+  });
+
+  // Spec: backlog N.8b — la consommation par le premier arrivé (décisions du fondateur du 2026-11-13)
+  it('chaque sac ouvert pèse ce qu’il pesait : le reste de la bande d’avant d’abord, puis le petit sac de 15 kg', async () => {
+    const [PETITE_BANDE, BANDE_D_AVANT, SACS_DE_40, AU_KG] = [uuid(300), uuid(301), uuid(302), uuid(303)];
+    await db.superuser.costType.createMany({
+      data: [
+        { id: SACS_DE_40, tenantId: TENANT, category: 'Feed', name: 'Aliment finition', behaviour: 'Variable', bagWeight: 40_000 },
+        { id: AU_KG, tenantId: TENANT, category: 'Feed', name: 'Aliment au kg', behaviour: 'Variable' },
+      ],
+    });
+    await db.superuser.campaign.createMany({
+      data: [
+        { id: PETITE_BANDE, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-11-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45 },
+        { id: BANDE_D_AVANT, tenantId: TENANT, siteId: NORD, placementDay: new Date('2026-08-01'), strain: 'Cobb500', plannedHeadcount: 1000, plannedDuration: 45, closedAt: new Date('2026-09-20T10:00:00.000Z'), leftoversTo: PETITE_BANDE },
+      ],
+    });
+    // La bande d'avant a laissé 1 sac fermé de son aliment de 40 kg
+    await db.superuser.campaignLeftover.create({ data: { tenantId: TENANT, campaignId: BANDE_D_AVANT, costTypeId: SACS_DE_40, whole: 1, opened: false } });
+    await db.superuser.purchaseOrder.create({ data: { id: uuid(310), tenantId: TENANT, supplierId: SEDIMA, campaignId: PETITE_BANDE, orderDay: new Date('2026-11-01'), currency: 'XOF', announcedAt: new Date('2026-11-01T09:00:00.000Z') } });
+    await db.superuser.orderLine.createMany({
+      data: [
+        { id: uuid(311), tenantId: TENANT, orderId: uuid(310), position: 0, costTypeId: POUSSINS, quantity: 1000, unitPrice: 550 },
+        { id: uuid(312), tenantId: TENANT, orderId: uuid(310), position: 1, costTypeId: AU_KG, quantity: 1, unitPrice: 7_500, bagWeight: 15_000 },
+      ],
+    });
+    const at = (rank: number, day: string, type: 'Delivery' | 'BagOpened', fact: object) => ({ id: uuid(rank), tenantId: TENANT, siteId: NORD, campaignId: PETITE_BANDE, authorId: OUSMANE, deviceId: uuid(93), type, fact, businessDate: new Date(day), recordedAt: new Date(`${day}T18:${String(rank % 60).padStart(2, '0')}:00.000Z`) });
+    await db.superuser.journalEvent.createMany({
+      data: [
+        at(320, '2026-11-01', 'Delivery', { orderLineId: uuid(311), receivedQuantity: 1000, deliveryNote: { kind: 'NoPaper' } }),
+        at(321, '2026-11-01', 'Delivery', { orderLineId: uuid(312), receivedQuantity: 1, deliveryNote: { kind: 'NoPaper' } }),
+        at(322, '2026-11-02', 'BagOpened', { quantity: 2 }),
+      ],
+    });
+
+    // J1 : 2 sacs — le reste de 40 kg, puis le sac de 15 kg : 55 000 g ÷ 1 000 poussins = 55 g (et non 100)
+    expect((await suivi(PETITE_BANDE)).feed).toMatchObject({ bagsOpened: 2, cumulative: 55 });
   });
 
   it('un lot sans rien encore : chaque chiffre sans donnée est absent, jamais zéro', async () => {

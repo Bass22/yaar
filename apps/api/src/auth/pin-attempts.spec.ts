@@ -1,7 +1,7 @@
 import { unwrap } from '@kit';
 import { Instant } from '@domain/journal';
 import fc from 'fast-check';
-import { afterFailure, afterSuccess, NO_FAILURE, retryAt, type PinAttempts } from './pin-attempts';
+import { accountRetryAt, ACCOUNT_FAILURES_PER_DAY, afterFailure, afterSuccess, NO_FAILURE, retryAt, type PinAttempts } from './pin-attempts';
 
 // Spec: Cahier des charges — « Identité », essais ratés : trois essais libres, puis une attente
 // qui s'allonge (30 s, 1 min, 5 min, 15 min, 1 h au plus), jamais de blocage définitif ; le
@@ -112,5 +112,46 @@ describe('Essais de PIN', () => {
         expect(waitAfter(failures + 1)).toBeGreaterThanOrEqual(waitAfter(failures));
       }),
     );
+  });
+
+  // Spec: backlog E.10, réserve R-14 ; cahier des charges « Identité » (décision du 2026-11-13) :
+  // au-delà de 20 échecs en 24 h sur un compte, un appareil qui ne s'y est jamais connecté attend
+  // que le plus ancien de ces 20 échecs ait 24 h ; un appareil connu n'attend que ses propres échecs.
+  describe('le plafond du compte', () => {
+    // n failures on the account, one a minute from 18:00.
+    const echecs = (n: number): Instant[] => Array.from({ length: n }, (_, rank) => later(A_18H, rank * 60));
+
+    it('vingt échecs en 24 h', () => {
+      expect(ACCOUNT_FAILURES_PER_DAY).toBe(20);
+    });
+
+    it('à dix-neuf échecs, un nouvel appareil essaie librement', () => {
+      expect(accountRetryAt(echecs(19), false, later(A_18H, 3_600))).toBeNull();
+    });
+
+    it('au vingtième, il attend que le plus ancien des vingt ait 24 h : 18 h 00 le lendemain', () => {
+      expect(accountRetryAt(echecs(20), false, later(A_18H, 3_600))).toBe('2026-11-07T18:00:00.000Z');
+    });
+
+    it('avec plus de vingt échecs, ce sont les vingt plus récents qui comptent', () => {
+      // 25 échecs de 18 h 00 à 18 h 24 : les vingt plus récents commencent à 18 h 05
+      expect(accountRetryAt(echecs(25), false, later(A_18H, 3_600))).toBe('2026-11-07T18:05:00.000Z');
+    });
+
+    it('les échecs de plus de 24 h ne comptent plus', () => {
+      expect(accountRetryAt(echecs(20), false, later(A_18H, 24 * 3_600))).toBeNull();
+    });
+
+    it('un appareil déjà connecté au compte n’est jamais ralenti par les échecs des autres', () => {
+      expect(accountRetryAt(echecs(200), true, later(A_18H, 3_600))).toBeNull();
+    });
+
+    it('l’ordre dans lequel les échecs sont lus ne change rien', () => {
+      fc.assert(
+        fc.property(fc.shuffledSubarray(echecs(25), { minLength: 25 }), (shuffled) => {
+          expect(accountRetryAt(shuffled, false, later(A_18H, 3_600))).toBe('2026-11-07T18:05:00.000Z');
+        }),
+      );
+    });
   });
 });

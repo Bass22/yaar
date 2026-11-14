@@ -78,6 +78,19 @@ describe('La synchro du téléphone', () => {
     expect(sync.stopped()).toBeNull();
   });
 
+  // Spec: backlog G.6 — le nettoyage tourne au démarrage, sans retarder l'ouverture du cahier
+  it("à l'ouverture, le téléphone se vide de ce que le serveur a depuis longtemps, sans rien attendre ; ce qui attend reste", async () => {
+    const vieux = await outbox.record(OUSMANE, morts(3));
+    await outbox.markSent([vieux.id], new Date('2020-01-01T08:00:00.000Z'));
+    const attente = await outbox.record(OUSMANE, morts(2));
+
+    start();
+    await settle();
+
+    expect(await outbox.find(vieux.id)).toBeNull();
+    expect(await outbox.find(attente.id)).not.toBeNull();
+  });
+
   it("un seul envoi à la fois : une synchro demandée pendant un envoi attend la fin de celui-ci", async () => {
     await outbox.record(OUSMANE, morts(3));
     const sync = start();
@@ -108,6 +121,19 @@ describe('La synchro du téléphone', () => {
 
     expect(sync.stopped()).toBe('SessionRevoked');
     expect(sync.waiting()).toBe(1);
+  });
+
+  // Refactoring du 2026-11-14 : corriger et annuler partent tout de suite, jamais par l'outbox — sans session vivante, rien ne part
+  it("une correction ou une annulation sans session vivante est refusée sur place : rien ne part, rien n'est gardé", async () => {
+    localStorage.setItem('yaar.session', JSON.stringify({ token: tokenFor(OUSMANE), expiresAt: '2000-01-01T00:00:00.000Z', role: 'collaborator' }));
+    const sync = start();
+    await answerAll();
+    const target = { siteId: '00000000-0000-4000-8000-000000000003', campaignId: '00000000-0000-4000-8000-000000000004', businessDate: '2026-11-03', recordedAt: '2026-11-03T08:00:00.000Z' };
+
+    expect(await sync.correct({ ...target, corrects: '00000000-0000-4000-8000-000000000101', fact: { type: 'Death', quantity: 2 } })).toEqual({ kind: 'unauthorized' });
+    expect(await sync.retract({ ...target, retracts: '00000000-0000-4000-8000-000000000101' })).toEqual({ kind: 'unauthorized' });
+    http.expectNone('/api/v1/journal/events');
+    expect(sync.waiting()).toBe(0);
   });
 
   describe('les médias', () => {

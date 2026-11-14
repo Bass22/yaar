@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { LedgerEntryView, PaymentMethodCode, RecordSettlementRequest, SettlementDirectionCode } from '@contracts';
 import { recordSettlement } from '@domain/finance';
@@ -19,10 +19,12 @@ import { FEE_REFUSAL, FeeField, feeCost, feeTypeOf, takesFee, TransferFees } fro
 import { amountWords, Purchases } from '../../purchases/purchases';
 import { Banknotes } from '../banknotes';
 import { balancePhrase, Ledger, type SettlementProblem } from './ledger';
+import { currencyWord, dayWords, grouped, typedNumber, typedText } from '../../typed-number';
+import { Affixed } from '../../../ui/affixed';
 
 const WORDS: Partial<Record<SettlementProblem, string>> = {
   NoMethod: 'Choisis comment tu as réglé.',
-  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 F.',
+  InvalidAmount: 'Un montant en francs entiers, d’au moins 1 FCFA.',
   PaidInFuture: 'La date ne peut pas être après aujourd’hui.',
   InvalidBusinessDay: 'La date n’est pas une date.',
   CounterpartyArchived: 'Ce tiers n’est plus disponible.',
@@ -57,12 +59,14 @@ function entryWords(entry: LedgerEntryView): string {
 // way of paying on tiles, never chosen ahead. The server sums; the screen adds nothing up.
 @Component({
   selector: 'app-counterparty-ledger-page',
-  imports: [FeeField, Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton, Stamp],
+  imports: [Affixed, FeeField, Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton, Stamp],
   providers: [Ledger],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a class="back" routerLink="..">Revenir à qui doit quoi</a>
     <h1><app-pictogram [picto]="face()" [decorative]="true" /> {{ name() }}</h1>
+    <!-- Only those who may advance money for the farm are offered as « paid by » (R.7). -->
+    <label class="advances"><input type="checkbox" name="advancesExpenses" [checked]="advances()" (change)="toggleAdvances()" /> Peut avancer des frais pour l’élevage</label>
     <app-figures-age [readAt]="ledger.readAt()" [stale]="ledger.unreachable()" />
     <app-office-pending [kinds]="['settlement']" [subject]="counterpartyId" />
     @if (line(); as line) {
@@ -70,7 +74,7 @@ function entryWords(entry: LedgerEntryView): string {
         @if (line.balance !== 0) {
           <span class="arrow" aria-hidden="true">{{ line.balance < 0 ? '→' : '←' }}</span>
         }
-        <span class="sense">{{ line.balance < 0 ? 'Tu dois' : line.balance > 0 ? 'Il te doit' : 'Soldé : personne ne doit rien' }}</span>&ngsp;
+        <span class="sense">{{ line.balance > 0 && (line.paidAhead ?? 0) >= line.balance ? 'Payé d’avance, à livrer' : line.balance < 0 ? 'Tu dois' : line.balance > 0 ? 'Il te doit' : 'Soldé : personne ne doit rien' }}</span>&ngsp;
         @if (line.balance !== 0) {
           <strong>{{ money(abs(line.balance)) }}</strong>
           <app-banknotes [amount]="abs(line.balance)" />
@@ -95,7 +99,7 @@ function entryWords(entry: LedgerEntryView): string {
         <label class="choice" [class.on]="direction() === 'FromCounterparty'"><input type="radio" name="direction" [checked]="direction() === 'FromCounterparty'" (change)="direction.set('FromCounterparty')" /> ← Il t’a donné</label>
       </div>
       <div class="when">
-        <label class="field"><span>Combien ?</span><input name="amount" type="number" inputmode="numeric" min="1" step="1" [value]="amount()" (input)="amount.set(valueOf($event))" /></label>
+        <label class="field"><span>Combien ?</span><app-affixed [unit]="currencyWord(purchases.currency())"><input name="amount" type="text" inputmode="numeric" autocomplete="off" [value]="grouped(amount())" (input)="amount.set(typedNumber($event))" /></app-affixed></label>
         <label class="field"><span>Le</span><input name="paidOn" type="date" [value]="paidOn()" [max]="today()" (input)="paidOn.set(valueOf($event))" /></label>
       </div>
       <div class="methods" role="radiogroup" aria-label="Comment ?">
@@ -115,7 +119,7 @@ function entryWords(entry: LedgerEntryView): string {
           @for (lot of lots(); track lot.campaignId) {
             <label class="fee-lot" [class.on]="lot.campaignId === feeLot()">
               <input type="radio" name="feeLot" [checked]="lot.campaignId === feeLot()" (change)="feeLot.set(lot.campaignId)" />
-              {{ lot.siteName }} · Jour {{ lot.campaignDay }}
+              {{ lot.siteName }} · {{ lot.dayLabel }}
             </label>
           }
         </div>
@@ -190,11 +194,15 @@ function entryWords(entry: LedgerEntryView): string {
   `,
 })
 export class CounterpartyLedgerPage {
+  protected readonly grouped = grouped;
+  protected readonly typedNumber = typedNumber;
+  protected readonly currencyWord = currencyWord;
   protected readonly ledger = inject(Ledger);
-  private readonly purchases = inject(Purchases);
+  protected readonly purchases = inject(Purchases);
   private readonly office = inject(Office);
   private readonly voice = inject(Voice);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly counterpartyId = this.route.snapshot.paramMap.get('id') ?? '';
   private readonly officeSync = inject(OfficeSync);
@@ -204,8 +212,14 @@ export class CounterpartyLedgerPage {
   private readonly counterparty = computed(() => this.purchases.counterpartyById().get(this.counterpartyId) ?? null);
   protected readonly name = computed(() => this.counterparty()?.name ?? 'Tiers');
   protected readonly face = computed(() => (this.counterparty()?.face ?? 'paper') as PictogramName);
+  protected readonly advances = computed(() => this.counterparty()?.advancesExpenses ?? false);
+
+  protected async toggleAdvances(): Promise<void> {
+    const problem = await this.purchases.allowAdvances(this.counterpartyId, !this.advances());
+    if (problem !== null) this.problem.set(problem === 'NoNetwork' ? 'Ce réglage demande le réseau.' : 'Le réglage n’a pas été enregistré. Réessaie.');
+  }
   protected readonly phrase = computed(() => balancePhrase(this.line()?.balance ?? 0));
-  protected readonly today = computed(() => this.office.sites()[0]?.today ?? '');
+  protected readonly today = computed(() => this.office.today());
 
   /** You owe it: you give; it owes you: it gives back. What is owed is offered. */
   protected readonly direction = linkedSignal<SettlementDirectionCode>(() => ((this.line()?.balance ?? 0) > 0 ? 'FromCounterparty' : 'ToCounterparty'));
@@ -243,8 +257,7 @@ export class CounterpartyLedgerPage {
   }
 
   protected day(on: string): string {
-    const [year, month, date] = on.split('-');
-    return `${date}/${month}/${year}`;
+    return dayWords(on);
   }
 
   protected words(entry: LedgerEntryView): string {
@@ -252,7 +265,7 @@ export class CounterpartyLedgerPage {
   }
 
   protected valueOf(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+    return typedText(event);
   }
 
   protected async settle(): Promise<void> {
@@ -296,7 +309,11 @@ export class CounterpartyLedgerPage {
     if (!feeKept) return this.problem.set(WORDS.StorageUnavailable ?? SERVER_ERROR);
     void this.voice.say([clip(request.direction === 'ToCounterparty' ? 'settle-to' : 'settle-from'), number(request.amount), clip('money-francs')]);
     this.stamped.set(true);
-    setTimeout(() => this.stamped.set(false), 1500);
+    // The stamp and the voice, then the overview: one rarely pays a single counterparty (demand of 2026-11-13).
+    setTimeout(() => {
+      this.stamped.set(false);
+      void this.router.navigate(['..'], { relativeTo: this.route });
+    }, 1500);
     // A new settlement gets a new identifier; the ledger is read again.
     this.settlementId = crypto.randomUUID();
     this.feeId = crypto.randomUUID();

@@ -1,3 +1,4 @@
+import { compactPhone, phoneWords } from './phone';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AvatarBadge } from '../../ui/avatar-badge';
@@ -28,7 +29,7 @@ type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: strin
     <main class="entry">
       <header class="cover">
         <app-avatar-badge class="small" [avatar]="account()?.avatar ?? null" />
-        <h1>{{ step() === 'phone' ? 'Ton numéro' : account()?.name || phone() }}</h1>
+        <h1>{{ step() === 'phone' ? 'Ton numéro' : account()?.name || phoneWords(phone()) }}</h1>
       </header>
 
       <section class="page">
@@ -37,7 +38,7 @@ type Notice = { readonly tone: 'refused' | 'wait' | 'info'; readonly text: strin
             <form class="phone" (submit)="usePhone($event)">
               <label>
                 Numéro de téléphone
-                <input name="phone" type="tel" inputmode="tel" autocomplete="tel" [value]="phone()" (input)="phone.set(valueOf($event))" required />
+                <input name="phone" type="tel" inputmode="tel" autocomplete="tel" [value]="phoneWords(phone())" (input)="phone.set(compactPhone(valueOf($event)))" required />
               </label>
               <button type="submit" class="go">Continuer</button>
             </form>
@@ -112,6 +113,8 @@ export class SignInPage {
   protected readonly step = signal<SignInStep>(this.known === null ? 'phone' : 'code');
   protected readonly account = signal<KnownAccount | null>(this.known);
   protected readonly phone = signal(this.known?.phone ?? '+221');
+  protected readonly phoneWords = phoneWords;
+  protected readonly compactPhone = compactPhone;
   protected readonly digits = signal('');
   protected readonly refused = signal(false);
   protected readonly notice = signal<Notice | null>(null);

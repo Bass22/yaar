@@ -79,7 +79,8 @@ describe('Les tiers', () => {
     const statuses = await Promise.all([
       cree(unFournisseur(101)),
       cree({ id: uuid(102), kind: 'Customer', name: 'Ramasseur Fall', face: 'hen' }),
-      cree({ id: uuid(103), kind: 'Collaborator', name: 'Abdou', face: 'caretaker' }),
+      // Abdou peut avancer des frais pour l'élevage (R.7)
+      cree({ id: uuid(103), kind: 'Collaborator', name: 'Abdou', face: 'caretaker', advancesExpenses: true }),
     ]);
 
     expect(statuses.map((response) => response.status)).toEqual([201, 201, 201]);
@@ -90,9 +91,10 @@ describe('Les tiers', () => {
     await cree({ id: uuid(201), kind: 'Supplier', name: 'Fournisseur de B', face: 'truck' }, tokenOf(GERANT_DE_B, TENANT_B, 'admin'));
 
     expect(await liste()).toEqual([
-      { id: uuid(103), kind: 'Collaborator', name: 'Abdou', face: 'caretaker', archived: false },
-      { id: uuid(102), kind: 'Customer', name: 'Ramasseur Fall', face: 'hen', archived: false },
-      { id: uuid(101), kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
+      // Seul Abdou avance des frais : sans rien dire à la création, personne d'autre (R.7)
+      { id: uuid(103), kind: 'Collaborator', name: 'Abdou', face: 'caretaker', advancesExpenses: true, archived: false },
+      { id: uuid(102), kind: 'Customer', name: 'Ramasseur Fall', face: 'hen', advancesExpenses: false, archived: false },
+      { id: uuid(101), kind: 'Supplier', name: 'Sedima', face: 'closed-bag', advancesExpenses: false, archived: false },
     ]);
   });
 
@@ -109,6 +111,15 @@ describe('Les tiers', () => {
     expect(responses.map((response) => response.status)).toEqual([400, 400, 400, 400, 400, 400]);
     expect(await responses[2]?.json()).toMatchObject({ kind: 'InvalidName' });
     expect(await db.superuser.counterparty.count({ where: { id: { in: [110, 111, 112, 113, 114].map(uuid) } } })).toBe(0);
+  });
+
+  // Refactoring du 2026-11-14 : une liste est refusée par la forme du corps (`objectOf`), et sans elle par la liste blanche des champs
+  it('un corps qui est une liste, et non un objet, est refusé (400), à la création comme au réglage', async () => {
+    const responses = await Promise.all([cree([unFournisseur(117)]), regle(uuid(101), [{ name: 'Sedima' }])]);
+
+    expect(responses.map((response) => response.status)).toEqual([400, 400]);
+    expect(await Promise.all(responses.map(async (response) => ((await response.json()) as { kind: string }).kind))).toEqual(['InvalidRequest', 'InvalidRequest']);
+    expect(await db.superuser.counterparty.count({ where: { id: uuid(117) } })).toBe(0);
   });
 
   it('un nom se nettoie de ses espaces autour', async () => {
@@ -130,6 +141,16 @@ describe('Les tiers', () => {
     expect((await traceOf(uuid(101))).filter(({ action }) => action === 'CounterpartyConfigured')).toEqual([
       { action: 'CounterpartyConfigured', actorId: LE_GERANT, deviceId: ORDINATEUR, reason: 'face,name', siteId: null },
     ]);
+  });
+
+  // Spec: backlog R.7 — « peut avancer des frais » (demande du fondateur du 2026-11-13)
+  it('l’admin coche ou décoche « peut avancer des frais » ; c’est tracé ; une valeur qui n’est pas oui ou non est refusée (400)', async () => {
+    expect((await regle(uuid(102), { advancesExpenses: true })).status).toBe(204);
+    expect((await liste()).find(({ id }) => id === uuid(102))?.advancesExpenses).toBe(true);
+    expect((await traceOf(uuid(102))).filter(({ action }) => action === 'CounterpartyConfigured')).toEqual([
+      { action: 'CounterpartyConfigured', actorId: LE_GERANT, deviceId: ORDINATEUR, reason: 'advancesExpenses', siteId: null },
+    ]);
+    expect([(await regle(uuid(102), { advancesExpenses: 'oui' })).status, (await cree({ ...unFournisseur(104), advancesExpenses: 1 })).status]).toEqual([400, 400]);
   });
 
   it("la sorte d'un tiers ne change pas — elle dit de quel côté du grand livre il est —, ni son élevage ; un corps vide non plus (400)", async () => {

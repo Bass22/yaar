@@ -3,6 +3,7 @@ import {
   CounterDeclaration,
   Declaration,
   effectiveJournal,
+  lineDelivery,
   recentBusinessDays,
   Retraction,
   summarizeDay,
@@ -13,6 +14,7 @@ import {
   type Fact,
   type JournalEvent,
   type JournalEventId,
+  type Quantity,
   type TimeZone,
 } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerDeliveryLine, CaretakerJournalLine, FactPayload } from '@contracts';
@@ -58,6 +60,11 @@ export function daysOf(now: Date, timeZone: TimeZone): NotebookDay[] {
   ];
 }
 
+/** The days of the notebook that exist for a campaign (J.4): none before its placement — J0 shows today alone. */
+export function campaignDaysOf(days: readonly NotebookDay[], placementDay: string): NotebookDay[] {
+  return days.filter(({ day }) => day >= placementDay);
+}
+
 type Where = { readonly tenantId: string; readonly siteId: string };
 
 /**
@@ -88,14 +95,10 @@ export function summaryOf(journal: readonly JournalEvent[], campaignId: string, 
  * (CLAUDE.md §4 rules 9 and 10).
  */
 export function liveCountOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): number | null {
-  const counted = new Set(campaign.journal.map((line) => line.id));
   const chickLines = new Set(campaign.deliveries.flatMap((delivery) => delivery.lines).filter((line) => line.category === 'Chicks').map((line) => line.orderLineId));
-  const notCountedYet = entries.filter(
-    (entry) => entry.payload.campaignId === campaign.campaignId && !counted.has(entry.id) && (entry.state !== 'sent' || entry.payload.businessDate >= oldestDay) && !('corrects' in entry.payload) && 'fact' in entry.payload,
-  );
   let chicks = 0;
   let deaths = 0;
-  for (const { payload } of notCountedYet) {
+  for (const { payload } of notCountedYet(campaign, entries, oldestDay)) {
     if (!('fact' in payload)) continue;
     if (payload.fact.type === 'Delivery' && chickLines.has(payload.fact.orderLineId)) chicks += payload.fact.receivedQuantity;
     if (payload.fact.type === 'Death') deaths += payload.fact.quantity;
@@ -106,26 +109,35 @@ export function liveCountOf(campaign: CaretakerCampaign, entries: readonly Outbo
   return (campaign.liveCount ?? 0) + chicks - deaths;
 }
 
-/** A line still expected on the phone: the server's, with what the phone counted and the server has not yet. */
-export type ExpectedLine = CaretakerDeliveryLine;
+/**
+ * The declarations of the campaign the phone wrote and the server has not counted yet — not in the
+ * journal it sent. A sent one whose day has left the three days of the notebook is no longer in that
+ * journal, but the server has counted it. Corrections are left out: they replace, they do not add.
+ * The one reading the live count and the deliveries share.
+ */
+function notCountedYet(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): readonly OutboxEntry[] {
+  const counted = new Set(campaign.journal.map((line) => line.id));
+  return entries.filter(
+    (entry) => entry.payload.campaignId === campaign.campaignId && !counted.has(entry.id) && (entry.state !== 'sent' || entry.payload.businessDate >= oldestDay) && !('corrects' in entry.payload) && 'fact' in entry.payload,
+  );
+}
 
 /**
  * The deliveries the card still waits for (Q.7): the server's, less what the phone counted and
  * the server has not counted yet — the same reading as the live count. A line with nothing left
  * to come leaves the card; an order with no line left, too.
  */
-export function expectedDeliveriesOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): ExpectedLine[] {
-  const counted = new Set(campaign.journal.map((line) => line.id));
+export function expectedDeliveriesOf(campaign: CaretakerCampaign, entries: readonly OutboxEntry[], oldestDay: BusinessDay): CaretakerDeliveryLine[] {
   const onPhone = new Map<string, number>();
-  for (const { id, state, payload } of entries) {
-    if (payload.campaignId !== campaign.campaignId || counted.has(id) || (state === 'sent' && payload.businessDate < oldestDay) || 'corrects' in payload || !('fact' in payload)) continue;
+  for (const { payload } of notCountedYet(campaign, entries, oldestDay)) {
+    if (!('fact' in payload)) continue;
     if (payload.fact.type === 'Delivery') onPhone.set(payload.fact.orderLineId, (onPhone.get(payload.fact.orderLineId) ?? 0) + payload.fact.receivedQuantity);
   }
   return campaign.deliveries
     .flatMap((delivery) => delivery.lines)
     .map((line) => {
       const received = line.received + (onPhone.get(line.orderLineId) ?? 0);
-      return { ...line, received, remaining: Math.max(0, line.expected - received) };
+      return { ...line, received, remaining: lineDelivery(line.expected as Quantity, received).remaining };
     })
     .filter((line) => line.remaining > 0);
 }

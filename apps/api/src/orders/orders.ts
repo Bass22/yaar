@@ -37,9 +37,13 @@ export async function listOrders(tx: Tx, tenantId: TenantId): Promise<OrderView[
   const rows = await tx.purchaseOrder.findMany({ include: { lines: { orderBy: { position: 'asc' } } }, orderBy: [{ orderDay: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }] });
   const received = await receivedByCampaign(tx, tenantId, [...new Set(rows.map((row) => row.campaignId))]);
   const payments = await tx.payment.findMany({ orderBy: [{ paidOn: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }] });
+  // The photos joined to orders and payments (R.6), earliest first.
+  const attachments = await tx.attachment.findMany({ orderBy: [{ attachedAt: 'asc' }, { id: 'asc' }], select: { subjectId: true, mediaSha256: true } });
+  const photosOf = (subjectId: string) => attachments.filter((one) => one.subjectId === subjectId).map(({ mediaSha256 }) => mediaSha256);
   return rows.map((row) => {
     const order = orderOf(row);
-    return viewOf(order, received.get(row.campaignId) ?? new Map(), payments.filter((payment) => payment.orderId === row.id).map((payment) => paymentOf(payment, order.currency)));
+    const view = viewOf(order, received.get(row.campaignId) ?? new Map(), payments.filter((payment) => payment.orderId === row.id).map((payment) => paymentOf(payment, order.currency)));
+    return { ...view, attachments: photosOf(row.id), payments: view.payments.map((payment) => ({ ...payment, attachments: photosOf(payment.id) })) };
   });
 }
 
@@ -88,7 +92,7 @@ export async function payPurchaseOrder(tx: Tx, admin: Session, orderId: string, 
 export async function draftPurchaseOrder(tx: Tx, admin: Session, request: DraftOrderRequest, now: Date): Promise<Result<void, OrderRefusal>> {
   const order = draftOrder(request, await contextOf(tx, admin.tenantId));
   if (!order.ok) return err(refusal(order.error));
-  const campaign = await openCampaign(tx, order.value.campaignId);
+  const campaign = await runningCampaign(tx, order.value.campaignId);
   if (!campaign.ok) return campaign;
   try {
     await tx.purchaseOrder.create({ data: { ...headerOf(order.value), tenantId: admin.tenantId, id: order.value.id, currency: order.value.currency } });
@@ -108,7 +112,7 @@ export async function revisePurchaseOrder(tx: Tx, admin: Session, id: string, re
   if (current === null) return err({ kind: 'OrderNotFound' });
   const order = reviseOrder(current, request, await contextOf(tx, admin.tenantId));
   if (!order.ok) return err(refusal(order.error));
-  const campaign = await openCampaign(tx, order.value.campaignId);
+  const campaign = await runningCampaign(tx, order.value.campaignId);
   if (!campaign.ok) return campaign;
   await tx.orderLine.deleteMany({ where: { orderId: id } });
   await tx.purchaseOrder.update({ where: { id }, data: headerOf(order.value) });
@@ -126,6 +130,18 @@ export async function announcePurchaseOrder(tx: Tx, admin: Session, id: string, 
   await tx.purchaseOrder.update({ where: { id }, data: { announcedAt: now } });
   await recordAudit(tx, admin.tenantId, { action: 'OrderAnnounced', actorId: admin.userId, subjectId: id, siteId: await siteOf(tx, current.campaignId), deviceId: admin.deviceId }, now);
   return ok(undefined);
+}
+
+/**
+ * A draft announced by its first planned reception (Q.15): the same state and trace as « Prévenir
+ * le gardien », without telling the caretaker of the whole order — each reception tells of itself.
+ */
+export async function announceOrderSilently(tx: Tx, admin: Session, id: string, now: Date): Promise<void> {
+  const current = await findOrder(tx, id);
+  if (current === null || current.announcedAt !== null) return;
+  if (!announceOrder(current, instantOf(now)).ok) return;
+  await tx.purchaseOrder.update({ where: { id }, data: { announcedAt: now } });
+  await recordAudit(tx, admin.tenantId, { action: 'OrderAnnounced', actorId: admin.userId, subjectId: id, siteId: await siteOf(tx, current.campaignId), deviceId: admin.deviceId }, now);
 }
 
 /** An announced order not fully received is closed: the rest will not come. Traced. */
@@ -181,16 +197,16 @@ async function contextOf(tx: Tx, tenantId: string): Promise<DraftOrderContext> {
   const [tenant, counterparties, costTypes] = await Promise.all([
     tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { currency: true } }),
     tx.counterparty.findMany({ select: { id: true, kind: true, archivedAt: true } }),
-    tx.costType.findMany({ select: { id: true, category: true, archivedAt: true } }),
+    tx.costType.findMany({ select: { id: true, category: true, bagWeight: true, archivedAt: true } }),
   ]);
   return {
     currency: tenant.currency as CurrencyCode,
     counterparties: counterparties.map(({ id, kind, archivedAt }) => ({ id, kind, archived: archivedAt !== null })),
-    costTypes: costTypes.map(({ id, category, archivedAt }) => ({ id, orderable: COST_CATEGORIES.find((entry) => entry.category === category)?.orderable ?? false, archived: archivedAt !== null })),
+    costTypes: costTypes.map(({ id, category, bagWeight, archivedAt }) => ({ id, category, bagWeight, orderable: COST_CATEGORIES.find((entry) => entry.category === category)?.orderable ?? false, archived: archivedAt !== null })),
   };
 }
 
-async function openCampaign(tx: Tx, campaignId: string): Promise<Result<{ siteId: string }, OrderRefusal>> {
+async function runningCampaign(tx: Tx, campaignId: string): Promise<Result<{ siteId: string }, OrderRefusal>> {
   const campaign = await tx.campaign.findUnique({ where: { id: campaignId }, select: { siteId: true, closedAt: true } });
   if (campaign === null) return err({ kind: 'UnknownCampaign' });
   if (campaign.closedAt !== null) return err({ kind: 'CampaignClosed' });
@@ -201,13 +217,15 @@ async function siteOf(tx: Tx, campaignId: string): Promise<string> {
   return (await tx.campaign.findUniqueOrThrow({ where: { id: campaignId }, select: { siteId: true } })).siteId;
 }
 
-async function findOrder(tx: Tx, id: string): Promise<PurchaseOrder | null> {
+/** One order of the farm as the domain sees it; `null` when the farm has no such order. */
+export async function findOrder(tx: Tx, id: string): Promise<PurchaseOrder | null> {
   const row = /^[0-9a-f-]{36}$/.test(id) ? await tx.purchaseOrder.findUnique({ where: { id }, include: { lines: { orderBy: { position: 'asc' } } } }) : null;
   return row === null ? null : orderOf(row);
 }
 
-// What each line of each campaign received, read once per campaign from its journal.
-async function receivedByCampaign(tx: Tx, tenantId: TenantId, campaignIds: readonly string[]): Promise<Map<string, ReadonlyMap<string, number>>> {
+// What each line of each campaign received, read once per campaign from its journal: the one
+// reading of « received » for the office, the orders and the reception alerts.
+export async function receivedByCampaign(tx: Tx, tenantId: TenantId, campaignIds: readonly string[]): Promise<Map<string, ReadonlyMap<string, number>>> {
   const journal = new PrismaJournal(tx, tenantId);
   const received = new Map<string, ReadonlyMap<string, number>>();
   for (const campaignId of campaignIds) {
@@ -220,7 +238,7 @@ const headerOf = (order: PurchaseOrder) => ({ supplierId: order.supplierId, camp
 
 async function writeLines(tx: Tx, tenantId: string, order: PurchaseOrder): Promise<void> {
   await tx.orderLine.createMany({
-    data: order.lines.map((line, position) => ({ tenantId, id: line.id, orderId: order.id, position, costTypeId: line.costTypeId, quantity: line.quantity, unitPrice: line.unitPrice.amount })),
+    data: order.lines.map((line, position) => ({ tenantId, id: line.id, orderId: order.id, position, costTypeId: line.costTypeId, quantity: line.quantity, unitPrice: line.unitPrice.amount, bagWeight: line.bagWeight })),
   });
 }
 
@@ -238,7 +256,7 @@ function orderOf(row: OrderRow): PurchaseOrder {
       row.lines.map((line) => {
         const unitPrice = Money.of(line.unitPrice, currency);
         if (!unitPrice.ok) throw new Error(`Order line ${line.id} holds an invalid price`);
-        return Object.freeze({ id: line.id as OrderLineId, costTypeId: line.costTypeId as CostTypeId, quantity: line.quantity as PurchaseOrder['lines'][number]['quantity'], unitPrice: unitPrice.value });
+        return Object.freeze({ id: line.id as OrderLineId, costTypeId: line.costTypeId as CostTypeId, quantity: line.quantity as PurchaseOrder['lines'][number]['quantity'], unitPrice: unitPrice.value, bagWeight: line.bagWeight as PurchaseOrder['lines'][number]['bagWeight'] });
       }),
     ),
     announcedAt: row.announcedAt === null ? null : (row.announcedAt.toISOString() as Instant),
@@ -271,9 +289,11 @@ function viewOf(order: PurchaseOrder, received: ReadonlyMap<string, number>, pay
     reference: order.reference,
     currency: order.currency,
     status: orderStatus(order, received, balance.value.paidInFull),
-    lines: order.lines.map((line) => ({ id: line.id, costTypeId: line.costTypeId, quantity: line.quantity, unitPrice: line.unitPrice.amount, received: received.get(line.id) ?? 0 })),
+    lines: order.lines.map((line) => ({ id: line.id, costTypeId: line.costTypeId, quantity: line.quantity, unitPrice: line.unitPrice.amount, bagWeight: line.bagWeight, received: received.get(line.id) ?? 0 })),
     billable: balance.value.billable.amount,
     paid: balance.value.paid.amount,
-    payments: payments.map(({ id, paidOn, amount, method, paidBy }) => ({ id, paidOn, amount: amount.amount, method, paidBy: paidBy ?? null })),
+    payments: payments.map(({ id, paidOn, amount, method, paidBy }) => ({ id, paidOn, amount: amount.amount, method, paidBy: paidBy ?? null, attachments: [] })),
+    // Filled by the listing, which reads the photos joined (R.6).
+    attachments: [],
   };
 }

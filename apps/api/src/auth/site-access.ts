@@ -1,7 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { Session } from './session';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+import { isCanonicalUuid } from '@domain/journal';
 
 /**
  * Whether the caller may reach a site: the admin reaches every site of the tenant, a
@@ -10,11 +9,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * declaration (C.3), not of access.
  */
 export async function canReachSite(tx: Prisma.TransactionClient, session: Session, siteId: string): Promise<boolean> {
-  if (!UUID.test(siteId)) {
+  if (!isCanonicalUuid(siteId)) {
     return false;
   }
-  if (session.role === 'admin') {
-    return (await tx.site.count({ where: { id: siteId } })) === 1;
-  }
-  return (await tx.siteAssignment.count({ where: { siteId, userId: session.userId } })) === 1;
+  return (await tx.site.count({ where: { id: siteId, ...reachableSites(session) } })) === 1;
+}
+
+/** The sites the session reaches, as a query: every site of the farm for the admin, a collaborator's own for a caretaker. */
+export function reachableSites(session: Session): Prisma.SiteWhereInput {
+  return session.role === 'admin' ? {} : { assignments: { some: { userId: session.userId } } };
 }

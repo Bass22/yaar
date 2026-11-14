@@ -3,7 +3,9 @@ import type { PrismaClient } from '@prisma/client';
 import { recordAudit } from '../audit/audit';
 import { Pin, type PinRefusal } from '../auth/pin';
 import type { PinHasher } from '../auth/pin-hasher';
-import { E164, isUniqueViolationOn, PhoneAlreadyUsed, scopeToFarm } from './bootstrap-tenant';
+import { E164 } from '../auth/phone';
+import { isUniqueViolationOn, PhoneAlreadyUsed, scopeToFarm } from './bootstrap-tenant';
+import { isCanonicalUuid } from '@domain/journal';
 
 // Adds an admin to a farm that exists (CdC « Identité »: at least one admin per farm, and not
 // necessarily one; an admin is created by the operator only, by script). Never a route: the
@@ -35,8 +37,6 @@ export type AddAdminDependencies = {
   readonly now: () => Date;
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now }: AddAdminDependencies): Promise<Result<{ readonly adminId: string }, AddAdminRefusal>> {
   const adminName = input.adminName.trim();
   if (adminName === '') {
@@ -49,7 +49,7 @@ export async function addAdmin(input: AddAdminInput, { prisma, hasher, ids, now 
   if (!pin.ok) {
     return pin;
   }
-  if (!UUID.test(input.tenantId)) {
+  if (!isCanonicalUuid(input.tenantId)) {
     return err({ kind: 'TenantNotFound' });
   }
   const pinHash = await hasher.hash(pin.value);

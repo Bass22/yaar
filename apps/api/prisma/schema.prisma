@@ -95,6 +95,15 @@ model Tenant {
   weighingRequests  WeighingRequest[]
   campaignLeftovers CampaignLeftover[]
   budgetLines       BudgetLine[]
+  signInAttempts    SignInAttempt[]
+  pushSubscriptions PushSubscription[]
+  correctionReviews CorrectionReview[]
+  morningReminders  MorningReminder[]
+  receptionAlerts   ReceptionAlert[]
+  plannedReceptions PlannedReception[]
+  saleForecasts     SaleForecast[]
+  attachments       Attachment[]
+  catalogPrices     CatalogPrice[]
 
   @@map("tenants")
 }
@@ -117,8 +126,6 @@ model User {
   // means choosing one's own PIN. Past this instant, the provisional PIN no longer works.
   provisionalPinExpiresAt DateTime?      @map("provisional_pin_expires_at") @db.Timestamptz(3)
   // Failed PIN attempts in a row (E.1): the wait before the next one grows with them.
-  pinFailures             Int            @default(0) @map("pin_failures")
-  pinLastFailureAt        DateTime?      @map("pin_last_failure_at") @db.Timestamptz(3)
   // A blocked account is refused on every request, on every device (E.4).
   blockedAt               DateTime?      @map("blocked_at") @db.Timestamptz(3)
   // A session token issued before this instant — to the second, rounded up — is refused:
@@ -126,10 +133,13 @@ model User {
   sessionsValidFrom       DateTime?      @map("sessions_valid_from") @db.Timestamptz(3)
   createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  assignments   SiteAssignment[]
-  journalEvents JournalEvent[]
-  refusedEvents RefusedEvent[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignments       SiteAssignment[]
+  journalEvents     JournalEvent[]
+  refusedEvents     RefusedEvent[]
+  signInAttempts    SignInAttempt[]
+  pushSubscriptions PushSubscription[]
+  correctionReviews CorrectionReview[]
 
   @@unique([tenantId, id])
   @@map("users")
@@ -147,12 +157,13 @@ model Site {
   audioLanguage AudioLanguage? @map("audio_language")
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  assignments   SiteAssignment[]
-  campaigns     Campaign[]
-  journalEvents JournalEvent[]
-  auditEvents   AuditEvent[]
-  refusedEvents RefusedEvent[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignments      SiteAssignment[]
+  campaigns        Campaign[]
+  morningReminders MorningReminder[]
+  journalEvents    JournalEvent[]
+  auditEvents      AuditEvent[]
+  refusedEvents    RefusedEvent[]
 
   @@unique([tenantId, id])
   @@map("sites")
@@ -194,6 +205,8 @@ model Campaign {
   // (none without leftovers), and the admin's free comment on the report.
   leftoversTo      String?   @map("leftovers_to") @db.Uuid
   closingComment   String?   @map("closing_comment")
+  // Why the bags of feed counted at the closing differ from those expected (N.8d); none: no gap.
+  feedGapComment   String?   @map("feed_gap_comment")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -201,6 +214,7 @@ model Campaign {
   receiver       Campaign?          @relation("LeftoversTransfer", fields: [tenantId, leftoversTo], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
   givers         Campaign[]         @relation("LeftoversTransfer")
   leftovers      CampaignLeftover[]
+  saleForecasts  SaleForecast[]
   budgetLines    BudgetLine[]
   journalEvents  JournalEvent[]
   refusedEvents  RefusedEvent[]
@@ -239,17 +253,34 @@ model JournalEvent {
   corrects     String?           @db.Uuid
   retracts     String?           @db.Uuid
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  site        Site           @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  campaign    Campaign       @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  author      User           @relation(fields: [tenantId, authorId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  corrected   JournalEvent?  @relation("Corrections", fields: [tenantId, corrects], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  corrections JournalEvent[] @relation("Corrections")
-  retracted   JournalEvent?  @relation("Retractions", fields: [tenantId, retracts], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  retractions JournalEvent[] @relation("Retractions")
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site        Site              @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  campaign    Campaign          @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  author      User              @relation(fields: [tenantId, authorId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrected   JournalEvent?     @relation("Corrections", fields: [tenantId, corrects], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrections JournalEvent[]    @relation("Corrections")
+  retracted   JournalEvent?     @relation("Retractions", fields: [tenantId, retracts], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  retractions JournalEvent[]    @relation("Retractions")
+  review      CorrectionReview?
 
   @@id([tenantId, id])
   @@map("journal_events")
+}
+
+// « Vu » on a correction a caretaker wrote (Y.2b, founder's decision of 2026-11-14): the card of
+// « À traiter » stays until an admin touches it. Written once, never changed; the journal is untouched.
+model CorrectionReview {
+  tenantId     String   @map("tenant_id") @db.Uuid
+  correctionId String   @map("correction_id") @db.Uuid
+  reviewedBy   String   @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime @map("reviewed_at") @db.Timestamptz(3)
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  correction JournalEvent @relation(fields: [tenantId, correctionId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  reviewer   User         @relation(fields: [tenantId, reviewedBy], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, correctionId])
+  @@map("correction_reviews")
 }
 
 // A declaration the server refused by a rule of the trade, kept whole so that the chef sees it
@@ -319,6 +350,13 @@ enum AuditAction {
   WeighingRequested
   CampaignClosed
   BudgetRecorded
+  CatalogPriceSet
+  AttachmentAdded
+  SaleForecastRecorded
+  SaleForecastWithdrawn
+  ReceptionPlanned
+  ReceptionWithdrawn
+  CorrectionReviewed
 
   @@map("audit_action")
 }
@@ -362,21 +400,25 @@ enum CounterpartyKind {
 // never changes. Never deleted, not even unused: archived (decision of 2026-11-09). Its face is
 // a pictogram of a closed list (the domain's COUNTERPARTY_FACES); no photograph in V1.
 model Counterparty {
-  tenantId   String           @map("tenant_id") @db.Uuid
-  id         String           @id @db.Uuid
-  kind       CounterpartyKind
-  name       String
-  face       String
-  archivedAt DateTime?        @map("archived_at") @db.Timestamptz(3)
-  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenantId         String           @map("tenant_id") @db.Uuid
+  id               String           @id @db.Uuid
+  kind             CounterpartyKind
+  name             String
+  // May advance money for the farm (R.7): only such counterparties are offered as « paid by ».
+  advancesExpenses Boolean          @default(false) @map("advances_expenses")
+  face             String
+  archivedAt       DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   purchaseOrders PurchaseOrder[]
 
-  costs        Cost[]
-  settlements  Settlement[]
-  paymentsMade Payment[]    @relation("PaymentPaidBy")
-  sales        Sale[]
+  costs         Cost[]
+  settlements   Settlement[]
+  paymentsMade  Payment[]      @relation("PaymentPaidBy")
+  sales         Sale[]
+  saleForecasts SaleForecast[]
+  catalogPrices CatalogPrice[]
 
   @@unique([tenantId, id])
   @@map("counterparties")
@@ -400,6 +442,14 @@ enum CostCategory {
   @@map("cost_category")
 }
 
+enum FeedStage {
+  Starter
+  Grower
+  Finisher
+
+  @@map("feed_stage")
+}
+
 enum CostBehaviour {
   Fixed
   Variable
@@ -416,17 +466,46 @@ model CostType {
   category   CostCategory
   name       String
   behaviour  CostBehaviour
+  // The usual weight of a bag of this feed, in grams (N.8a): copied on each order line; none
+  // outside feed, nor for feed bought by weight.
+  bagWeight  Int?          @map("bag_weight")
+  // The stage of a feed by the age of the flock (N.9): the colour of its bag on the caretaker's
+  // delivery card. Only the three feeds by age have one; never outside feed (CHECK).
+  feedStage  FeedStage?    @map("feed_stage")
   archivedAt DateTime?     @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   orderLines OrderLine[]
 
-  costs     Cost[]
-  leftovers CampaignLeftover[]
+  costs         Cost[]
+  leftovers     CampaignLeftover[]
+  catalogPrices CatalogPrice[]
 
   @@unique([tenantId, id])
   @@map("cost_types")
+}
+
+// A price the admin sets for an article (N.5), for one supplier or for all: it counts as paid at
+// its moment, until a later price is paid. Added once, never updated nor deleted.
+model CatalogPrice {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  id         String   @id @db.Uuid
+  costTypeId String   @map("cost_type_id") @db.Uuid
+  // The supplier this price is for; none: for every supplier.
+  supplierId String?  @map("supplier_id") @db.Uuid
+  // Whole units of the farm's currency (rule 7), zero allowed.
+  unitPrice  Int      @map("unit_price")
+  setAt      DateTime @map("set_at") @db.Timestamptz(3)
+  setBy      String   @map("set_by") @db.Uuid
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  costType CostType      @relation(fields: [tenantId, costTypeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  supplier Counterparty? @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, costTypeId])
+  @@map("catalog_prices")
 }
 
 // A campaign's budget, a line a category (S.1): a plan, never a debt. Each writing adds its lines,
@@ -449,15 +528,87 @@ model BudgetLine {
   @@map("budget_lines")
 }
 
+// The PIN attempts of an account on one device (E.10): failures in a row since its last success,
+// and since when the account is known on it. Counted per device, so that hammering a number from
+// one phone never slows the caretaker's own (R-14). Never deleted: reset to zero.
+// The morning reminder sent for a site and the day whose deaths it asks for — yesterday (Y.3):
+// the key makes it leave once per day and per site, whatever restarts. Written once, never changed.
+model MorningReminder {
+  tenantId String   @map("tenant_id") @db.Uuid
+  siteId   String   @map("site_id") @db.Uuid
+  day      DateTime @db.Date
+  sentAt   DateTime @map("sent_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  site   Site   @relation(fields: [tenantId, siteId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, siteId, day])
+  @@map("morning_reminders")
+}
+
+// An alert sent for a planned reception (Q.15): the morning of its day, or the day it is written
+// when its day has come already. The key makes it leave once per reception and per day. Written
+// once, never changed.
+model ReceptionAlert {
+  tenantId    String   @map("tenant_id") @db.Uuid
+  receptionId String   @map("reception_id") @db.Uuid
+  day         DateTime @db.Date
+  sentAt      DateTime @map("sent_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, receptionId, day])
+  @@map("reception_alerts")
+}
+
+// The push subscription of a device (Y.1): one per device, to the person signed in on it (one
+// phone = one person). Its sites are the person's at sending time. Deleted when the account is
+// blocked or signed out everywhere, and when the device signs out.
+model PushSubscription {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  deviceId  String   @map("device_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  // The address of the browser's push service: Google, Mozilla, Apple or Microsoft only.
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, deviceId])
+  @@index([tenantId, userId])
+  @@map("push_subscriptions")
+}
+
+model SignInAttempt {
+  tenantId      String    @map("tenant_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  deviceId      String    @map("device_id") @db.Uuid
+  failures      Int       @default(0)
+  lastFailureAt DateTime? @map("last_failure_at") @db.Timestamptz(3)
+  // The first successful sign-in of the account on this device: from then on, it is known.
+  knownSince    DateTime? @map("known_since") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([tenantId, userId, deviceId])
+  @@map("sign_in_attempts")
+}
+
 // What was left of a type at the closing of a campaign (X.1, X.2): whole bags or units, and one
 // opened at most, counted for half. Written once with the closing, never updated nor deleted; its
 // value is recomputed from the orders (rule 8).
 model CampaignLeftover {
-  tenantId   String  @map("tenant_id") @db.Uuid
-  campaignId String  @map("campaign_id") @db.Uuid
-  costTypeId String  @map("cost_type_id") @db.Uuid
-  whole      Int
-  opened     Boolean
+  tenantId     String  @map("tenant_id") @db.Uuid
+  campaignId   String  @map("campaign_id") @db.Uuid
+  costTypeId   String  @map("cost_type_id") @db.Uuid
+  whole        Int
+  opened       Boolean
+  // The grams left in the opened bag of feed, when the admin knows them (N.8d); none: half the bag.
+  openedWeight Int?    @map("opened_weight")
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   campaign Campaign @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -482,11 +633,12 @@ model PurchaseOrder {
   closedAt    DateTime? @map("closed_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  supplier Counterparty @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  campaign Campaign     @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  lines    OrderLine[]
-  payments Payment[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  supplier          Counterparty       @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  campaign          Campaign           @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  plannedReceptions PlannedReception[]
+  lines             OrderLine[]
+  payments          Payment[]
 
   @@unique([tenantId, id])
   @@index([tenantId, campaignId])
@@ -537,6 +689,8 @@ model OrderLine {
   quantity   Int
   // In the smallest unit of the order's currency: never a float (rule 7).
   unitPrice  Int    @map("unit_price")
+  // The weight of one bag of a feed line, in grams (N.8a): a fact of the purchase; none outside feed.
+  bagWeight  Int?   @map("bag_weight")
 
   tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   order    PurchaseOrder @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -557,6 +711,96 @@ enum RetentionClass {
 // A media of the farm (M.1): the file lives on the media volume under its fingerprint; this row
 // says what it is and who sent it. Added once, never updated nor deleted (rule 13). The same
 // file sent by two farms is two rows, two files.
+// A reception planned on an order received in several times (Q.14): each writing is a line — a
+// version (a new date reschedules it), or its withdrawal —, the last written prevails, the earlier
+// dates stay readable. Added, never updated nor deleted.
+model PlannedReception {
+  tenantId    String    @map("tenant_id") @db.Uuid
+  id          String    @id @db.Uuid
+  // The planned reception, the same through its writings.
+  receptionId String    @map("reception_id") @db.Uuid
+  orderId     String    @map("order_id") @db.Uuid
+  // A withdrawal carries neither: CHECK in the migration.
+  plannedOn   DateTime? @map("planned_on") @db.Date
+  // [{ orderLineId, quantity }], judged by the domain.
+  lines       Json?
+  withdrawn   Boolean
+  writtenAt   DateTime  @map("written_at") @db.Timestamptz(3)
+  writtenBy   String    @map("written_by") @db.Uuid
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  order  PurchaseOrder @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, orderId])
+  @@map("planned_receptions")
+}
+
+// How a planned sale is priced (W.4): by the bird, or by the kilo at its average weight.
+enum ForecastPricing {
+  PerBird
+  PerKilo
+
+  @@map("forecast_pricing")
+}
+
+// A planned sale of a flock (W.4), buyer by buyer: each writing is a line — a version, or its
+// withdrawal —, the last written prevails. A plan, never a receivable. Added, never updated nor deleted.
+model SaleForecast {
+  tenantId      String           @map("tenant_id") @db.Uuid
+  id            String           @id @db.Uuid
+  // The planned sale, the same through its writings.
+  forecastId    String           @map("forecast_id") @db.Uuid
+  campaignId    String           @map("campaign_id") @db.Uuid
+  // A withdrawal carries none of these: CHECK in the migration.
+  buyerId       String?          @map("buyer_id") @db.Uuid
+  week          DateTime?        @db.Date
+  birds         Int?
+  pricing       ForecastPricing?
+  price         Int?
+  // Grams: indicative by the bird, required by the kilo.
+  averageWeight Int?             @map("average_weight")
+  withdrawn     Boolean
+  writtenAt     DateTime         @map("written_at") @db.Timestamptz(3)
+  writtenBy     String           @map("written_by") @db.Uuid
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  campaign Campaign      @relation(fields: [tenantId, campaignId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  buyer    Counterparty? @relation(fields: [tenantId, buyerId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, campaignId])
+  @@map("sale_forecasts")
+}
+
+// What a supporting photo is joined to (R.6): an order, or a payment of an order.
+enum AttachmentSubject {
+  Order
+  Payment
+
+  @@map("attachment_subject")
+}
+
+// A photo joined to an order or a payment (R.6), at the time or later: the entry never changes,
+// the joining is written apart. Added once, never updated nor deleted.
+model Attachment {
+  tenantId    String            @map("tenant_id") @db.Uuid
+  id          String            @id @db.Uuid
+  subjectKind AttachmentSubject @map("subject_kind")
+  subjectId   String            @map("subject_id") @db.Uuid
+  mediaSha256 String            @map("media_sha256")
+  attachedAt  DateTime          @map("attached_at") @db.Timestamptz(3)
+  attachedBy  String            @map("attached_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  media  Media  @relation(fields: [tenantId, mediaSha256], references: [tenantId, sha256], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, subjectKind, subjectId, mediaSha256])
+  @@index([tenantId, subjectId])
+  @@map("attachments")
+}
+
 model Media {
   tenantId       String         @map("tenant_id") @db.Uuid
   sha256         String
@@ -567,7 +811,8 @@ model Media {
   deviceId       String         @map("device_id") @db.Uuid
   uploadedAt     DateTime       @map("uploaded_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  attachments Attachment[]
 
   @@id([tenantId, sha256])
   @@map("media")

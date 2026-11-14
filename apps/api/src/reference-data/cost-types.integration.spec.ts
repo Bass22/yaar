@@ -82,10 +82,17 @@ describe("Les types propres à l'élevage", () => {
     expect((await cree({ id: uuid(102), category: 'Labour', name: 'Gardiennage' })).status).toBe(201);
 
     expect(await liste()).toEqual([
-      { id: uuid(101), category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable', orderable: true, archived: false },
-      { id: uuid(102), category: 'Labour', name: 'Gardiennage', behaviour: 'Fixed', orderable: false, archived: false },
+      // Un type ajouté n'a pas de poids habituel de sac (N.8a) : chaque commande d'aliment dira le sien
+      { id: uuid(101), category: 'Feed', name: 'Aliment démarrage', behaviour: 'Variable', bagWeight: null, orderable: true, archived: false },
+      { id: uuid(102), category: 'Labour', name: 'Gardiennage', behaviour: 'Fixed', bagWeight: null, orderable: false, archived: false },
     ]);
     expect(await traceOf(uuid(101))).toEqual([{ action: 'CostTypeCreated', actorId: LE_GERANT, deviceId: ORDINATEUR, reason: null }]);
+  });
+
+  it("dans une catégorie, les types se lisent dans l'ordre de leur création, pas de leur nom (N.7 : démarrage, croissance, finition)", async () => {
+    expect((await cree({ id: uuid(119), category: 'Feed', name: 'Aliment croissance' })).status).toBe(201);
+
+    expect((await liste()).filter(({ category }) => category === 'Feed').map(({ name }) => name)).toEqual(['Aliment démarrage', 'Aliment croissance']);
   });
 
   it('le drapeau fixe / variable peut se choisir autrement que celui de la catégorie, dès l’ajout', async () => {

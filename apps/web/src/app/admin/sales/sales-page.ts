@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { SaleView } from '@contracts';
@@ -11,6 +11,8 @@ import { OfficePending } from '../office-pending';
 import { OfficeSync } from '../office-sync';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Sales } from './sales';
+import { CurrentLot, currentLotOf } from '../lots/current-lot';
+import { dayWords } from '../typed-number';
 
 // The sales of a lot (W.3; CdC « Les ventes »): the money of the sales computed by the server —
 // revenue, cashed in, the live margin (cashed in − committed), the average price a bird and what
@@ -18,22 +20,13 @@ import { Sales } from './sales';
 // Before the first sale, margin and average price are absent, never zero.
 @Component({
   selector: 'app-sales-page',
-  imports: [FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton],
+  imports: [CurrentLot, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton],
   providers: [Sales],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="hen" [decorative]="true" /> Ventes</h1>
     <a class="back" routerLink="..">Revenir aux lots</a>
-    @if (lots().length > 1) {
-      <div class="lots" role="radiogroup" aria-label="Quel lot ?">
-        @for (lot of lots(); track lot.campaignId) {
-          <label class="lot">
-            <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
-          </label>
-        }
-      </div>
-    }
+    <app-current-lot />
     <app-figures-age [readAt]="sales.readAt()" [stale]="sales.unreachable()" />
     <app-office-pending [kinds]="['sale', 'saleReceipt']" [subject]="lotId()" />
     @if (sales.view(); as view) {
@@ -121,7 +114,7 @@ export class SalesPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = currentLotOf(this.office, this.route);
   protected readonly marginPhrase = computed((): PhrasePart[] => {
     const margin = this.sales.view()?.margin ?? null;
     if (margin === null) return [clip('sales-none-yet')];
@@ -150,8 +143,7 @@ export class SalesPage {
   }
 
   protected day(on: string): string {
-    const [year, month, date] = on.split('-');
-    return `${date}/${month}/${year}`;
+    return dayWords(on);
   }
 
   protected priceWords(sale: SaleView): string {

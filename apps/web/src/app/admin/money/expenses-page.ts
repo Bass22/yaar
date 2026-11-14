@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { PhotosComponent } from '../photos';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { PictogramName } from '@design-system';
 import type { CostView } from '@contracts';
@@ -12,29 +13,22 @@ import { Office } from '../office';
 import { amountWords, Purchases } from '../purchases/purchases';
 import { Banknotes } from './banknotes';
 import { CATEGORY_PICTO, Expenses } from './expenses';
+import { CurrentLot, currentLotOf } from '../lots/current-lot';
+import { dayWords } from '../typed-number';
 
 // The expenses of a lot (P.4, P.5; CdC « Les dépenses »): the committed cost and the cost per bird,
 // computed by the server, each with its listen button; then every expense, dated, with its type,
-// amount, status, « reçu ✓ » and its note whole. An expense owed is paid in one tap; any expense
+// amount, status, its receipt — opened with a tap (R.6) — and its note whole. An expense owed is paid in one tap; any expense
 // is duplicated (the gesture filled at today's date, nothing written) or corrected (a counter-entry).
 @Component({
   selector: 'app-expenses-page',
-  imports: [Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton],
+  imports: [CurrentLot, Banknotes, FiguresAge, OfficePending, Pictogram, RouterLink, SpeakerButton, PhotosComponent],
   providers: [Expenses],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1><app-pictogram picto="coin" [decorative]="true" /> Dépenses</h1>
     <a class="back" routerLink="..">Revenir aux commandes</a>
-    @if (lots().length > 1) {
-      <div class="lots" role="radiogroup" aria-label="Quel lot ?">
-        @for (lot of lots(); track lot.campaignId) {
-          <label class="lot">
-            <input type="radio" name="lot" [checked]="lot.campaignId === lotId()" (change)="lotId.set(lot.campaignId)" />
-            {{ lot.siteName }} · Jour {{ lot.campaignDay }}
-          </label>
-        }
-      </div>
-    }
+    <app-current-lot />
     <app-figures-age [readAt]="expenses.readAt()" [stale]="expenses.unreachable()" />
     <app-office-pending [kinds]="['cost']" [subject]="lotId()" />
     @if (expenses.money(); as money) {
@@ -73,7 +67,8 @@ import { CATEGORY_PICTO, Expenses } from './expenses';
               <app-pictogram picto="stamp-pending" [decorative]="true" /> À payer à {{ creditorName(cost) }}
             }
             @if (cost.receipt !== null) {
-              <span class="receipt">· reçu ✓</span>
+              <!-- The receipt opens with a tap (R.6) -->
+              <app-photos class="receipt" [photos]="[cost.receipt]" label="Reçu" />
             }
           </span>
           @if (cost.note !== null) {
@@ -150,7 +145,7 @@ export class ExpensesPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly lots = this.office.lots;
-  protected readonly lotId = linkedSignal(() => this.route.snapshot.queryParamMap.get('lot') ?? this.office.lots()[0]?.campaignId ?? '');
+  protected readonly lotId = currentLotOf(this.office, this.route);
   protected readonly paying = signal<string | null>(null);
   protected readonly problem = signal<string | null>(null);
   /** The latest spent on top. */
@@ -179,8 +174,7 @@ export class ExpensesPage {
   }
 
   protected dayWords(day: string): string {
-    const [year, month, date] = day.split('-');
-    return `${date}/${month}/${year}`;
+    return dayWords(day);
   }
 
   protected pictoOf(cost: CostView): PictogramName {

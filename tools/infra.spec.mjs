@@ -44,8 +44,11 @@ describe('Pile de conteneurs', () => {
   const compose = read('infra/docker-compose.yml');
   const services = composeServices(compose);
 
-  it('le compose démarre le web derrière Caddy, l’API et PostgreSQL, plus une tâche de migration', () => {
-    assert.deepEqual([...services.keys()].sort(), ['api', 'db', 'migrate', 'web']);
+  it('le compose démarre le web derrière Caddy, l’API et PostgreSQL, plus une tâche de migration ; le chiffrement des sauvegardes ne démarre jamais avec la pile', () => {
+    assert.deepEqual([...services.keys()].sort(), ['age', 'api', 'db', 'migrate', 'web']);
+    // Z.4 : `age` n'est lancé que par infra/backup/*.sh, coupé de tout réseau
+    assert.match(services.get('age').lines.join('\n'), /profiles: \['tools'\]/);
+    assert.match(services.get('age').lines.join('\n'), /network_mode: none/);
     assert.match(services.get('db').lines.join('\n'), /image: postgres:\d+/);
   });
 
@@ -148,6 +151,11 @@ describe('Pile de conteneurs', () => {
     assert.ok(assignments.length >= 1, 'le mot de passe de la base est déclaré');
 
     for (const [, name, value] of assignments) {
+      // The notification key is optional (Y.2a): without it, nothing is offered nor sent — fail-closed.
+      if (name === 'VAPID_PRIVATE_KEY') {
+        assert.equal(value, '${VAPID_PRIVATE_KEY:-}');
+        continue;
+      }
       assert.match(value, /^\$\{[A-Z0-9_]+:\?[^}]+\}$/, `${name} doit être exigé de l'environnement`);
     }
     assert.doesNotMatch(compose, /:\/\/[^:\s$]+:[^$@\s]+@/, 'aucun mot de passe en clair dans une URL');
@@ -163,6 +171,18 @@ describe('Pile de conteneurs', () => {
       const source = read(script);
       assert.match(source, /loadDatabaseUrl\(process\.env\)/, `${script} lit l'adresse de la base`);
       assert.doesNotMatch(source, /loadAppConfig/, `${script} ne lit pas la configuration de l'API, qui exige JWT_SECRET`);
+    }
+  });
+
+  // Spec: backlog Y.1, Y.2a — la revue : la clé privée VAPID ne quitte pas l'environnement du serveur
+  it('les clés des notifications et le contact vont à la seule API, facultatifs ensemble ; aucun autre conteneur ne les reçoit', () => {
+    const api = /^  api:\n[\s\S]*?(?=^  \S)/m.exec(compose)?.[0] ?? '';
+    for (const name of ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT']) {
+      assert.match(api, new RegExp(`^\\s+${name}: \\$\\{${name}:-\\}$`, 'm'));
+      assert.match(read('infra/.env.example'), new RegExp(`^${name}=$`, 'm'));
+    }
+    for (const [name, service] of services) {
+      if (name !== 'api') assert.doesNotMatch(service.lines.join('\n'), /VAPID/, `${name} ne reçoit aucune clé de notification`);
     }
   });
 

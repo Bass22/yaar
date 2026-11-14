@@ -1,10 +1,11 @@
 import { err, ok, type Result } from '@kit';
 import type { Prisma } from '@prisma/client';
 import type { AccountAvatar, AudioLanguage, UpdateAccountRequest } from '@contracts';
+import { isCanonicalUuid } from '@domain/journal';
 
 /** The closed list of avatars (E.9), checked at the border; the database holds the same enum. */
-export const ACCOUNT_AVATARS = ['baobab', 'mango', 'pirogue', 'teapot', 'calabash', 'sheep', 'goat', 'watermelon', 'fish', 'star', 'turtle', 'drum'] as const satisfies readonly AccountAvatar[];
-export const AUDIO_LANGUAGES = ['wo', 'fr'] as const satisfies readonly AudioLanguage[];
+const ACCOUNT_AVATARS = ['baobab', 'mango', 'pirogue', 'teapot', 'calabash', 'sheep', 'goat', 'watermelon', 'fish', 'star', 'turtle', 'drum'] as const satisfies readonly AccountAvatar[];
+const AUDIO_LANGUAGES = ['wo', 'fr'] as const satisfies readonly AudioLanguage[];
 
 // Fails the typecheck if the contract gains an avatar or a language this list forgets.
 type Forgotten = Exclude<AccountAvatar, (typeof ACCOUNT_AVATARS)[number]> | Exclude<AudioLanguage, (typeof AUDIO_LANGUAGES)[number]>;
@@ -17,14 +18,12 @@ export const DEFAULT_LANGUAGE: AudioLanguage = 'fr';
 export const isAvatar = (value: unknown): value is AccountAvatar => (ACCOUNT_AVATARS as readonly unknown[]).includes(value);
 export const isLanguage = (value: unknown): value is AudioLanguage => (AUDIO_LANGUAGES as readonly unknown[]).includes(value);
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 /**
  * The admin changes the avatar or the language of an account of the farm (E.9). A `null`
  * language makes the account follow its site again. Neither the role nor the PIN moves here.
  */
 export async function updateAccount(tx: Prisma.TransactionClient, userId: string, change: UpdateAccountRequest): Promise<Result<void, { readonly kind: 'AccountNotFound' }>> {
-  if (!UUID.test(userId)) {
+  if (!isCanonicalUuid(userId)) {
     return err({ kind: 'AccountNotFound' });
   }
   const updated = await tx.user.updateMany({

@@ -11,6 +11,23 @@
 	root * /srv
 	encode gzip zstd
 
+	# Sur toutes les réponses, l'API comprise. HSTS : une fois venu en HTTPS, le navigateur n'y
+	# renonce plus pendant un an (sans effet en clair, sur le réseau local). Anti-encadrement en
+	# double : `frame-ancestors 'none'` pour les navigateurs récents, X-Frame-Options pour les autres.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# La sonde de disponibilité interroge la base à chaque appel : elle ne sert qu'aux contrôles
+	# de santé, faits de l'intérieur des conteneurs, et n'est pas offerte à Internet (R-9).
+	handle /api/v1/health/ready {
+		respond 404
+	}
+
 	# Le conteneur `api` ne publie aucun port : cette ligne est le seul chemin vers lui.
 	handle /api/v1/* {
 		reverse_proxy api:3000
@@ -22,9 +39,6 @@
 		# qu'Angular pose des styles de composant en ligne ; `script-src` ne le tolère pas.
 		header {
 			Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-			Referrer-Policy "no-referrer"
-			X-Content-Type-Options "nosniff"
-			-Server
 		}
 
 		# Fichiers au nom haché (`main-4PMYRGTK.js`) : immuables, un an de cache.
@@ -42,4 +56,10 @@
 		try_files {path} /index.html
 		file_server
 	}
+}
+
+# Le contrôle de santé du conteneur (docker-compose.yml) : un port interne, jamais publié, qui
+# répond quel que soit le domaine servi — `localhost` ne correspond pas au site en production.
+:8081 {
+	respond /healthz 200
 }

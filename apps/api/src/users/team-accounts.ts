@@ -9,6 +9,8 @@ import type { Session } from '../auth/session';
 import { PROVISIONAL_PIN_LIFETIME_SECONDS } from '../auth/session-policy';
 import type { PrismaService } from '../database/prisma.service';
 import { isAvatar, isLanguage } from './account-profile';
+import { isCanonicalUuid } from '@domain/journal';
+import { E164 } from '../auth/phone';
 
 export type TeamAccountRefusal =
   | { readonly kind: 'InvalidRequest' }
@@ -16,11 +18,8 @@ export type TeamAccountRefusal =
   | { readonly kind: 'AccountNotFound' }
   | { readonly kind: 'OnlyCollaboratorsGetProvisionalPins' };
 
-const E164 = /^\+[1-9][0-9]{7,14}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 /** A random four-digit PIN that passes the rules of a new PIN: the admin hands it over in person. */
-export function drawProvisionalPin(): Pin {
+function drawProvisionalPin(): Pin {
   for (;;) {
     const pin = Pin(String(randomInt(0, 10_000)).padStart(4, '0'), 'collaborator');
     if (pin.ok) {
@@ -44,7 +43,7 @@ export async function createAccount(
   now: Date,
 ): Promise<Result<{ readonly id: string; readonly role: 'collaborator' } & ProvisionalPin, TeamAccountRefusal>> {
   const name = request.name.trim();
-  if (!UUID.test(request.id) || !E164.test(request.phone) || name === '' || !isAvatar(request.avatar) || (request.language !== undefined && !isLanguage(request.language))) {
+  if (!isCanonicalUuid(request.id) || !E164.test(request.phone) || name === '' || !isAvatar(request.avatar) || (request.language !== undefined && !isLanguage(request.language))) {
     return err({ kind: 'InvalidRequest' });
   }
   if ((await deps.prisma.findUserForSignIn(request.phone)) !== null) {
@@ -64,7 +63,7 @@ export async function createAccount(
  * token issued so far too, and the next sign-in chooses a PIN again. Collaborators only.
  */
 export async function resetPin(tx: Prisma.TransactionClient, hasher: PinHasher, admin: Session, userId: string, now: Date): Promise<Result<ProvisionalPin, TeamAccountRefusal>> {
-  const target = UUID.test(userId) ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }) : null;
+  const target = isCanonicalUuid(userId) ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }) : null;
   if (target === null) {
     return err({ kind: 'AccountNotFound' });
   }
@@ -75,8 +74,10 @@ export async function resetPin(tx: Prisma.TransactionClient, hasher: PinHasher, 
   const provisionalPinExpiresAt = expiryFrom(now);
   await tx.user.update({
     where: { id: target.id },
-    data: { pinHash: await hasher.hash(pin), provisionalPinExpiresAt, sessionsValidFrom: now, pinFailures: 0, pinLastFailureAt: null },
+    data: { pinHash: await hasher.hash(pin), provisionalPinExpiresAt, sessionsValidFrom: now },
   });
+  // A new PIN starts every device of the account from zero (E.10).
+  await tx.signInAttempt.updateMany({ where: { userId: target.id }, data: { failures: 0, lastFailureAt: null } });
   await recordAudit(tx, admin.tenantId, { action: 'PinReset', actorId: admin.userId, subjectId: target.id, deviceId: admin.deviceId }, now);
   return ok({ provisionalPin: pin.reveal(), provisionalPinExpiresAt: provisionalPinExpiresAt.toISOString() });
 }

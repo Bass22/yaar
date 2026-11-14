@@ -1,9 +1,14 @@
 import { unwrap } from '@kit';
-import { CampaignId, campaignDay, computeLiveCount, effectiveJournal, factOf, lineDelivery, receivedByLine, recentBusinessDays, TimeZone, type BusinessDay, type JournalEvent, type JournalLine, type OrderLineId, type Quantity } from '@domain/journal';
+import { campaignDay, effectiveJournal, factOf, lineDelivery, receivedByLine, recentBusinessDays, TimeZone, type BusinessDay, type JournalEvent, type JournalLine, type OrderLineId, type Quantity, answeredWeighingRequests } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerContext, CaretakerDelivery, CaretakerDeliveryLine, CaretakerJournalLine, CaretakerSite, FactPayload } from '@contracts';
 import type { Prisma } from '@prisma/client';
 import type { Session } from '../auth/session';
+import { dueReceptionLines, receptionProgress } from '@domain/finance';
+import { activeReceptions } from '../orders/active-receptions';
 import { PrismaJournal } from './prisma-journal';
+import { namesOf } from './author-names';
+import { reachableSites } from '../auth/site-access';
+import { birdsOf } from './birds';
 
 // What the caretaker's notebook shows (Architecture §5 « Descente »), read in the tenant
 // transaction of the request. Built from the journal and the field rules only: no amount, no
@@ -13,14 +18,14 @@ import { PrismaJournal } from './prisma-journal';
 /** The sites the session reaches — the admin all of the farm's, a collaborator their own — each with its notebook. */
 export async function caretakerContext(tx: Prisma.TransactionClient, session: Session, now: Date): Promise<CaretakerContext> {
   const sites = await tx.site.findMany({
-    where: session.role === 'admin' ? {} : { assignments: { some: { userId: session.userId } } },
+    where: reachableSites(session),
     orderBy: { name: 'asc' },
     select: { id: true, name: true, timeZone: true, assignments: { where: { isPrimary: true }, select: { userId: true } } },
   });
   const journal = new PrismaJournal(tx, session.tenantId);
   const contexts: CaretakerSite[] = [];
   for (const site of sites) {
-    contexts.push(await siteContext(tx, journal, site, now));
+    contexts.push(await siteContext(tx, journal, site, now, session.role === 'admin'));
   }
   // The chef to reach: the earliest admin still able to sign in. Only a name and a number leave.
   const chef = await tx.user.findFirst({ where: { role: 'admin', blockedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { name: true, phone: true } });
@@ -29,14 +34,18 @@ export async function caretakerContext(tx: Prisma.TransactionClient, session: Se
 
 type SiteRow = { id: string; name: string; timeZone: string; assignments: { userId: string }[] };
 
-async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal, site: SiteRow, now: Date): Promise<CaretakerSite> {
+async function siteContext(tx: Prisma.TransactionClient, journal: PrismaJournal, site: SiteRow, now: Date, ahead: boolean): Promise<CaretakerSite> {
   const { today, yesterday, dayBeforeYesterday } = recentBusinessDays(now, unwrap(TimeZone(site.timeZone)));
   // Every campaign running on the site: several may run at once (decision of 2026-11-07).
   const running = await tx.campaign.findMany({ where: { siteId: site.id, closedAt: null }, orderBy: [{ placementDay: 'asc' }, { id: 'asc' }] });
   const days: readonly string[] = [dayBeforeYesterday, yesterday, today];
   const campaigns: CaretakerCampaign[] = [];
   for (const campaign of running) {
-    campaigns.push(await campaignContext(tx, journal, campaign, days, today));
+    const context = await campaignContext(tx, journal, campaign, days, today);
+    // A campaign opened ahead (O.5) reaches the notebook on its day 0, in the site's time zone —
+    // before, only when a delivery is announced for it: litter and feed come before the chicks
+    // (Q.11). The office sees it from its opening, to prepare it.
+    if (ahead || context.campaignDay >= 0 || context.deliveries.length > 0) campaigns.push(context);
   }
   return { siteId: site.id, name: site.name, timeZone: site.timeZone, today, primaryCaretakerId: site.assignments[0]?.userId ?? null, campaigns };
 }
@@ -54,8 +63,7 @@ async function campaignContext(
   const lines = effectiveJournal(events).filter(
     (line) => days.includes(line.declaration.businessDate) && line.declaration.type !== 'Loss' && line.declaration.type !== 'WeighingValidated',
   );
-  const authors = await tx.user.findMany({ where: { id: { in: [...new Set(lines.map((line) => line.declaration.authorId))] } }, select: { id: true, name: true } });
-  const nameOf = new Map(authors.map((author) => [author.id, author.name]));
+  const nameOf = await namesOf(tx, lines.map((line) => line.declaration.authorId));
   // What each delivery line received is, by name and category: quantities and words only (rule 4).
   const deliveredLineIds = [...new Set(lines.flatMap((line) => (line.fact?.type === 'Delivery' ? [line.fact.orderLineId] : [])))];
   const delivered = await tx.orderLine.findMany({ where: { id: { in: deliveredLineIds } }, select: { id: true, costType: { select: { name: true, category: true } } } });
@@ -66,7 +74,7 @@ async function campaignContext(
     campaignDay: campaignDay(placementDay, today),
     liveCount: await liveCountOf(tx, campaign.id, events),
     journal: lines.map((line) => lineOf(line, nameOf.get(line.declaration.authorId) ?? '', deliveredOf)),
-    deliveries: await deliveriesOf(tx, campaign.id, events),
+    deliveries: await deliveriesOf(tx, campaign.id, events, today),
     weighingRequests: await weighingRequestsOf(tx, campaign.id, events, today),
     strain: campaign.strain,
   };
@@ -77,7 +85,7 @@ async function campaignContext(
  * not taken back — answers them. Earliest first.
  */
 async function weighingRequestsOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[], today: BusinessDay): Promise<CaretakerCampaign['weighingRequests']> {
-  const answered = new Set(effectiveJournal(events).flatMap(({ fact }) => (fact?.type === 'Weighing' ? [fact.weighingRequestId as string] : [])));
+  const answered = answeredWeighingRequests(events);
   const requests = await tx.weighingRequest.findMany({ where: { campaignId, requestedFor: { lte: new Date(today) } }, orderBy: [{ requestedFor: 'asc' }, { id: 'asc' }] });
   return requests.filter(({ id }) => !answered.has(id)).map(({ id, requestedFor }) => ({ weighingRequestId: id, requestedFor: requestedFor.toISOString().slice(0, 10) }));
 }
@@ -90,35 +98,51 @@ async function liveCountOf(tx: Prisma.TransactionClient, campaignId: string, eve
   return (await birdsOf(tx, campaignId, events)).liveCount;
 }
 
-/** The chicks received on the campaign's chick lines, and the birds alive — `null` until a chick is received (Q.7). */
-export async function birdsOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<{ received: number; liveCount: number | null }> {
-  const chickLines = await tx.orderLine.findMany({ where: { order: { campaignId }, costType: { category: 'Chicks' } }, select: { id: true } });
-  // Birds sold leave the flock (W.1): a number only reaches the phone, never a sale.
-  const sold = (await tx.sale.aggregate({ where: { campaignId }, _sum: { birds: true } }))._sum.birds ?? 0;
-  const count = computeLiveCount(events, { campaignId: unwrap(CampaignId(campaignId)), placementOrderLines: chickLines.map(({ id }) => id as OrderLineId), sold });
-  return { received: count.received, liveCount: count.received > 0 ? count.liveCount : null };
-}
-
 /**
  * The deliveries the caretaker waits for (Q.6): every announced order of the campaign that is
  * neither closed nor fully received, line by line — what comes, how many, what came. Quantities
  * only: the price, the supplier and the reference stay at the office (rule 4).
  */
-async function deliveriesOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[]): Promise<CaretakerDelivery[]> {
+async function deliveriesOf(tx: Prisma.TransactionClient, campaignId: string, events: readonly JournalEvent[], today: BusinessDay): Promise<CaretakerDelivery[]> {
   const orders = await tx.purchaseOrder.findMany({
     where: { campaignId, announcedAt: { not: null }, closedAt: null },
     orderBy: [{ announcedAt: 'asc' }, { id: 'asc' }],
-    select: { id: true, lines: { orderBy: { position: 'asc' }, select: { id: true, quantity: true, costType: { select: { name: true, category: true } } } } },
+    select: { id: true, lines: { orderBy: { position: 'asc' }, select: { id: true, quantity: true, costType: { select: { name: true, category: true, feedStage: true } } } } },
   });
   const received = receivedByLine(events);
+  const planned = await activeReceptions(tx, orders.map(({ id }) => id));
+  // A line as the notebook shows it: what comes, by name, and its counts — never a price (rule 4).
+  type Line = (typeof orders)[number]['lines'][number];
+  const lineOf = (line: Line, counts: { expected: number; received: number; remaining: number }): CaretakerDeliveryLine => ({
+    orderLineId: line.id,
+    name: line.costType.name,
+    category: line.costType.category,
+    feedStage: line.costType.feedStage,
+    ...counts,
+  });
   return orders
-    .map((order) => ({
-      orderId: order.id,
-      lines: order.lines.map((line) => {
-        const state = lineDelivery(line.quantity as Quantity, received.get(line.id as OrderLineId) ?? 0);
-        return { orderLineId: line.id, name: line.costType.name, category: line.costType.category, expected: state.ordered, received: state.received, remaining: state.remaining };
-      }),
-    }))
+    .map((order) => {
+      const receptions = planned.get(order.id) ?? [];
+      // Received in several times (Q.15): only the receptions due — today or late —, never the order whole.
+      if (receptions.length > 0) {
+        const due = new Map(dueReceptionLines(receptionProgress(receptions, received, today)).map((line) => [line.orderLineId, line]));
+        return {
+          orderId: order.id,
+          lines: order.lines.flatMap((line) => {
+            const owed = due.get(line.id);
+            return owed === undefined ? [] : [lineOf(line, { expected: owed.expected, received: owed.received, remaining: owed.remaining })];
+          }),
+        };
+      }
+      // Received in one go: the order whole, as announced.
+      return {
+        orderId: order.id,
+        lines: order.lines.map((line) => {
+          const state = lineDelivery(line.quantity as Quantity, received.get(line.id as OrderLineId) ?? 0);
+          return lineOf(line, { expected: state.ordered, received: state.received, remaining: state.remaining });
+        }),
+      };
+    })
     .filter((delivery) => delivery.lines.some((line) => line.remaining > 0));
 }
 

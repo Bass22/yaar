@@ -21,6 +21,9 @@ set -eu
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v owner_password="$DB_PASSWORD" -v app_password="$APP_DB_PASSWORD" -v superuser="$POSTGRES_USER" <<'SQL'
+-- The statements below carry passwords: never in the server log, even on error (R-10).
+SET log_statement = 'none';
+SET log_min_error_statement = 'panic';
 CREATE ROLE yaar LOGIN PASSWORD :'owner_password' NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION;
 CREATE ROLE yaar_app LOGIN PASSWORD :'app_password' NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION;
 CREATE DATABASE yaar OWNER yaar;

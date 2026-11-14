@@ -2,17 +2,17 @@ import { err, ok, type Result } from '@kit';
 import type { Prisma } from '@prisma/client';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
+import { unsubscribeAccount } from '../notifications/push-subscription';
+import { isCanonicalUuid } from '@domain/journal';
 
 export type AccountAccessRefusal =
   | { readonly kind: 'AccountNotFound' }
   | { readonly kind: 'CannotBlockOwnAccount' }
   | { readonly kind: 'OnlyCollaboratorsCanBeBlocked' };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 // Read in the tenant transaction of the request: an account of another tenant does not exist.
 async function targetOf(tx: Prisma.TransactionClient, userId: string) {
-  return UUID.test(userId) ? tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true, blockedAt: true } }) : null;
+  return isCanonicalUuid(userId) ? tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true, blockedAt: true } }) : null;
 }
 
 /**
@@ -32,6 +32,7 @@ export async function blockAccount(tx: Prisma.TransactionClient, admin: Session,
     return err({ kind: 'OnlyCollaboratorsCanBeBlocked' });
   }
   await tx.user.update({ where: { id: target.id }, data: { blockedAt: target.blockedAt ?? now, sessionsValidFrom: now } });
+  await unsubscribeAccount(tx, target.id);
   await recordAudit(tx, admin.tenantId, { action: 'AccountBlocked', actorId: admin.userId, subjectId: target.id, deviceId: admin.deviceId }, now);
   return ok(undefined);
 }
@@ -54,6 +55,7 @@ export async function signOutEverywhere(tx: Prisma.TransactionClient, actor: Ses
     return err({ kind: 'AccountNotFound' });
   }
   await tx.user.update({ where: { id: target.id }, data: { sessionsValidFrom: now } });
+  await unsubscribeAccount(tx, target.id);
   await recordAudit(tx, actor.tenantId, { action: 'SignedOutEverywhere', actorId: actor.userId, subjectId: target.id, deviceId: actor.deviceId }, now);
   return ok(undefined);
 }

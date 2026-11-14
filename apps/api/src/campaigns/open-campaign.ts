@@ -1,21 +1,19 @@
 import { err, ok, type Result } from '@kit';
-import { businessDayAt, TimeZone, validateCampaignOpening, type Refusal } from '@domain/journal';
+import { businessDayAt, TimeZone, validateCampaignOpening, type Refusal, isCanonicalUuid } from '@domain/journal';
 import { Prisma } from '@prisma/client';
 import type { CampaignOpeningRefusal, OpenCampaignRequest } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * The admin opens a campaign on a site of the farm of the session (O.2). The domain judges it on
  * the site's today; it is running at once, so the site's notebook shows it. The opening is traced.
  */
 export async function openCampaign(tx: Prisma.TransactionClient, admin: Session, request: OpenCampaignRequest, now: Date): Promise<Result<void, CampaignOpeningRefusal>> {
-  if (!UUID.test(request.id)) {
+  if (!isCanonicalUuid(request.id)) {
     return err({ kind: 'InvalidRequest' });
   }
-  const site = UUID.test(request.siteId) ? await tx.site.findUnique({ where: { id: request.siteId }, select: { timeZone: true } }) : null;
+  const site = isCanonicalUuid(request.siteId) ? await tx.site.findUnique({ where: { id: request.siteId }, select: { timeZone: true } }) : null;
   const timeZone = site === null ? null : TimeZone(site.timeZone);
   if (timeZone === null || !timeZone.ok) {
     return err({ kind: 'SiteNotFound' });
@@ -45,7 +43,7 @@ function openingRefusalOf(refusal: Refusal): CampaignOpeningRefusal {
   switch (refusal.kind) {
     case 'UnknownStrain':
     case 'InvalidBusinessDay':
-    case 'PlacementInFuture':
+    case 'PlacementTooFarAhead':
     case 'PlacementTooOld':
     case 'InvalidQuantity':
     case 'InvalidPlannedDuration':

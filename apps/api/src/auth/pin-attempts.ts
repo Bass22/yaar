@@ -33,3 +33,23 @@ export const afterFailure = (attempts: PinAttempts, failedAt: Instant): PinAttem
 });
 
 export const afterSuccess = (): PinAttempts => NO_FAILURE;
+
+/** Failures on one account, all devices together, beyond which a device it never used waits (E.10). */
+export const ACCOUNT_FAILURES_PER_DAY = 20;
+/** The window of the account's failures (R-14, R-16): sign-in and the attempts count over the same 24 hours. */
+export const DAY_MS = 24 * 3_600 * 1_000;
+
+/**
+ * The wait of a device on an account under attack (R-14, decision of 2026-11-13): a device the
+ * account already signed in from is never slowed by the failures of others; any other one, once
+ * the account has 20 failures in the last 24 hours, waits until the oldest of those 20 is a day old.
+ */
+export const accountRetryAt = (failures: readonly Instant[], knownDevice: boolean, now: Instant): Instant | null => {
+  if (knownDevice) return null;
+  const since = Date.parse(now) - DAY_MS;
+  const recent = failures.filter((at) => Date.parse(at) > since).sort();
+  if (recent.length < ACCOUNT_FAILURES_PER_DAY) return null;
+  const oldestOfTheLast = recent[recent.length - ACCOUNT_FAILURES_PER_DAY] as Instant;
+  const allowedAt = instantOf(new Date(Date.parse(oldestOfTheLast) + DAY_MS));
+  return now < allowedAt ? allowedAt : null;
+};

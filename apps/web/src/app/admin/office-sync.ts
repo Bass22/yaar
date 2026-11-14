@@ -121,3 +121,21 @@ export function recall<T>(userId: string, url: string): Reading<T> | null {
     return null;
   }
 }
+
+/**
+ * An office screen read online, and kept for the next time (P.7); without network, the last
+ * reading kept on the device — `null` when there is none. `show` receives it with `online`, right
+ * when the answer arrives: the screen is set in the same turn as the reading.
+ */
+export async function readOrRecall<T>(http: HttpClient, url: string, userId: string, headers: HttpHeaders, now: () => Date, show: (reading: Reading<T> | null, online: boolean) => void): Promise<void> {
+  let value: T;
+  try {
+    value = await firstValueFrom(http.get<T>(url, { headers }));
+  } catch {
+    show(recall<T>(userId, url), false);
+    return;
+  }
+  const at = now();
+  remember(userId, url, value, at);
+  show({ value, readAt: at.toISOString() }, true);
+}

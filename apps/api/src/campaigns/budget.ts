@@ -6,13 +6,14 @@ import type { BudgetRefusal, BudgetView, RecordBudgetRequest } from '@contracts'
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
 import { effectiveCampaignCosts } from '../costs/costs';
-import { birdsOf } from '../journal/caretaker-context';
+import { birdsOf } from '../journal/birds';
 import { PrismaJournal } from '../journal/prisma-journal';
 import { receivedStockOf } from '../orders/orders';
 import { leftoversReceived, leftoverValuesOf } from './leftovers';
+import { isCanonicalUuid } from '@domain/journal';
+import { currencyOf } from '../tenants/currency';
 
 type Tx = Prisma.TransactionClient;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * The budget of a campaign (S.1, S.3; CdC « Budget de campagne », decisions of 2026-11-12): for
@@ -20,9 +21,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * cost and the variance. `null` when the campaign is not the farm's.
  */
 export async function campaignBudget(tx: Tx, tenantId: TenantId, campaignId: string): Promise<BudgetView | null> {
-  const campaign = UUID.test(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { plannedHeadcount: true, closedAt: true } }) : null;
+  const campaign = isCanonicalUuid(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { plannedHeadcount: true, closedAt: true } }) : null;
   if (campaign === null) return null;
-  const { currency: code } = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { currency: true } });
+  const code = await currencyOf(tx, tenantId);
   const currency = code as CurrencyCode;
   const categories = new Map((await tx.costType.findMany({ select: { id: true, category: true } })).map(({ id, category }) => [id, category as CostCategory]));
   const committed = await committedOf(tx, tenantId, campaignId, currency, categories);
@@ -53,10 +54,10 @@ export async function campaignBudget(tx: Tx, tenantId: TenantId, campaignId: str
 
 /** The admin writes the budget of a campaign that is not closed: online, never updated, traced. */
 export async function recordCampaignBudget(tx: Tx, admin: Session, campaignId: string, request: RecordBudgetRequest, now: Date): Promise<Result<void, BudgetRefusal>> {
-  const campaign = UUID.test(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { siteId: true, closedAt: true } }) : null;
+  const campaign = isCanonicalUuid(campaignId) ? await tx.campaign.findUnique({ where: { id: campaignId }, select: { siteId: true, closedAt: true } }) : null;
   if (campaign === null) return err({ kind: 'CampaignNotFound' });
   if (campaign.closedAt !== null) return err({ kind: 'CampaignClosed' });
-  const { currency } = await tx.tenant.findUniqueOrThrow({ where: { id: admin.tenantId }, select: { currency: true } });
+  const currency = await currencyOf(tx, admin.tenantId);
   const lines = recordBudget(request.lines, currency as CurrencyCode);
   if (!lines.ok) return err(lines.error);
   if ((await tx.budgetLine.count({ where: { id: request.id } })) > 0) return err({ kind: 'BudgetAlreadyRecorded' });

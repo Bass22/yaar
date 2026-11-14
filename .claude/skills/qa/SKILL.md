@@ -53,6 +53,17 @@ Un test doit pouvoir échouer. Avant de t'y fier, vérifie qu'il échoue quand l
 - **Compte les taps et écoute.** Plus de trois taps pour une déclaration, un écran sans audio, un picto ambigu sont des bugs.
 - **Essaie sur du matériel lent** quand c'est possible : processeur bridé, 3G, stockage presque plein.
 
+## Après un refactoring : la non-régression
+
+Quand `/refactor` te passe la main, la question n'est plus « la fonctionnalité marche-t-elle ? » mais « **rien n'a-t-il changé** ? » :
+
+- **Les mêmes tests, tous verts** : compare les compteurs de départ et d'arrivée, projet par projet ; un test disparu, sauté ou assoupli est un refus, même si tout est vert. Lis le diff des fichiers de test : seuls des chemins ou des noms ont le droit d'y bouger, jamais une assertion.
+- **Les règles déplacées font toujours tomber un test** : repasse toi-même un ou deux sabotages des règles qui ont changé de fichier, sur une copie du dépôt.
+- **Les parcours touchés, joués pour de vrai** : l'écran ou la route dont le code a bougé, exercé dans l'application, à 360 px pour un écran ; le budget de démarrage tenu pour le web.
+- **Aucun contrat n'a bougé** : routes (`apps/api/src/app.spec.ts`), DTO de `packages/contracts`, schéma de la base (`docs/schema.md` inchangé).
+
+Ton verdict suit la forme ci-dessous ; un comportement changé, même « en mieux », est un défaut *bloquant* du refactoring.
+
 ## Verdict
 
 Rends l'un des trois, sans adoucir :

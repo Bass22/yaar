@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHICKS_PER_BOX, deliveryCounting, receivedOf } from './delivery-counting';
+import { byTheBag, CHICKS_PER_BOX, deliveryCounting, receivedOf } from './delivery-counting';
 
 // Spec: backlog Q.7 — le gardien compte la livraison ; cahier des charges « Livraison annoncée »
 // (décisions du 2026-11-11 : les poussins se comptent en cartons de 50, le reçu vaut cartons × 50 ;
@@ -21,6 +21,11 @@ describe('Ce que le gardien compte à la réception', () => {
       { unit: 'box', perUnit: 50, expected: 21 },
       { unit: 'box', perUnit: 50, expected: 1 },
     ]);
+  });
+
+  // Refactoring du 2026-11-14 : le bureau et les restes disaient chacun « au sac » ; la règle est ici
+  it('au sac : l’aliment et la litière seulement — ni les poussins, ni la santé', () => {
+    expect(['Feed', 'Bedding', 'Chicks', 'Health', 'Other'].map(byTheBag)).toEqual([true, true, false, false, false]);
   });
 
   it('le reste (santé, autre) se compte tel quel', () => {

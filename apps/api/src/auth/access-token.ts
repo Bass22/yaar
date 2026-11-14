@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { err, ok, type Brand, type Result } from '@kit';
 import type { Instant, Role } from '@domain/journal';
 import { SESSION_LIFETIME_SECONDS } from './session-policy';
+import { isCanonicalUuid } from '@domain/journal';
 
 /** What a session token says, and nothing more: no phone, no name, no site. */
 export type SessionClaims = {
@@ -27,7 +28,6 @@ export type TokenRefusal = { readonly kind: 'TokenInvalid' } | { readonly kind: 
 // whatever it claims (no "none", no other algorithm, no key confusion).
 const HEADER = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
 const LONGEST_TOKEN = 2_048;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ROLES: readonly Role[] = ['admin', 'collaborator'];
 
 const sign = (signingInput: string, secret: string): string => createHmac('sha256', secret).update(signingInput).digest('base64url');
@@ -77,7 +77,7 @@ function claimsOf(payload: string): SessionClaims | null {
     return null;
   }
   const { sub, tenant, role, device, iat, exp } = parsed as Record<string, unknown>;
-  const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+  const isUuid = (value: unknown): value is string => typeof value === 'string' && isCanonicalUuid(value);
   const isSeconds = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
   if (!isUuid(sub) || !isUuid(tenant) || !isUuid(device) || !ROLES.includes(role as Role) || !isSeconds(iat) || !isSeconds(exp)) {
     return null;

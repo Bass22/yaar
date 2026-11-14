@@ -35,12 +35,12 @@ const contexte = (): CaretakerContext => ({
 // The farm's « Frais financiers » type: what a Wave or Orange Money fee is written as (P.8).
 const FRAIS = uuid(45);
 const tiers = (): CounterpartyView[] => [
-  { id: MOUSSA, kind: 'Customer', name: 'Moussa', face: 'hen', archived: false },
-  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', archived: false },
-  { id: uuid(34), kind: 'Customer', name: 'Ancien', face: 'truck', archived: true },
+  { id: MOUSSA, kind: 'Customer', name: 'Moussa', face: 'hen', advancesExpenses: false, archived: false },
+  { id: SEDIMA, kind: 'Supplier', name: 'Sedima', face: 'closed-bag', advancesExpenses: false, archived: false },
+  { id: uuid(34), kind: 'Customer', name: 'Ancien', face: 'truck', advancesExpenses: false, archived: true },
 ];
 const aucuneVente = (): SalesView => ({ campaignId: BANDE, currency: 'XOF', birdsSold: 0, revenue: 0, cashedIn: 0, margin: null, averagePrice: null, remaining: 1045, sales: [] });
-// 200 birds at 2 750 F to Moussa, 200 000 F received; 180 birds by weight on credit.
+// 200 birds at 2 750 FCFA to Moussa, 200 000 FCFA received; 180 birds by weight on credit.
 const desVentes = (): SalesView => ({
   campaignId: BANDE,
   currency: 'XOF',
@@ -81,7 +81,7 @@ describe('Les ventes, au bureau', () => {
       await settle();
       http.match('/api/v1/caretaker/context').forEach((request) => request.flush(contexte()));
       http.match('/api/v1/orders').forEach((request) => request.flush([]));
-      http.match('/api/v1/counterparties').forEach((request) => request.flush(tiers()));
+      http.match({ method: 'GET', url: '/api/v1/counterparties' }).forEach((request) => request.flush(tiers()));
       http.match('/api/v1/cost-types').forEach((request) => request.flush([{ id: FRAIS, category: 'FinancialCharges', name: 'Frais financiers', behaviour: 'Fixed', orderable: false, archived: false }]));
       http.match('/api/v1/reference-data').forEach((request) => request.flush({ currency: 'XOF', costCategories: [], lossTypes: [], strains: [] }));
       http.match(`/api/v1/campaigns/${BANDE}/sales`).forEach((request) => request.flush(sales));
@@ -137,13 +137,13 @@ describe('Les ventes, au bureau', () => {
     it('avant la première vente : la marge et le prix moyen sont « pas encore », jamais zéro ; le reste à vendre = les vivants', async () => {
       const { all } = await ouvre('/admin/lots/ventes', aucuneVente());
 
-      expect(all('.figure').map(text)).toEqual([expect.stringContaining('Marge en direct pas encore'), 'Ventes 0 F', 'Encaissé 0 F', 'Prix moyen pas encore', 'Reste à vendre 1045 poulets']);
+      expect(all('.figure').map(text)).toEqual([expect.stringContaining('Marge en direct pas encore'), 'Ventes 0 FCFA', 'Encaissé 0 FCFA', 'Prix moyen pas encore', 'Reste à vendre 1045 poulets']);
     });
 
     it('la marge en direct, signée et en rouge sous zéro ; le prix moyen ; le reste à vendre — venus du serveur', async () => {
       const { all, element } = await ouvre('/admin/lots/ventes');
 
-      expect(all('.figure').map(text)).toEqual([expect.stringContaining('Marge en direct − 350 000 F'), 'Ventes 1 092 760 F', 'Encaissé 200 000 F', 'Prix moyen 2 876 F le poulet', 'Reste à vendre 665 poulets']);
+      expect(all('.figure').map(text)).toEqual([expect.stringContaining('Marge en direct − 350 000 FCFA'), 'Ventes 1 092 760 FCFA', 'Encaissé 200 000 FCFA', 'Prix moyen 2 876 FCFA le poulet', 'Reste à vendre 665 poulets']);
       expect(element().querySelector('.figure.margin')?.classList).toContain('minus');
     });
 
@@ -151,8 +151,8 @@ describe('Les ventes, au bureau', () => {
       const { all } = await ouvre('/admin/lots/ventes');
 
       expect(all('.sale').map(text)).toEqual([
-        'Moussa 25/11/2026 · 180 poulets · 452,3 kg à 1 200 F 542 760 F doit encore 542 760 F',
-        'Moussa 24/11/2026 · 200 poulets · 2 750 F le poulet 550 000 F doit encore 350 000 F',
+        'Moussa 25/11/2026 · 180 poulets · 452,3 kg à 1 200 FCFA 542 760 FCFA doit encore 542 760 FCFA',
+        'Moussa 24/11/2026 · 200 poulets · 2 750 FCFA le poulet 550 000 FCFA doit encore 350 000 FCFA',
       ]);
     });
   });
@@ -165,13 +165,26 @@ describe('Les ventes, au bureau', () => {
       await vi.waitFor(() => expect(heard.flat()).toContain('fr/sale-to-whom'));
     });
 
-    it('par tête, payé en partie : 200 × 2 750 = 550 000 F posés en billets ; 200 000 F en espèces ; la relecture dit ce qu’il doit encore ; Oui garde la vente puis revient', async () => {
+    // Demande du fondateur du 2026-11-13 : un acheteur est une personne ou une entreprise, rien d'autre
+    it('un nouvel acheteur : son nom, et son visage — une personne ou une entreprise, chacun dit son mot', async () => {
+      const { tap, type, all, sent } = await ouvre('/admin/lots/vente');
+
+      await tap('.tile.new');
+      expect(all('.faces .face-choice').map(text)).toEqual(['Une personne', 'Une entreprise']);
+      await type('input[name=buyerName]', 'Restaurant Le Lagon');
+      await tap('.faces .face-choice:nth-child(2)');
+      await tap('button.add');
+
+      expect((await sent('/api/v1/counterparties')).request.body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), kind: 'Customer', name: 'Restaurant Le Lagon', face: 'shop' });
+    });
+
+    it('par tête, payé en partie : 200 × 2 750 = 550 000 FCFA posés en billets ; 200 000 FCFA en espèces ; la relecture dit ce qu’il doit encore ; Oui garde la vente puis revient', async () => {
       const { tap, type, element, all, sent } = await ouvre('/admin/lots/vente');
 
       await tap('.tile.buyer');
       await type('input[name=birds]', '200');
       await type('input[name=unitPrice]', '2750');
-      expect(text(element().querySelector('.amount'))).toBe('550 000 F');
+      expect(text(element().querySelector('.amount'))).toBe('550 000 FCFA');
       expect(all('app-banknotes .bundle')).toHaveLength(5);
       await tap('.next');
       await tap('.choices .choice:nth-child(2) input');
@@ -179,7 +192,7 @@ describe('Les ventes, au bureau', () => {
       await tap('.method-cash input');
       await tap('.next');
 
-      expect(text(element().querySelector('.card'))).toMatch(/Moussa.*200 poulets.*550 000 F.*payé 200 000 F, doit encore 350 000 F/);
+      expect(text(element().querySelector('.card'))).toMatch(/Moussa.*200 poulets.*550 000 FCFA.*payé 200 000 FCFA, doit encore 350 000 F/);
       await vi.waitFor(() => expect(heard.flat()).toEqual(expect.arrayContaining(['fr/sale-birds', 'fr/sale-still-owes'])));
       await tap('.confirm');
       const request = await sent('/api/v1/sales');
@@ -206,7 +219,7 @@ describe('Les ventes, au bureau', () => {
       await type('input[name=fee]', '5500');
       await tap('.next');
 
-      expect(text(element().querySelector('.card .fee-words'))).toBe('frais Orange Money payés par toi : 5 500 F');
+      expect(text(element().querySelector('.card .fee-words'))).toBe('frais Orange Money payés par toi : 5 500 FCFA');
       await tap('.confirm');
       const sale = await sent('/api/v1/sales');
       expect(sale.request.body).toEqual(expect.objectContaining({ receivedNow: { id: expect.stringMatching(UUID), amount: 550_000, method: 'OrangeMoney' } }));
@@ -244,7 +257,7 @@ describe('Les ventes, au bureau', () => {
       expect(element().querySelector('.card .fee-words')).toBeNull();
     });
 
-    it('au kilo, à crédit : le poids pesé × le prix du kilo — 452,3 kg × 1 200 = 542 760 F — ; rien reçu, l’acheteur doit tout', async () => {
+    it('au kilo, à crédit : le poids pesé × le prix du kilo — 452,3 kg × 1 200 = 542 760 FCFA — ; rien reçu, l’acheteur doit tout', async () => {
       const { tap, type, element, sent } = await ouvre('/admin/lots/vente');
 
       await tap('.tile.buyer');
@@ -252,7 +265,7 @@ describe('Les ventes, au bureau', () => {
       await tap('.choices .choice:nth-child(2) input');
       await type('input[name=kilos]', '452.3');
       await type('input[name=pricePerKilo]', '1200');
-      expect(text(element().querySelector('.amount'))).toBe('542 760 F');
+      expect(text(element().querySelector('.amount'))).toBe('542 760 FCFA');
       await tap('.next');
       // A way of paying chosen, then « nothing, on credit »: nothing is received.
       await tap('.choices .choice:nth-child(2) input');
@@ -284,8 +297,8 @@ describe('Les ventes, au bureau', () => {
     it('la vente dit ce qu’elle vaut, ce qui est reçu et ce qui reste ; « Encaisser » propose le reste et garde l’encaissement', async () => {
       const { element, tap, sent } = await ouvre(`/admin/lots/ventes/${uuid(301)}?lot=${BANDE}`);
 
-      expect(text(element().querySelector('.balance'))).toMatch(/Vente 550 000 F.*Reçu 200 000 F.*Il doit encore 350 000 F/);
-      expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('350000');
+      expect(text(element().querySelector('.balance'))).toMatch(/Vente 550 000 FCFA.*Reçu 200 000 FCFA.*Il doit encore 350 000 F/);
+      expect(element().querySelector<HTMLInputElement>('input[name=amount]')?.value).toBe('350 000');
       await tap('.method-wave input');
       await tap('.go');
 

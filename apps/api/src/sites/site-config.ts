@@ -1,17 +1,10 @@
 import { err, ok, type Result } from '@kit';
-import { TimeZone } from '@domain/journal';
+import { TimeZone, isCanonicalUuid } from '@domain/journal';
 import { Prisma } from '@prisma/client';
 import type { AudioLanguage, ConfigureSiteRequest, CreateSiteRequest, SiteConfigRefusal } from '@contracts';
 import { recordAudit } from '../audit/audit';
 import type { Session } from '../auth/session';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const NAME_MAX = 60;
-
-function nameOf(raw: string): Result<string, SiteConfigRefusal> {
-  const name = raw.trim();
-  return name === '' || name.length > NAME_MAX ? err({ kind: 'InvalidName' }) : ok(name);
-}
+import { nameOf } from '../http/name';
 
 /**
  * The admin creates a site of the farm of the session (O.1). Its strict mode starts off — the
@@ -19,7 +12,7 @@ function nameOf(raw: string): Result<string, SiteConfigRefusal> {
  * one is given. The creation is traced (rule 14).
  */
 export async function createSite(tx: Prisma.TransactionClient, admin: Session, request: CreateSiteRequest, now: Date): Promise<Result<void, SiteConfigRefusal>> {
-  if (!UUID.test(request.id)) {
+  if (!isCanonicalUuid(request.id)) {
     return err({ kind: 'InvalidRequest' });
   }
   const name = nameOf(request.name);
@@ -47,7 +40,7 @@ export async function createSite(tx: Prisma.TransactionClient, admin: Session, r
  * field name; a change that changes nothing leaves no trace. A site of another farm does not exist.
  */
 export async function configureSite(tx: Prisma.TransactionClient, admin: Session, siteId: string, change: ConfigureSiteRequest, now: Date): Promise<Result<void, SiteConfigRefusal>> {
-  const site = UUID.test(siteId) ? await tx.site.findUnique({ where: { id: siteId }, select: { name: true, audioLanguage: true, strictMode: true } }) : null;
+  const site = isCanonicalUuid(siteId) ? await tx.site.findUnique({ where: { id: siteId }, select: { name: true, audioLanguage: true, strictMode: true } }) : null;
   if (site === null) {
     return err({ kind: 'SiteNotFound' });
   }

@@ -1,6 +1,6 @@
 // Entry point `@domain/finance`: money rules (billable, debt, ledger, cost per bird).
 // Server and admin routes only — caretaker routes never import it (need-to-know).
-export { COST_CATEGORIES, DEFAULT_COST_TYPES, type CostBehaviour, type CostCategory, type CostCategoryEntry } from './cost-category';
+export { COST_CATEGORIES, DEFAULT_COST_TYPES, FEED_STAGES, type CostBehaviour, type CostCategory, type CostCategoryEntry, type FeedStage } from './cost-category';
 export { COUNTERPARTY_FACES, COUNTERPARTY_KINDS, type CounterpartyFace, type CounterpartyKind } from './counterparty';
 export {
   acceptsDeliveries,
@@ -23,6 +23,7 @@ export {
 export {
   billableOf,
   orderBalance,
+  paidAhead,
   PAYMENT_METHODS,
   recordPayment,
   type Billable,
@@ -75,3 +76,6 @@ export {
   type BudgetRefusal,
   type ClosedCampaignCosts,
 } from './budget';
+export { suggestedPrice, unusualPrice, type KnownPrice } from './price-catalog';
+export { expectedOf, forecastSummary, recordSaleForecast, type ForecastSummary, type SaleForecast, type SaleForecastContext, type SaleForecastInput, type SaleForecastRefusal } from './sale-forecast';
+export { dueReceptionLines, planReception, receptionProgress, type PlannedReception, type PlannedReceptionInput, type PlannedReceptionRefusal, type ReceptionProgress, type ReceptionState } from './planned-reception';

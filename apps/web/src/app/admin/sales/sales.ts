@@ -1,10 +1,10 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
 import type { RecordSaleRequest, SaleReceiptRequest, SaleRefusalCode, SalesView } from '@contracts';
 import { CLOCK } from '../../core/clock';
 import { AuthService } from '../../core/session/auth';
-import { OfficeSync, recall, remember } from '../office-sync';
+import { OfficeSync, readOrRecall } from '../office-sync';
+import { authHeaders } from '../../core/session/auth-headers';
 
 export type SaleProblem = SaleRefusalCode | 'NoBuyer' | 'NoBirds' | 'NoPrice' | 'NoMethod' | 'NoLot' | 'StorageUnavailable';
 
@@ -27,21 +27,13 @@ export class Sales {
     const url = `/api/v1/campaigns/${campaignId}/sales`;
     const session = this.auth.session();
     const userId = session.status === 'none' ? '' : session.userId;
-    try {
-      const view = await firstValueFrom(this.http.get<SalesView>(url, { headers: new HttpHeaders(session.status === 'none' ? {} : { Authorization: `Bearer ${session.token}` }) }));
-      const at = this.clock.now();
-      remember(userId, url, view, at);
-      this.view.set(view);
-      this.readAt.set(at.toISOString());
-      this.unreachable.set(false);
-    } catch {
-      const kept = recall<SalesView>(userId, url);
-      if (kept !== null) {
-        this.view.set(kept.value);
-        this.readAt.set(kept.readAt);
+    await readOrRecall<SalesView>(this.http, url, userId, authHeaders(session), () => this.clock.now(), (reading, online) => {
+      if (reading !== null) {
+        this.view.set(reading.value);
+        this.readAt.set(reading.readAt);
       }
-      this.unreachable.set(true);
-    }
+      this.unreachable.set(!online);
+    });
   }
 
   /** A sale, with what was paid on the spot: kept on the device, sent when the network allows. */

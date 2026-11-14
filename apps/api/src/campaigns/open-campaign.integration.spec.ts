@@ -31,7 +31,8 @@ describe('Ouvrir une bande', () => {
   let app: INestApplication;
   let origin: string;
   // Monday November 9th, 2026, 23:30 in Dakar (UTC+0): still the 9th on the site.
-  const now = Date.parse('2026-11-09T23:30:00.000Z');
+  // Monday November 9th, 2026, 23:30 in Dakar; moved by the test of a campaign opened ahead (O.5).
+  let now = Date.parse('2026-11-09T23:30:00.000Z');
   const clock: Clock = { now: () => new Date(now) };
 
   const tokenOf = (sub: string, tenant: string, role: SessionClaims['role']) =>
@@ -114,11 +115,34 @@ describe('Ouvrir une bande', () => {
     );
   });
 
-  it('les règles du domaine refusent (400, avec le motif) sans rien écrire : souche inconnue, effectif nul, date future ou trop ancienne, durée hors bornes', async () => {
+  // Spec: backlog O.5 (décision du 2026-11-13) — l'admin ouvre en avance ; le gardien ne voit la bande qu'à son jour de mise en place
+  it('une bande ouverte en avance : le bureau la voit, à venir ; le gardien ne la voit qu’à J0, dans le fuseau de son site', async () => {
+    expect((await ouvre(uneBande(150, { placementDay: '2026-11-12' }))).status).toBe(201);
+    const bandesVues = async (token: string) =>
+      ((await (await fetch(`${origin}/api/v1/caretaker/context`, { headers: { Authorization: `Bearer ${token}` } })).json()) as CaretakerContext).sites
+        .flatMap((site) => site.campaigns)
+        .filter(({ campaignId }) => campaignId === uuid(150))
+        .map(({ campaignDay }) => campaignDay);
+
+    // Le 9 novembre : le bureau la voit trois jours avant sa mise en place ; le gardien, pas encore
+    expect(await bandesVues(gerant())).toEqual([-3]);
+    expect(await bandesVues(tokenOf(OUSMANE, TENANT_A, 'collaborator'))).toEqual([]);
+
+    // Le 12 novembre à 0 h 30 à Dakar : J0, le gardien la voit
+    const before = now;
+    now = Date.parse('2026-11-12T00:30:00.000Z');
+    try {
+      expect(await bandesVues(tokenOf(OUSMANE, TENANT_A, 'collaborator'))).toEqual([0]);
+    } finally {
+      now = before;
+    }
+  });
+
+  it('les règles du domaine refusent (400, avec le motif) sans rien écrire : souche inconnue, effectif nul, date à plus de 30 jours ou trop ancienne, durée hors bornes', async () => {
     const refusals = [
       [uneBande(110, { strain: 'Ross308' }), 'UnknownStrain'],
       [uneBande(111, { plannedHeadcount: 0 }), 'InvalidQuantity'],
-      [uneBande(112, { placementDay: '2026-11-10' }), 'PlacementInFuture'],
+      [uneBande(112, { placementDay: '2026-12-10' }), 'PlacementTooFarAhead'],
       [uneBande(113, { placementDay: '2026-09-09' }), 'PlacementTooOld'],
       [uneBande(114, { plannedDuration: 61 }), 'InvalidPlannedDuration'],
       [uneBande(115, { placementDay: '9 nov.' }), 'InvalidBusinessDay'],

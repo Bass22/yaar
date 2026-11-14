@@ -52,11 +52,13 @@ describe('Clôturer une bande, au bureau', () => {
     fetch(`${origin}/api/v1/${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const clore = (campaignId: string, body: unknown, token = tokenOf(LE_GERANT, 'admin')) => call('POST', `campaigns/${campaignId}/closing`, body, token);
   const RESTES = [
-    { costTypeId: DEMARRAGE, whole: 2, opened: true },
+    // The opened bag of starter feed still holds 10 kg (N.8d)
+    { costTypeId: DEMARRAGE, whole: 2, opened: true, openedWeight: 10_000 },
     { costTypeId: VACCIN, whole: 3, opened: true },
     { costTypeId: LITIERE, whole: 1, opened: false },
   ];
-  const demande = (fields: object = {}) => ({ leftovers: RESTES, leftoversTo: SUIVANTE, comment: '  Bonne bande, chaleur en semaine 4.  ', ...fields });
+  // 20 bags received, 17 opened: 3 closed expected; 2 counted — one bag fewer, explained (N.8d).
+  const demande = (fields: object = {}) => ({ leftovers: RESTES, leftoversTo: SUIVANTE, comment: '  Bonne bande, chaleur en semaine 4.  ', feedGapComment: '  Un sac mouillé par la pluie, jeté.  ', ...fields });
   const refus = async (response: Response) => ({ status: response.status, kind: ((await response.json()) as { kind?: string }).kind });
 
   beforeAll(async () => {
@@ -127,7 +129,7 @@ describe('Clôturer une bande, au bureau', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias' })
+      .useValue({ port: 0, databaseUrl: db.appUrl, jwtSecret: SECRET, mediaPath: '/data/medias', vapidPublicKey: null })
       .overrideProvider(CLOCK)
       .useValue(clock)
       .compile();
@@ -180,10 +182,26 @@ describe('Clôturer une bande, au bureau', () => {
       ['un nombre négatif', demande({ leftovers: [{ costTypeId: DEMARRAGE, whole: -1, opened: false }] }), 'InvalidQuantity'],
       ['un type en double', demande({ leftovers: [RESTES[0], RESTES[0]] }), 'DuplicateType'],
       ['un commentaire de plus de 2 000 caractères', demande({ comment: 'x'.repeat(2001) }), 'CommentTooLong'],
+      ['un écart de sacs d’aliment sans commentaire', demande({ feedGapComment: null }), 'UnexplainedFeedGap'],
+      ['un écart de sacs avec un commentaire vide', demande({ feedGapComment: '   ' }), 'UnexplainedFeedGap'],
+      ['des kg restants sur un reste qui n’est pas de l’aliment', demande({ leftovers: [RESTES[0], { costTypeId: VACCIN, whole: 3, opened: true, openedWeight: 100 }] }), 'InvalidOpenedWeight'],
+      ['un commentaire d’écart de plus de 2 000 caractères', demande({ feedGapComment: 'x'.repeat(2001) }), 'CommentTooLong'],
     ])('une clôture refusée ne touche à rien : %s', async (_label, body, kind) => {
       expect(await refus(await clore(BANDE, body))).toEqual({ status: 400, kind });
       expect(await db.superuser.campaign.findUniqueOrThrow({ where: { id: BANDE }, select: { closedAt: true } })).toEqual({ closedAt: null });
       expect(await db.superuser.campaignLeftover.count()).toBe(0);
+    });
+
+    // Spec: backlog N.8d — les sacs d'aliment comptés à la clôture (décisions du fondateur du 2026-11-13)
+    it('les sacs d’aliment fermés ne tombent pas juste : refusé, et le serveur dit l’écart — tous aliments ensemble, signé', async () => {
+      const response = await clore(BANDE, demande({ feedGapComment: null }));
+      expect(response.status).toBe(400);
+      // 20 reçus − 17 ouverts = 3 attendus ; 2 comptés → −1
+      expect(await response.json()).toEqual({ kind: 'UnexplainedFeedGap', expected: 3, counted: 2, gap: -1 });
+    });
+
+    it('une demande sans le commentaire d’écart reste lisible : sans écart, rien à expliquer', async () => {
+      expect(await refus(await clore(BANDE, { leftovers: RESTES, leftoversTo: SUIVANTE, comment: null }))).toEqual({ status: 400, kind: 'UnexplainedFeedGap' });
     });
 
     it('une bande déjà close ne se clôture pas une seconde fois', async () => {
@@ -201,12 +219,17 @@ describe('Clôturer une bande, au bureau', () => {
     });
 
     it('la bande est close, ses restes écrits, la bande qui les reçoit et le commentaire gardés ; rien d’effacé', async () => {
-      expect(await db.superuser.campaign.findUniqueOrThrow({ where: { id: BANDE }, select: { closedAt: true, leftoversTo: true, closingComment: true } })).toEqual({
+      expect(await db.superuser.campaign.findUniqueOrThrow({ where: { id: BANDE }, select: { closedAt: true, leftoversTo: true, closingComment: true, feedGapComment: true } })).toEqual({
         closedAt: expect.any(Date) as Date,
         leftoversTo: SUIVANTE,
         closingComment: 'Bonne bande, chaleur en semaine 4.',
+        feedGapComment: 'Un sac mouillé par la pluie, jeté.',
       });
-      expect(await db.superuser.campaignLeftover.findMany({ where: { campaignId: BANDE }, orderBy: { costTypeId: 'asc' }, select: { costTypeId: true, whole: true, opened: true } })).toEqual(RESTES);
+      expect(await db.superuser.campaignLeftover.findMany({ where: { campaignId: BANDE }, orderBy: { costTypeId: 'asc' }, select: { costTypeId: true, whole: true, opened: true, openedWeight: true } })).toEqual([
+        { costTypeId: DEMARRAGE, whole: 2, opened: true, openedWeight: 10_000 },
+        { costTypeId: VACCIN, whole: 3, opened: true, openedWeight: null },
+        { costTypeId: LITIERE, whole: 1, opened: false, openedWeight: null },
+      ]);
       expect(await db.superuser.journalEvent.count({ where: { campaignId: BANDE } })).toBe(6);
       expect(await db.superuser.sale.count({ where: { campaignId: BANDE } })).toBe(1);
     });
@@ -238,10 +261,13 @@ describe('Clôturer une bande, au bureau', () => {
         birdsSold: 900,
         costs: 975_000,
         leftovers: [
-          { costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 2, opened: true, value: 37_500 },
-          { costTypeId: VACCIN, name: 'Antibiotique', unit: 'unit', whole: 3, opened: true, value: 43_750 },
-          { costTypeId: LITIERE, name: 'Copeaux', unit: 'bag', whole: 1, opened: false, value: null },
+          { costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 2, opened: true, openedWeight: 10_000, value: 37_500 },
+          { costTypeId: VACCIN, name: 'Antibiotique', unit: 'unit', whole: 3, opened: true, openedWeight: null, value: 43_750 },
+          { costTypeId: LITIERE, name: 'Copeaux', unit: 'bag', whole: 1, opened: false, openedWeight: null, value: null },
         ],
+        // 3 sacs d'aliment fermés attendus, 2 comptés : l'écart signé et son explication (N.8d)
+        feedGap: -1,
+        feedGapComment: 'Un sac mouillé par la pluie, jeté.',
         leftoversTo: { campaignId: SUIVANTE, siteName: 'Poulailler Nord', placementDay: '2026-11-01' },
         leftoversValue: 81_250,
         netCost: 893_750,
@@ -263,16 +289,21 @@ describe('Clôturer une bande, au bureau', () => {
     it('une bande qui a reçu des restes les compte à leur valeur dans le prix moyen de ses propres restes', async () => {
       // La bande suivante n'a rien commandé : son démarrage, ce sont les 5 demis reçus pour 37 500 F.
       // Elle laisse un sac entamé (1 demi) à la troisième : 37 500 × 1 ÷ 5 = 7 500 F
-      expect((await clore(SUIVANTE, { leftovers: [{ costTypeId: DEMARRAGE, whole: 0, opened: true }], leftoversTo: TROISIEME, comment: null })).status).toBe(204);
+      // Elle a reçu 2 sacs fermés de la bande d'avant et n'en a ouvert aucun au journal : 2 attendus, 0 compté (N.8d).
+      const sansExplication = await clore(SUIVANTE, { leftovers: [{ costTypeId: DEMARRAGE, whole: 0, opened: true }], leftoversTo: TROISIEME, comment: null });
+      expect(await sansExplication.json()).toEqual({ kind: 'UnexplainedFeedGap', expected: 2, counted: 0, gap: -2 });
+      // Elle a reçu 2 sacs fermés et n'en a ouvert aucun au journal : l'écart s'explique (N.8d).
+      expect((await clore(SUIVANTE, { leftovers: [{ costTypeId: DEMARRAGE, whole: 0, opened: true }], leftoversTo: TROISIEME, comment: null, feedGapComment: 'Les deux sacs reçus ont fini dans le sac entamé.' })).status).toBe(204);
 
       const report = (await (await call('GET', `campaigns/${SUIVANTE}/closing-report`)).json()) as ClosingReportView;
-      expect(report.leftovers).toEqual([{ costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 0, opened: true, value: 7_500 }]);
+      expect(report.leftovers).toEqual([{ costTypeId: DEMARRAGE, name: 'Aliment démarrage', unit: 'bag', whole: 0, opened: true, openedWeight: null, value: 7_500 }]);
       expect(((await (await call('GET', `campaigns/${TROISIEME}/money`)).json()) as CampaignMoneyView).committed).toBe(7_500);
     });
 
-    it('le sac d’aliment entamé sort de la consommation, au dernier jour où un sac a été ouvert', async () => {
-      // J0 : 2 sacs ÷ 1 000 = 100 g ; J20 : (15 − 0,5) sacs ÷ 950 = 763,16 g → 863 g (et non 889 g sans le demi-sac)
-      expect(((await (await call('GET', `campaigns/${BANDE}/tracking`)).json()) as TrackingView).feed.cumulative).toBe(863);
+    it('le sac d’aliment entamé sort de la consommation, au dernier jour où un sac a été ouvert, à ses kg restants', async () => {
+      // J0 : 2 sacs ÷ 1 000 = 100 g ; J20 : 15 sacs de 50 kg moins les 10 kg restés dans l'entamé (N.8d) :
+      // 740 000 g ÷ 950 = 778,95 g → 879 g (863 g avec un demi-sac estimé, 889 g sans rien retirer)
+      expect(((await (await call('GET', `campaigns/${BANDE}/tracking`)).json()) as TrackingView).feed.cumulative).toBe(879);
     });
 
     it('le gardien du site ne voit plus les bandes closes : il voit la seule bande encore en cours', async () => {

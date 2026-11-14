@@ -3,6 +3,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 // The stamp « C'est noté » (H.5, mockup .bravo): it slams down on the page once a declaration
 // is kept, then the screen takes it away. Shown only once the outbox has kept the event (G.3).
 // It moves by transform and opacity only.
+/** How long the stamp « C'est noté » stays on screen, in milliseconds: the same after every gesture. */
+export const STAMP_MS = 1500;
+
 @Component({
   selector: 'app-stamp',
   changeDetection: ChangeDetectionStrategy.OnPush,

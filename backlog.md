@@ -50,8 +50,8 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Horloge en avance, deux détails reportés le 2026-11-07 (« pas urgent ; on suppose que le gardien se connecte tous les jours ») : 1) à quel instant juger l'événement — proposition : à sa date de réception, l'instant le plus tard où il a pu être écrit (sinon un téléphone en avance de cinq jours se verrait refuser une déclaration du jour même) ; la date de saisie reste stockée telle qu'écrite ; 2) à partir de quel écart prévenir l'admin — proposition : au-delà de 5 minutes, dans une constante | CdC « Rattrapage » | Rien tant que le gardien se connecte chaque jour ; à reprendre avant les pilotes |
 | ~~L'admin doit-il pouvoir travailler hors-ligne dès la V1 ?~~ ✅ tranché le 2026-11-06 : oui pour la saisie, en trois volets — écritures d'argent ajoutées et jamais modifiées (identifiant créé sur l'appareil) ; coût, paiement, vente et déclaration à la place du gardien en file d'attente ; référentiels, modification de commande, clôture et comptes restent en ligne | Archi, décisions postérieures | ~~O.3, P.1, P.7~~ |
 | Combien de temps les éleveurs pilotes restent-ils sans aucun réseau (heures ou jours) ? La réponse décide du calcul local complet des chiffres du bureau | CdC « Points ouverts » | Rien en V1 |
-| Par quel écran l'admin annule-t-il une déclaration (C.7) ? Même question que la suivante | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche O.4, U.2 |
-| Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
+| → O.7 (2026-11-13) : le bureau, journal de la bande  Par quel écran l'admin annule-t-il une déclaration (C.7) ? Même question que la suivante | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche O.4, U.2 |
+| → O.7 (2026-11-13) : le bureau, journal de la bande  Par quel écran l'admin déclare-t-il à la place du gardien : le cahier du site (hors-ligne, trois taps, avec le choix d'un jour au-delà d'avant-hier) ou le bureau (en ligne seulement) ? | CdC (non précisé) | Aucune tranche d'écran ne le porte encore ; touche J.2 et O.4 |
 | ~~Retirer une déclaration faite par erreur (double saisie, mauvais jour, mauvais geste)~~ ✅ tranché le 2026-11-06 : l'admin l'annule, en ligne — l'annulation est tracée, définitive, et l'emporte sur toute correction (C.7) | CdC « Corrections » | ~~C.6~~ |
 | Le gardien peut-il annuler lui-même, dans ses trois jours et en ligne, comme il corrige ? (reporté le 2026-11-06 : « on verra plus tard » ; d'ici là une erreur attend que l'admin soit joignable) | CdC « Points ouverts » | K.5 |
 | Date de dernière synchro du cahier de chaque appareil : la garder côté serveur et l'afficher (au bureau : « le cahier d'Ousmane n'a rien envoyé depuis 2 jours », pour ne pas lire « non déclaré » là où il faut lire « pas encore reçu » ; au gardien : de quand datent ses chiffres) ? Recommandé ; ce n'est pas une condition de l'annulation, que le serveur arbitre seul | CdC (non précisé) | F.2, F.3, O.4, U.2 |
@@ -84,6 +84,7 @@ Aucune de ces questions ne se tranche en codant (`CLAUDE.md` §11). Chacune bloq
 | Délais de rétention des médias, durée légale des pièces justificatives | CdC « Points ouverts » | U.3 |
 | ~~Le demi-sac entamé laissé à la clôture sort-il de la consommation d'aliment de la bande (−25 kg) ?~~ ✅ tranché le 2026-11-12 : oui, au dernier jour où un sac a été ouvert | CdC « Les restes et le bilan » | ~~X.2~~ |
 | L'aliment acheté au poids (15 kg au lieu d'un sac de 50 kg, vu par le fondateur le 2026-11-12) : comment le commander, et comment le gardien le déclare-t-il ouvert ? Aujourd'hui tout l'aliment se compte en sacs de 50 kg (V.1) : 15 kg commandés comme un sac comptent 50 kg mangés et faussent le prix moyen des restes | Fondateur, 2026-11-12 | V.1, X.1 (exactitude) |
+| ~~Ouvrir une bande en avance : jusqu'où dans le futur ? Et plus de 60 jours en arrière ?~~ ✅ tranché le 2026-11-13 : 30 jours dans le futur ; 60 jours en arrière gardés pour la saisie au bureau, l'historique entre par l'import (Z.6) | Fondateur, 2026-11-13 | ~~O.5~~ |
 | Que devient un événement synchronisé après la clôture de la campagne ? Et l'admin peut-il encore corriger le cahier après la clôture (aujourd'hui refusé, C.4) ? | CdC (non précisé) | X.3 |
 | Hébergeur et région | Archi §12 | Z.5 |
 | Correspondance des onglets Excel vers les événements | CdC « Points ouverts » | Z.6 |
@@ -583,6 +584,16 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'admin choisit la langue audio d'un collaborateur à la création, et la change : une langue dont les clips existent (wolof, français ; d'autres plus tard) — c'est la personne qui écoute, et un remplaçant ne parle pas forcément la langue du titulaire
 - [x] Sans langue choisie, le compte suit la langue par défaut de son site
 
+### E.10 — Le PIN résiste au martèlement · **M** · 🔒 · 🧪 ✅
+> Spec : CdC « Identité » ; réserves R-14, R-15, R-16 · Zone : `apps/api/src/auth/`
+> Dépend de : E.2, E.6 · Revue : un essai simultané, un faux appareil et un numéro inconnu, joués pour de vrai. Ajoutée le 2026-11-13 (décision du fondateur : avant la mise en ligne).
+
+- [x] Un essai est réservé (compté) avant que le PIN soit vérifié : deux essais simultanés ne passent pas ensemble (R-15)
+- [x] L'attente après des PIN faux ne frappe que l'appareil qui se trompe ; un appareil où le compte s'est déjà connecté n'est jamais ralenti par un autre (R-14)
+- [x] Au-delà de 20 échecs en 24 h sur un compte, tout nouvel appareil attend, et la trace le dit à l'admin (R-14)
+- [x] Un numéro inconnu répond comme un numéro connu : même attente après 3 essais, même temps de réponse (R-16)
+- [x] Un PIN juste remet le compteur de son appareil à zéro, même quand la connexion est refusée pour une autre raison (compte bloqué, PIN à choisir) ; un PIN provisoire remet à zéro tous les appareils du compte
+
 ## F — Ingestion et descente
 
 ### F.1 — Décoder un événement reçu · **M** · 🧪 ✅
@@ -708,15 +719,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Une session expirée conserve l'outbox ; la synchro reprend après reconnexion
 - [x] Une session révoquée arrête la synchro et le dit à l'utilisateur (`JournalSync.stopped` ; l'écran qui le dit vient avec le cahier)
 
-### G.6 — L'outbox se vide de ce qui est envoyé · **S** · 🧪
+### G.6 — L'outbox se vide de ce qui est envoyé · **S** · 🧪 ✅
 > Spec : Archi §5 « Outbox locale » ; CLAUDE.md §4 règle 3 · Zone : `apps/web/src/app/core/outbox/`
 > Dépend de : G.4 · Revue : jamais un événement en attente ou en doute ne disparaît. Ajoutée le 2026-11-07 (question du fondateur : « la mémoire des téléphones est nettoyée ? »).
 > Aujourd'hui rien ne nettoie l'outbox : les événements envoyés et refusés y restent. Pas urgent — environ 300 octets par déclaration, soit 1 Mo par an pour un gardien qui en écrit dix par jour — mais à faire avant que les téléphones vivent des années.
 
-- [ ] Un événement envoyé s'efface du téléphone quelques jours après son envoi (120 jours, dans une constante) : le serveur l'a, et le cahier le reçoit de lui
-- [ ] Un événement refusé reste jusqu'à ce que son refus ait été vu, pour qu'aucune erreur ne disparaisse en silence
-- [ ] Un événement en attente ou en doute ne s'efface jamais, quel que soit son âge
-- [ ] Le nettoyage tourne au démarrage, sans retarder l'ouverture du cahier
+- [x] Un événement envoyé s'efface du téléphone quelques jours après son envoi (120 jours, dans une constante) : le serveur l'a, et le cahier le reçoit de lui
+- [x] Un événement refusé reste jusqu'à ce que son refus ait été vu, pour qu'aucune erreur ne disparaisse en silence
+- [x] Un événement en attente ou en doute ne s'efface jamais, quel que soit son âge
+- [x] Le nettoyage tourne au démarrage, sans retarder l'ouverture du cahier
 
 ---
 
@@ -849,6 +860,11 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] Les déclarations des autres gardiens du site apparaissent
 - [x] Une ligne corrigée montre sa valeur effective
 - [x] Un journal vide le dit sans texte seul
+
+### J.4 — Le cahier ne montre que les jours de la bande · **S** ✅
+> Spec : CdC « Rattrapage » · Zone : `apps/web/src/app/caretaker/notebook/` · Ajoutée le 2026-11-13 (demande du fondateur).
+
+- [x] À J0, seul « aujourd'hui » ; à J1, « aujourd'hui » et « hier » ; dès J2, les trois jours — un jour d'avant la mise en place n'existe pas pour la bande (le serveur le refuse déjà)
 
 ## K — Les gestes de déclaration
 
@@ -1089,16 +1105,18 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'espèce est un attribut de la souche, pas du journal
 - [x] Un âge hors de la table renvoie une valeur absente, jamais zéro
 
-### N.5 — Le catalogue de prix apprend seul · **S**
-> Spec : CdC « Valeurs par défaut » · Zone : `apps/api/src/settings/price-catalog/`
-> Dépend de : N.2 · Revue : le catalogue pré-remplit, il n'impose rien.
+### N.5 — Le catalogue de prix apprend seul · **S** ✅
+> Spec : CdC « Valeurs par défaut » · Zone : `packages/domain/src/finance/price-catalog.ts`, `apps/api/src/reference-data/price-catalog*.ts`, `apps/web/src/app/admin/more/price-catalog-page.ts` · Dépend de : N.2 · Revue : le catalogue pré-remplit, il n'impose rien.
+> Décisions du fondateur (2026-11-13) : vide au départ, il apprend ; par article et par fournisseur. Le gabarit de l'éditeur attend les prix habituels du fondateur.
 
-- [ ] Un catalogue de prix par article est pré-rempli à la création du tenant
-- [ ] L'admin modifie un prix du catalogue à tout moment
-- [ ] Le dernier prix saisi pour un article devient son prix par défaut
-- [ ] Un article sans prix connu propose un champ vide, jamais zéro
+- [x] ~~Un catalogue de prix par article est pré-rempli à la création du tenant~~ — remplacé (décision du 2026-11-13) : il part vide, une case sans prix reste vide
+- [x] La commande propose le dernier prix payé à ce fournisseur pour cet article, sinon le dernier de l'article, sinon rien
+- [x] L'admin modifie un prix du catalogue à tout moment
+- [x] Le dernier prix saisi pour un article devient son prix par défaut
+- [x] Un article sans prix connu propose un champ vide, jamais zéro
 
-### N.6 — L'écran des référentiels · **M** · 🎨
+### N.6 — ⏸ L'écran des référentiels · **M** · 🎨
+> **Reportée (décision du fondateur du 2026-11-13)** : les types d'office suffisent ; un écran ouvert tôt pousserait à créer deux types qui font la même chose. Elle revient le jour où un type manquant devient bloquant.
 > Spec : CdC « Référentiels » (le gardien ne voit jamais ces écrans) · Zone : `apps/web/src/app/admin/reference-data/`
 > Dépend de : N.2, N.3, O.3 · Revue : la maquette d'abord, puis l'écran.
 
@@ -1107,6 +1125,65 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Il coche ou décoche un type de la liste de départ (décocher = archiver, cocher = désarchiver)
 - [ ] Un type du socle n'offre pas d'action de suppression
 - [ ] Les routes des référentiels sont inaccessibles à un collaborateur
+
+### N.7 — Les aliments selon l'âge · **S** ✅ (poulet de chair ; pondeuses en V2)
+> Spec : CdC « Référentiels » · Zone : `packages/domain/src/finance/cost-category.ts` (types d'office) · Ajoutée le 2026-11-13 (demande du fondateur).
+
+- [x] Un élevage neuf reçoit d'office trois types sous Aliments : démarrage, croissance, finition (le poulet de chair) ; ils se commandent, se reçoivent et se comptent séparément
+- [ ] **Limite pour le gardien, à valider sur le terrain** : les trois aliments ont le même picto de sac ; un camion qui apporte deux aliments montre deux lignes semblables à qui ne lit pas. Piste : une couleur de sac, ou un chiffre 1-2-3 sur le picto (à montrer à un gardien avant de l'adopter)
+- [x] Un quatrième type d'office, **Aliment au kg**, en dernier, pour l'achat rare au poids, écrit 1 × le prix total (décision du 2026-11-13)
+- [x] ~~Noté pour plus tard : l'ouverture d'un sac porte son poids~~ — remplacé par N.8 (décision du 2026-11-13) : le poids d'un sac est en base, et la consommation suit le premier arrivé, premier ouvert
+- [ ] Pour les pondeuses (V2), les aliments se distinguent aussi selon l'âge
+- [ ] **Noté pour plus tard** (décision du 2026-11-13 : pas maintenant) : avertir quand un aliment ne correspond pas à l'âge de la bande (du finition à J5)
+
+### N.8a — Le poids d'un sac d'aliment, en base · **M** ✅
+> Spec : CdC « Référentiels » (le poids d'un sac, décisions du fondateur du 2026-11-13) · Zone : `packages/domain/src/finance/purchase-order.ts`, `apps/api/prisma/`, `apps/api/src/orders/`, `apps/api/src/reference-data/` · Dépend de : N.7, Q.4 · Revue : un fait de l'achat, recopié, jamais relu sur le type.
+
+- [x] Chaque type d'aliment porte le poids habituel de son sac : 50 kg pour démarrage, croissance et finition, aucun pour Aliment au kg
+- [x] Une ligne de commande d'aliment recopie le poids habituel de son type, ou garde celui que l'admin écrit pour elle
+- [x] Une ligne d'aliment sans poids, ni écrit ni habituel, est refusée ; une ligne qui n'est pas de l'aliment ne porte aucun poids
+- [x] Le poids se lit avec la commande, au bureau ; le cahier du gardien n'en reçoit aucun
+- [x] Le diagramme de la base est régénéré
+
+### N.8b — La consommation par le premier arrivé · **M** · 🧪 ✅
+> Spec : CdC « La consommation d'aliment », « Référentiels » (le poids d'un sac) · Zone : `packages/domain/src/journal/feed-consumption.ts`, `apps/api/src/campaigns/tracking.ts` · Dépend de : N.8a, V.1 · Revue : le geste du gardien ne change pas.
+
+- [x] Chaque sac ouvert prend le poids du plus ancien sac reçu pas encore ouvert
+- [x] Un sac ouvert sans sac reçu en attente compte le poids habituel du dernier type d'aliment reçu, sinon 50 kg
+- [x] Le sac entamé à la clôture retire la moitié de son poids
+- [x] Les restes reçus d'une autre bande passent en premier, à leur poids
+
+### N.8c — « Sac de 50 kg · changer » dans la commande · **S** · 🎨 ✅
+> Spec : CdC « Référentiels » (le poids d'un sac) · Zone : `apps/web/src/app/admin/purchases/` · Dépend de : N.8a · Revue : une ligne discrète, pas un champ de plus.
+
+- [x] Une ligne d'aliment montre le poids de son sac et se change d'un tap
+- [x] Aliment au kg demande le poids et le prix total
+- [ ] **Noté pour plus tard**, à valider sur le terrain : dire au gardien le poids d'un sac qui n'est pas de 50 kg, sur sa carte de livraison
+
+### O.8 — Le calendrier de la bande, au bureau · **M** · 🎨 ✅ (sans maquette ; vu à 360 px le 2026-11-13)
+> Spec : CdC « Corrections », « Journal » · Zone : `apps/web/src/app/admin/journal/` · Dépend de : O.7, C.6 · Ajoutée le 2026-11-13 (demande du fondateur : le calendrier de la campagne comme filtre, et une plage de dates).
+
+- [x] Une case par jour, de J0 à aujourd'hui, rangée par semaines ; chaque jour dit son résumé (rien de déclaré, rien perdu, des morts et leur nombre) par picto, couleur et mot
+- [x] Un tap sur un jour filtre le journal sur ce jour ; un second tap sur un autre jour, sur la plage entre les deux ; un tap sur « Semaine n », sur ses sept jours
+- [x] « Ajouter une déclaration » prend le jour choisi
+- [x] Aujourd'hui sans rien d'écrit est « en cours » (soleil, neutre) : il ne devient « rien écrit » qu'une fois passé (décision du fondateur du 2026-11-13)
+
+### O.7 — Le journal de la bande, au bureau · **M** · 🎨 ✅
+> Spec : CdC « Corrections », « Journal » ; `CLAUDE.md` §4 règle 1 · Zone : `apps/web/src/app/admin/journal/` · Dépend de : C.6, C.7, O.6 · Ajoutée le 2026-11-13 (demande du fondateur). Répond aux deux questions ouvertes « par quel écran l'admin annule-t-il ? » et « par quel écran déclare-t-il à la place du gardien ? » : le bureau, en ligne.
+
+- [x] L'admin voit toutes les déclarations de la bande, jour par jour : qui, quoi, quand, corrigée ou annulée
+- [x] Il ajoute une déclaration à la place du gardien, à n'importe quel jour de la bande ; il en est l'auteur
+- [x] Il corrige une ligne (contre-déclaration) ou l'annule (annulation tracée, définitive) — jamais d'effacement : l'ancienne valeur reste lisible
+- [ ] ~~La maquette d'abord~~ — pas faite : l'écran a été écrit directement dans le langage du bureau (cartes, puces, boutons d'action) ; à regarder à 360 px quand la pile locale sera refaite
+
+### N.8d — Les sacs d'aliment comptés à la clôture · **M** ✅
+> Spec : CdC « Clôture » (restes), « Référentiels » (le poids d'un sac, les sacs à la clôture) · Dépend de : N.8b, X.1, O.7 · Ajoutée le 2026-11-13 (idée du fondateur). Décisions du 2026-11-13 : tous aliments ensemble ; tout écart expliqué ; un commentaire, pas de liste de raisons.
+
+- [x] À la clôture, l'admin compte les sacs fermés et les kg du sac entamé, **sans chiffre pré-rempli** ; l'application compare aux sacs reçus et pas ouverts, et montre l'écart signé (« 1 sac de moins qu'attendu : une ouverture n'a peut-être pas été déclarée ») ; le compte de l'admin fait foi, l'écart est écrit au bilan — un écart signale, il n'accuse pas (demande du fondateur du 2026-11-13)
+- [x] **Pas de clôture avec un écart non expliqué**, dans un sens comme dans l'autre : l'admin corrige le journal (O.7) ou écrit un commentaire (décision du 2026-11-13 : pas de liste de raisons) ; jamais une clôture qui pousse à inventer une déclaration
+- [x] Le bilan montre l'écart signé et son commentaire
+- [x] Reportés sur une autre bande, ils y passent en premier, à leur poids
+- [x] Le sac entamé : l'admin écrit les kg qui restent, s'il les connaît (pesés de préférence) ; une case vide garde l'estimation de la moitié du sac (idée du fondateur du 2026-11-13)
 
 ## O — Sites, campagnes et coquille du bureau
 
@@ -1165,6 +1242,21 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Des morts déclarés supérieurs aux vivants lèvent une alerte, avec icône, couleur et mot
 - [ ] Tant qu'aucun poussin n'est reçu, l'onglet dit que la réception manque au lieu de lever l'alerte de dépassement (QA de C.5 — à confirmer)
 - [ ] Les déclarations refusées du registre (G.5) s'affichent, et l'admin en réécrit une en un tap pour son jour d'origine, « pour le compte de » son auteur
+
+### O.5 — Ouvrir une bande en avance · **S** ✅
+> Spec : CdC « Ouvrir une bande » · Zone : `packages/domain/src/journal/campaign.ts`, `apps/api/src/journal/caretaker-context.ts` · Ajoutée le 2026-11-13 (décision du fondateur).
+
+- [x] L'admin ouvre une bande dont la mise en place est dans le futur (pour ne pas oublier) ; le bureau la montre « à venir »
+- [x] Le gardien ne la voit qu'à partir de son jour de mise en place (J0), dans son fuseau
+- [x] La mise en place se fixe au plus **30 jours dans le futur** (décision du 2026-11-13) ; dans le passé, la limite de 60 jours reste pour la saisie au bureau — les campagnes historiques entrent par l'import (Z.6), qui ne passe pas par cette règle
+- [x] ~~Question ouverte : les livraisons avant J0~~ tranchée le 2026-11-13 : oui, le gardien les voit et les compte (Q.11)
+
+### O.6 — Choisir la bande une fois au bureau · **S** · 🎨 ✅ (d'après la maquette validée, « Changer de lot » ; écran à revoir par le fondateur)
+> Spec : à concevoir avec `/designer` · Ajoutée le 2026-11-13 (question du fondateur).
+
+- [x] Le lot de travail se choisit une fois et se garde sur l'appareil, pour la personne qui l'a choisi ; un seul lot en cours : c'est lui
+- [x] Chaque page d'un lot le nomme, avec « Changer de lot » ; toucher un lot dans « Lots » en fait le lot de travail
+- [x] « Écrire » (dépense, commande, vente) part du lot de travail ; un autre lot reste au choix
 
 ## P — Coûts
 
@@ -1383,7 +1475,77 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'engagé ne change pas quand un paiement est enregistré
 - [x] La commande passe à « soldée » quand les conditions de Q.3 sont réunies
 
+### Q.11 — Les livraisons d'une bande à venir · **S** · 🧪 ✅ (à revoir sur appareil)
+> Spec : CdC « Ouvrir une bande » (livraisons avant J0) · Zone : `packages/domain/src/journal/validate-declaration.ts`, `apps/api/src/journal/caretaker-context.ts`, `apps/web/src/app/caretaker/notebook/` · Ajoutée le 2026-11-13 (décision du fondateur).
+
+- [x] Une réception peut être datée d'avant la mise en place ; une autre déclaration reste refusée avant J0
+- [x] Le contexte du gardien porte une bande à venir dès qu'elle a une livraison annoncée en attente, et seulement alors
+- [x] Le cahier en montre la seule carte de livraison : pas de jours, pas de morts, pas de choix de bande
+
+### Q.12 — Relire une commande · **S** ✅
+> Spec : CdC « Commandes » · Zone : `apps/web/src/app/admin/purchases/` · Ajoutée le 2026-11-13 (demande du fondateur : « pouvoir relire les éléments d'une commande juste pour savoir ce qui avait été commandé »).
+
+- [x] Toute commande s'ouvre d'un tap, même annoncée ou close : un brouillon dans l'éditeur, les autres en lecture
+- [x] Chaque ligne : l'article, la quantité, le prix, le total de la ligne, le poids du sac, le reçu et le reste ; puis les paiements, qui a payé
+
+- [ ] **Demandé ensuite** (2026-11-13) : sur la fiche, chaque réception datée — quand, combien, par qui — en plus du reçu et du reste par ligne (avec Q.14)
+### Q.13 — La relecture qui attrape les inversions · **S** ✅
+> Spec : CdC « Commandes », « Valeurs par défaut » · Ajoutée le 2026-11-13 (le fondateur a tapé 2 250 en quantité au lieu du prix).
+
+- [x] Sous chaque ligne de l'éditeur, la phrase entière : « 2 250 sacs × 10 FCFA = 22 500 FCFA »
+- [x] Un prix très loin du prix habituel de l'article (le catalogue, N.5) avertit, sans bloquer : « quantité et prix inversés ? »
+
+### Q.14 — Les livraisons prévues · **M** ✅
+> Spec : CdC « Commandes », « Réceptions » · Ajoutée le 2026-11-13 (demande du fondateur : une commande faite à l'avance, reçue en plusieurs fois ; voir au bureau les commandes qui attendent une réception, avec les dates prévues).
+
+- [x] Sur une commande, sa date, puis des réceptions prévues : chacune sa date et une ou plusieurs lignes de la commande avec leur quantité (« le 15 : 10 sacs d'aliment et 10 sacs de copeaux ») — décision du fondateur du 2026-11-13 ; la première pré-remplie avec tout le commandé ; modifiables tant qu'elles ne sont pas reçues
+- [x] « À recevoir », au bureau : les livraisons prévues par date — en retard, aujourd'hui, à venir — cochées par les réceptions du gardien (reçu 8 sur 10 prévus, il en reste 2)
+- [x] Une commande reçue en une fois reste comme aujourd'hui : aucune réception prévue à saisir, le gardien est prévenu, c'est tout — les réceptions prévues ne servent qu'à une commande reçue en plusieurs fois (décision du 2026-11-13)
+- [x] Une réception en retard (sa date passée, pas tout reçu) alerte l'accueil « à traiter » ; sa date se reprogramme, tracée, l'ancienne date lisible (décision du 2026-11-13)
+
+### Q.15 — Prévenir en une fois, ou déclarer des réceptions · **M** · 🎨 ✅ (aucune alerte réelle sur un appareil encore)
+> Spec : CdC « Les réceptions prévues » (deux modes, décisions du fondateur du 2026-11-14) · Zone : `apps/api/src/orders/`, `apps/api/src/journal/caretaker-context.ts`, `apps/api/src/notifications/`, `apps/web/src/app/admin/purchases/`, `apps/web/src/app/caretaker/delivery/` · Dépend de : Q.14, Y.2a, Y.3.
+
+- [x] Une commande créée offre deux gestes exclusifs : « Prévenir le gardien de sa réception » (tout en une fois : l'annonce d'aujourd'hui) ou « Déclarer des réceptions » (en plusieurs fois : les réceptions prévues de Q.14)
+- [x] Une commande déclarée en plusieurs fois n'arrive au cahier que réception par réception : à sa date (ou en retard), avec ses seules lignes et ce qui en reste ; jamais la commande entière, rien avant la date
+- [x] Le matin de sa date (7 h, heure du site), chaque réception prévue prévient les gardiens du site ; une date changée déplace l'alerte ; écrite ou reprogrammée pour aujourd'hui ou un jour passé, elle prévient le jour où elle est écrite (demande du fondateur du 2026-11-14) ; une fois par réception et par jour ; une réception toute reçue ne prévient pas
+- [x] Le reste à recevoir se recalcule après chaque comptage ; l'admin vérifie au bureau le reçu face au prévu, et avance la date si le camion vient plus tôt
+- [x] Une commande prévenue en une fois qui n'est pas tout livrée peut passer en plusieurs fois : le reste se prévoit en réceptions
+
+### N.9 — Le gardien distingue les aliments · **M** · 🎨 · ⚠ ✅ (couleurs à montrer à un gardien ; trois phrases à enregistrer)
+> Spec : CdC « Référentiels » (aliments selon l'âge), « Trois canaux » · Ajoutée le 2026-11-13 (demande du fondateur : « préciser le type d'aliment que doit recevoir le gardien »). Dépend de : N.7, Q.6.
+
+- [x] Chaque type d'aliment porte son stade : démarrage, croissance, finition (les types d'office d'abord)
+- [x] Sur la carte de livraison, **une couleur de sac par aliment** (décisions du fondateur du 2026-11-13 : jaune, vert, brun ; le geste « Sac ouvert » ne change pas) — couleurs tirées des jetons, **à montrer à un gardien avant de l'adopter**
+- [x] La voix dit l'aliment : « aliment de démarrage », « de croissance », « de finition » — **trois phrases à enregistrer** en wolof et en français
+
+### R.8 — « Payé d'avance » · **S** ✅
+> Spec : CdC « Grand livre des tiers » · Ajoutée le 2026-11-13 (le fondateur a lu « il te doit » pour un fournisseur payé avant de livrer).
+
+- [x] Un fournisseur qui te doit parce qu'il a été payé avant de livrer se dit « payé d'avance : N FCFA à livrer », pas « il te doit »
+
+### Q.10 — Des montants qui se lisent en les tapant · **S** ✅ (écran à revoir à 360 px)
+> Zone : `apps/web/src/app/admin/` · Ajoutée le 2026-11-13 (demande du fondateur).
+
+- [x] Une case de montant s'écrit avec l'espace des milliers pendant la saisie (« 10 000 ») ; le serveur reçoit toujours un entier
+- [x] La devise est collée à la case du prix (« FCFA », partout au bureau : décision du 2026-11-13), et l'unité à celle de la quantité (« sacs », « unités ») : on ne peut plus inverser le prix et la quantité
+
 ## R — Grand livre des tiers
+
+### R.6 — Les justificatifs : les joindre, même plus tard, et les voir · **M** ✅ (sauf les règlements)
+> Spec : CdC « Justificatifs » · Ajoutée le 2026-11-13 (question du fondateur : « on voit où les justificatifs ? » — nulle part ; décision du même jour : des photos aux commandes et aux paiements, ajoutables plus tard).
+
+- [x] Une photo se joint à une commande, au paiement d'une commande — depuis sa fiche, dès qu'elle existe ou plus tard ; plusieurs par écriture (la facture, puis le reçu Wave)
+- [ ] **Reste** : joindre à un règlement (le grand livre ne transporte pas encore son identifiant) ; joindre dans le geste même du paiement (aujourd'hui : depuis la fiche, juste après)
+- [x] Joindre ne modifie jamais l'écriture : c'est une écriture à part, en ajout seul (qui, quand, quelle photo) ; la photo s'archive, jamais effacée
+- [x] Un tap ouvre la photo : dépenses (« Reçu »), commandes, paiements, bons de livraison du journal
+- [x] Chaque lecture d'une photo vérifie qu'elle appartient à l'élevage, par l'écriture qui la cite
+
+### R.7 — Ajouter un tiers depuis « Qui doit quoi » · **S** ✅
+> Spec : CdC « Tiers » · Ajoutée le 2026-11-13 (demande du fondateur : créer des tiers en dehors des achats — un collaborateur créancier, un acheteur préparé à l'avance).
+
+- [x] « Ajouter un tiers » : sa sorte (Fournisseur, Acheteur, Collaborateur), son nom, son visage dans une liste courte selon la sorte (Aliment, Poussins, Véto ; Une personne, Une entreprise ; Une personne)
+- [x] « Peut avancer des frais », sur le tiers, décoché par défaut : la liste « payé par » ne montre que ceux-là (demande du fondateur du 2026-11-13)
 
 ### R.1 — Les soldes se déduisent des écritures · **M** · 🧪 ✅
 > Spec : CdC « Qui doit quoi » · Zone : `packages/domain/src/finance/ledger.ts`
@@ -1618,6 +1780,13 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## W — Ventes
 
+### W.4 — Les ventes prévues, acheteur par acheteur · **M** ✅
+> Spec : CdC « Budget de campagne », « Ventes » · Ajoutée le 2026-11-13 (idée du fondateur : garder les acheteurs pour avoir le prévisionnel ; décision : acheteur par acheteur).
+
+- [x] Une vente prévue par bande : l'acheteur, la semaine, le nombre de poulets, le prix par tête (le poids moyen prévu alors indicatif) ou au kilo (le poids moyen prévu alors obligatoire : poulets × poids × prix du kilo) — décisions du 2026-11-13 ; elle se modifie ou se retire jusqu'à la clôture, tracée
+- [x] Les recettes prévues et la marge prévue (recettes prévues − budget), sur la page Budget ; le prévu face au réalisé au fil des ventes
+- [x] Une vente prévue n'est jamais une créance : l'acheteur ne doit rien tant qu'il n'a pas acheté
+
 ### W.1 — Une vente, sa créance et la marge · **M** · 🧪 ✅
 > Spec : CdC « Ventes », « Analytics » (marge en direct) · Zone : `packages/domain/src/finance/sale.ts`
 > Dépend de : R.1, C.5 · Revue : la marge attendue, calculée à la main dans les tests.
@@ -1691,44 +1860,53 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## Y — Notifications et partage du bilan
 
-### Y.1 — S'abonner aux notifications · **M** · 🔒
+### Y.1 — S'abonner aux notifications · **M** · 🔒 ✅ (vu dans Chrome, pas sur un vrai téléphone ; deux phrases à enregistrer)
 > Spec : CdC « Notifications push » ; Archi §7 · Zone : `apps/api/src/notifications/subscriptions/`, `apps/web/src/app/core/push/`
 > Dépend de : G.2, E.4 · Revue : la clé privée VAPID ne quitte pas l'environnement du serveur.
 
-- [ ] L'appareil s'abonne après accord de l'utilisateur
-- [ ] L'abonnement est lié à l'utilisateur, à l'appareil et au site
-- [ ] Révoquer la session d'un appareil supprime son abonnement
-- [ ] Si la permission est refusée, l'application fonctionne sans notification
+- [x] L'appareil s'abonne après accord de l'utilisateur
+- [x] L'abonnement est lié à l'utilisateur, à l'appareil et au site
+- [x] Révoquer la session d'un appareil supprime son abonnement
+- [x] Si la permission est refusée, l'application fonctionne sans notification
 
-### Y.2 — Envoyer une notification · **M** · 🔒
-> Spec : CdC « Notifications push » (cas d'usage) ; Archi §7 · Zone : `apps/api/src/notifications/` (port push, gabarits)
-> Dépend de : Y.1, Q.6, T.2, U.1, O.4 · Revue : aucune charge utile ne porte de montant.
+### Y.2a — Envoyer : la livraison et la pesée, aux gardiens du site · **M** · 🔒 ✅ (aucun envoi réel vers un téléphone encore)
+> Spec : CdC « Notifications push » (Envoyer) ; Archi §7 · Zone : `apps/api/src/notifications/` · Dépend de : Y.1, Q.6, T.2 · Revue : aucune charge utile ne porte de montant ; la clé privée ne sort pas du serveur. Y.2 coupée en trois le 2026-11-14 (accord du fondateur) ; l'envoi est écrit maison, sans dépendance (décision du fondateur du même jour : chiffrement RFC 8291, signature VAPID RFC 8292, testés contre l'exemple de la norme).
 
-- [ ] Une livraison annoncée notifie les gardiens du site
-- [ ] Une demande de pesée notifie les gardiens du site
+- [x] Le chiffrement pour l'appareil et la signature VAPID, écrits avec le chiffrement de Node, vérifiés contre l'annexe A de la RFC 8291
+- [x] Une livraison annoncée notifie les gardiens du site
+- [x] Une demande de pesée notifie les gardiens du site
+- [x] La notification part après la validation : une annonce refusée ou annulée ne prévient personne
+- [x] La carte existe même si le push échoue ; un abonnement que le service dit disparu est supprimé
+- [x] Aucune notification ne contient de montant ni de donnée d'un autre site
+
+### Y.2b — Envoyer à l'admin : une correction, des morts au-delà des vivants · **M** ✅ (aucun envoi réel vers un appareil encore)
+> Dépend de : Y.2a, O.7 · Revue : la carte « À traiter » existe même si le push échoue. Décision du fondateur du 2026-11-14 : la carte d'une correction reste jusqu'à « Vu ».
+
+- [x] Une correction du cahier écrite par un gardien notifie les admins, avec l'ancienne et la nouvelle valeur ; celle de l'admin ne le notifie pas
+- [x] Des morts déclarés supérieurs aux vivants notifient les admins — écrits par un gardien ou par l'admin à sa place ; zéro n'est pas en dessous ; les pertes (manquants, dons, vols) aussi (correctif du 2026-11-14)
+- [x] Chaque notification a sa carte dans « À traiter » : la correction jusqu'à « Vu » (tracé), les morts de trop tant que les vivants sont sous zéro
+
+### Y.2c — ⏸ Le vocal reçu et le seuil de mortalité · **S** · ⚠
+> Dépend de : Y.2a, U.1, O.4 — attend le seuil de mortalité du fondateur et les vocaux (V2).
+
 - [ ] Un vocal reçu et un seuil de mortalité franchi notifient l'admin
-- [ ] Une correction du cahier notifie l'admin, avec l'ancienne et la nouvelle valeur
-- [ ] Des morts déclarés supérieurs aux vivants notifient l'admin
-- [ ] Chaque notification a sa carte dans l'application ; la carte existe même si le push échoue
-- [ ] Aucune notification ne contient de montant ni de donnée d'un autre site
 
-### Y.3 — Le rappel du soir · **S**
-> Spec : CdC « rappel du soir si rien déclaré » · Zone : `apps/api/src/notifications/evening-reminder/`
-> Dépend de : Y.2, C.6 · Revue : « rien perdu » compte comme une déclaration.
+### Y.3 — Le rappel du matin · **S** ✅ (aucun envoi ni tap réel sur un appareil encore)
+> Spec : CdC « Notifications push » (le rappel du matin) · Zone : `apps/api/src/notifications/` · Dépend de : Y.2a, C.6, K.4 · Revue : « rien perdu » compte comme une déclaration. Décision du fondateur du 2026-11-14 : le rappel de 20 h est remplacé par un rappel à 7 h sur les morts d'hier — le zéro ne se déclare que pour hier. Le serveur parcourt tous les élevages : une politique de lecture des seuls élevages (`tenant_listing`), comme celle de la connexion.
 
-- [ ] Un site sans déclaration aujourd'hui reçoit un rappel le soir
-- [ ] Un site qui a déclaré, zéro compris, n'en reçoit pas
-- [ ] Le rappel part une seule fois par soir et par site
-- [ ] Un site sans campagne en cours ne reçoit aucun rappel
+- [x] Un site dont une bande en cours hier n'a rien d'écrit pour les morts d'hier reçoit un rappel **à 7 h, heure du site**, adressé à **toute l'équipe du site** (décisions du fondateur du 2026-11-13 et du 2026-11-14)
+- [x] Un site qui a déclaré, zéro compris, n'en reçoit pas ; un sac ouvert seul ne compte pas
+- [x] Le rappel part une seule fois par jour et par site
+- [x] Un site sans bande en cours hier ne reçoit aucun rappel
 
-### Y.4 — Un tap, et l'application lit le message · **S**
+### Y.4 — Un tap, et l'application lit le message · **S** ✅ (aucun envoi ni tap réel sur un appareil encore)
 > Spec : CdC « un tap ouvre l'app qui lit le message à voix haute » · Zone : service worker, `apps/web/src/app/core/push/`
 > Dépend de : Y.2, I.2 · Revue : l'adresse ouverte vient d'une liste fermée.
 
-- [ ] Toucher une notification ouvre l'application sur la carte concernée
-- [ ] L'application lit le message à voix haute
-- [ ] Cela fonctionne quand l'application était fermée
-- [ ] Une notification dont la cible est inconnue ouvre l'écran d'accueil
+- [x] Toucher une notification ouvre l'application sur la carte concernée
+- [x] L'application lit le message à voix haute
+- [x] Cela fonctionne quand l'application était fermée
+- [x] Une notification dont la cible est inconnue ouvre l'écran d'accueil
 
 ### Y.5 — ⏸ Ce que chaque audience voit du bilan · **S** · 🔒
 > **Reportée par le fondateur le 2026-11-12** : la communication des résultats attend que les besoins réels soient validés ; on reste sur le pilotage des bandes de poulets de chair.
@@ -1756,13 +1934,13 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 
 ## Z — Preuves, exploitation et reprise
 
-### Z.1 — Le budget de performance est tenu par la CI · **S**
+### Z.1 — Le budget de performance est tenu par la CI · **S** ✅
 > Spec : Archi §4 « Budget perf en CI » · Zone : configuration CI
 > Dépend de : K.1 · Revue : les seuils, et ce qui les fait échouer.
 
-- [ ] Le bundle initial de la route gardien pèse moins de 200 Ko gzip
-- [ ] Le démarrage prend moins de 2,5 s en 3G bridée
-- [ ] Les fichiers chargés par la vue gardien ne contiennent pas le code de `domain/finance`
+- [x] Le bundle initial de la route gardien pèse moins de 200 Ko gzip
+- [x] Le démarrage prend moins de 2,5 s en 3G bridée
+- [x] Les fichiers chargés par la vue gardien ne contiennent pas le code de `domain/finance`
 
 ### Z.2 — Parcours doré : du poulailler au bureau · **M** · 🧪
 > Spec : CdC « Cahier du gardien », « Jour » · Zone : tests de bout en bout
@@ -1786,27 +1964,31 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [x] L'engagé et « Qui doit quoi » affichent les montants calculés à la main
 - [x] Le gardien n'a reçu aucun montant pendant tout le parcours
 
-### Z.4 — Sauvegarder et restaurer · **M** · 🔒
+### Z.4 — Sauvegarder et restaurer · **M** · 🔒 ✅ (copie hors du serveur avec l'hébergeur, Z.5)
 > Spec : Archi §9 « Sauvegardes » · Zone : `infra/`
 > Dépend de : M.1 · Revue : la restauration est réellement jouée, pas seulement la sauvegarde.
+> Décisions du fondateur (2026-11-12) : chiffrement par clé publique (`age`), la clé privée hors du serveur ; chaque nuit, 30 jours gardés.
 
-- [ ] Une sauvegarde contient la base et le volume des médias
-- [ ] Une restauration sur une instance vide redonne les mêmes chiffres et les mêmes médias
-- [ ] Les sauvegardes sont chiffrées, et leur accès est restreint à l'éditeur : elles contiennent le journal de tous les élevages (réserve R-19)
+- [x] Une sauvegarde contient la base et le volume des médias
+- [x] Une restauration sur une instance vide redonne les mêmes chiffres et les mêmes médias
+- [x] Les sauvegardes sont chiffrées, et leur accès est restreint à l'éditeur : elles contiennent le journal de tous les élevages (réserve R-19)
 
-### Z.5 — Mettre en production · **M** · 🔒 · ⚠
+### Z.5 — Mettre en production · **M** · 🔒 · ⚠ ✅ (reste avant la mise en ligne : la recette sur appareil)
 > Spec : Archi §9 · Zone : `infra/` (compose de production, Caddy)
 > Dépend de : Z.4 · Revue : en-têtes de sécurité et secrets.
+> Décisions du fondateur (2026-11-13) : hébergement visé Hetzner (OVHcloud en repli) ; copie des sauvegardes hors du serveur **sur l'ordinateur du fondateur** pour commencer (il vient les chercher ; Hetzner Storage Box ou OVH Object Storage plus tard, notés dans `docs/deploiement.md`) ; réserves fonctionnelles et R-11, R-17, R-20, R-21 acceptées pour le pilote fermé ; R-14, R-15, R-16 corrigées par E.10 avant la mise en ligne.
 
-- [ ] Le compose de production ne diffère du développement que par la configuration
-- [ ] Caddy sert l'application en HTTPS avec un certificat persistant
-- [ ] Les en-têtes de sécurité sont en place (HSTS, CSP, anti-encadrement)
-- [ ] Aucun secret n'est présent dans une image ni dans le dépôt
-- [ ] Les images de base sont épinglées par empreinte, et PostgreSQL ne journalise pas les ordres qui portent un mot de passe (réserve R-10)
-- [ ] La sonde `/api/v1/health/ready` n'est pas offerte à Internet sans limite de débit (réserve R-9)
-- [ ] Le tableau des réserves ouvertes de `docs/cahier-de-recette.md` est vide : chaque réserve est levée, ou acceptée par le fondateur
+- [x] Le compose de production ne diffère du développement que par la configuration
+- [x] Caddy sert l'application en HTTPS avec un certificat persistant
+- [x] Les en-têtes de sécurité sont en place (HSTS, CSP, anti-encadrement)
+- [x] Aucun secret n'est présent dans une image ni dans le dépôt
+- [x] Les images de base sont épinglées par empreinte, et PostgreSQL ne journalise pas les ordres qui portent un mot de passe (réserve R-10)
+- [x] La sonde `/api/v1/health/ready` n'est pas offerte à Internet sans limite de débit (réserve R-9)
+- [x] Le tableau des réserves ouvertes de `docs/cahier-de-recette.md` est vide : chaque réserve est levée, ou acceptée par le fondateur — vide au 2026-11-13, après E.10
 - [ ] La recette manuelle sur appareil du même cahier a été rejouée en entier
-- [ ] Une nouvelle version s'installe sans rien demander au gardien : relance à l'ouverture ou au retour au premier plan, jamais pendant un geste (décision du 2026-11-08, réserve 6 de la vérification du lot K)
+- [x] Un secret se change sans toucher aux données (`infra/rotate-secret.sh`), et le guide dit quand (ajouté le 2026-11-13 à la demande du fondateur)
+- [x] Les sauvegardes et la restauration suivent la surcouche de production (`COMPOSE_FILE`)
+- [x] Une nouvelle version s'installe sans rien demander au gardien : relance à l'ouverture ou au retour au premier plan, jamais pendant un geste (décision du 2026-11-08, réserve 6 de la vérification du lot K)
 
 ### Z.6 — ⏸ Importer l'historique Excel · ⚠
 > Spec : CdC « Points ouverts » (import Excel) · à spécifier avant découpage : correspondance des onglets, agrégats incrustés dans les commentaires, dates en série Excel, quantités négatives de report.
@@ -1819,14 +2001,15 @@ Ce qu'on ne reprend pas tel quel : les versions. build-track tourne sur NestJS 1
 - [ ] Il couvre l'exclusion de l'optimisation de batterie (Tecno, Infinix, Itel)
 - [ ] Il couvre la création des comptes et la configuration du site
 
-### Z.8 — Le diagramme des entités de la base · **S**
+### Z.8 — Le diagramme des entités de la base · **S** ✅ (`docs/schema.md`, tenu à jour par `npm test`)
 > Spec : demande du fondateur du 2026-11-12 (« voir plus clairement le stockage en base ») · Zone : `docs/` · Dépend de : toutes les tranches de la V1 — à faire **à la fin de la V1**, quand le schéma est stable
 > Revue : le diagramme se lit sans connaître le code ; il dit ce que la base garde, pas comment l'API le calcule.
 
-- [ ] Chaque table de `apps/api/prisma/schema.prisma`, ses colonnes principales et ses liens (clés étrangères par élevage), en un diagramme lisible
-- [ ] Les tables en ajout seul (journal, argent, médias, demandes) se distinguent des tables qui se modifient
-- [ ] Une légende dit en français ce que chaque table garde, avec les mots du glossaire
-- [ ] Le diagramme est généré depuis le schéma, pour qu'il ne mente pas le jour où le schéma change
+- [x] Chaque table de `apps/api/prisma/schema.prisma`, ses colonnes principales et ses liens (clés étrangères par élevage), en un diagramme lisible
+- [x] Les tables en ajout seul (journal, argent, médias, demandes) se distinguent des tables qui se modifient
+- [x] Une légende dit en français ce que chaque table garde, avec les mots du glossaire
+- [x] Le diagramme est généré depuis le schéma, pour qu'il ne mente pas le jour où le schéma change
+- [x] Toute tranche qui touche la base le régénère : `npm test` échoue sinon, et une nouvelle table sans légende française aussi (règle du fondateur du 2026-11-13, écrite dans `CLAUDE.md` §8)
 
 ---
 

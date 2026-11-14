@@ -2,7 +2,7 @@ import { unwrap } from '@kit';
 import { TimeZone, type BusinessDay } from '@domain/journal';
 import type { CaretakerCampaign, CaretakerJournalLine, FactPayload } from '@contracts';
 import type { OutboxEntry, OutboxState } from '../../core/outbox/outbox';
-import { daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, weighingRequestsOf } from './notebook-view';
+import { campaignDaysOf, daysOf, campaignsOf, expectedDeliveriesOf, journalOf, linesOf, liveCountOf, summaryOf, weighingRequestsOf } from './notebook-view';
 
 // Spec: backlog J.1 (les bandes du site), J.2 (trois jours et leur mini-résumé), J.3 (le journal
 // du jour) ; cahier des charges « En-tête et contexte », « Journal du jour », « Rattrapage » ;
@@ -70,6 +70,16 @@ describe('Les trois jours', () => {
       { day: '2026-11-05', when: 'yesterday' },
       { day: '2026-11-06', when: 'today' },
     ]);
+  });
+
+  // Spec: backlog J.4 (demande du fondateur du 2026-11-13) — un jour d'avant la mise en place n'existe pas pour la bande
+  it("à J0, seul aujourd'hui ; à J1, hier et aujourd'hui ; dès J2, les trois jours", () => {
+    const trois = daysOf(new Date('2026-11-06T08:00:00.000Z'), unwrap(TimeZone('Africa/Dakar')));
+
+    expect(campaignDaysOf(trois, '2026-11-06').map(({ when }) => when)).toEqual(['today']);
+    expect(campaignDaysOf(trois, '2026-11-05').map(({ when }) => when)).toEqual(['yesterday', 'today']);
+    expect(campaignDaysOf(trois, '2026-11-04').map(({ when }) => when)).toEqual(['dayBeforeYesterday', 'yesterday', 'today']);
+    expect(campaignDaysOf(trois, '2026-10-15')).toEqual(trois);
   });
 
   it("ailleurs, le jour suit le fuseau du site, pas le temps universel : à Lagos (UTC+1), 23 h 30 en temps universel est déjà demain", () => {
@@ -210,7 +220,7 @@ describe('Les vivants, en direct', () => {
   it('des poussins comptés sur le téléphone, pas encore partis : les vivants sont connus, morts déduits ; l’aliment ne compte pas', () => {
     const attendus = uneBande({
       liveCount: null,
-      deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', expected: 20, received: 0, remaining: 20 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', expected: 1000, received: 0, remaining: 1000 }] }],
+      deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', feedStage: null, expected: 20, received: 0, remaining: 20 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', feedStage: null, expected: 1000, received: 0, remaining: 1000 }] }],
     });
     const recus = (rank: number, orderLineId: string, receivedQuantity: number) => surLeTelephone(rank, { type: 'Delivery', orderLineId, receivedQuantity, deliveryNote: { kind: 'NoPaper' } });
 
@@ -227,7 +237,7 @@ describe('Les vivants, en direct', () => {
 describe('Les livraisons encore attendues', () => {
   const AVANT_HIER = '2026-11-04' as BusinessDay;
   const attendus = uneBande({
-    deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', expected: 20, received: 8, remaining: 12 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', expected: 1000, received: 0, remaining: 1000 }] }],
+    deliveries: [{ orderId: uuid(20), lines: [{ orderLineId: uuid(21), name: 'Aliment', category: 'Feed', feedStage: null, expected: 20, received: 8, remaining: 12 }, { orderLineId: uuid(22), name: 'Poussins', category: 'Chicks', feedStage: null, expected: 1000, received: 0, remaining: 1000 }] }],
   });
   const recus = (rank: number, orderLineId: string, receivedQuantity: number, state: OutboxState = 'pending') => surLeTelephone(rank, { type: 'Delivery', orderLineId, receivedQuantity, deliveryNote: { kind: 'NoPaper' } }, state);
 

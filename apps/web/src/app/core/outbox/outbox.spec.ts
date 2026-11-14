@@ -1,5 +1,5 @@
 import { IDBFactory } from 'fake-indexeddb';
-import { Outbox, OutboxUnavailable, type EventDraft } from './outbox';
+import { Outbox, OutboxUnavailable, SENT_KEPT_DAYS, type EventDraft } from './outbox';
 
 // Spec: backlog G.3 — l'outbox garde chaque déclaration ; Architecture §5 « Outbox locale » ;
 // CLAUDE.md §4 règles 2 (UUID créé sur l'appareil) et 3 (un événement déclaré ne se perd jamais).
@@ -128,5 +128,88 @@ describe("L'outbox garde chaque déclaration", () => {
     const outbox = await Outbox.open(factory);
     outbox.close();
     await expect(outbox.record(OUSMANE, troisMorts())).rejects.toBeInstanceOf(OutboxUnavailable);
+  });
+
+  // Spec: backlog G.6 (question du fondateur : « la mémoire des téléphones est nettoyée ? ») —
+  // jamais un événement en attente ou en doute ne disparaît.
+  describe('le téléphone se vide de ce qui est envoyé', () => {
+    const jour = (iso: string) => new Date(`${iso}T08:00:00.000Z`);
+    const ids = async (outbox: Outbox) => (await outbox.entriesOf('00000000-0000-4000-8000-000000000004')).map(({ id }) => id);
+
+    it('un événement envoyé s’efface 120 jours après son envoi, pas avant : le serveur l’a, et le cahier le reçoit de lui', async () => {
+      const outbox = await Outbox.open(factory);
+      const envoye = await outbox.record(OUSMANE, troisMorts());
+      await outbox.markSent([envoye.id], jour('2026-11-05'));
+
+      expect(SENT_KEPT_DAYS).toBe(120);
+      expect(await outbox.cleanUp(jour('2027-03-04'))).toBe(0); // 119 jours
+      expect(await ids(outbox)).toEqual([envoye.id]);
+      expect(await outbox.cleanUp(jour('2027-03-05'))).toBe(1); // 120 jours
+      expect(await ids(outbox)).toEqual([]);
+    });
+
+    it('marqué envoyé deux fois, il garde sa première date d’envoi', async () => {
+      const outbox = await Outbox.open(factory);
+      const envoye = await outbox.record(OUSMANE, troisMorts());
+      await outbox.markSent([envoye.id], jour('2026-11-05'));
+      await outbox.markSent([envoye.id], jour('2027-01-01'));
+
+      expect((await outbox.find(envoye.id))?.sentAt).toBe('2026-11-05T08:00:00.000Z');
+    });
+
+    it('un événement envoyé avant ce nettoyage, sans date d’envoi, reçoit la date du premier passage, puis part 120 jours après', async () => {
+      const outbox = await Outbox.open(factory);
+      const ancien = await outbox.record(OUSMANE, troisMorts());
+      await outbox.markSent([ancien.id], jour('2026-01-01'));
+      outbox.close();
+      // An entry written before G.6 has no date of sending: the stored record is made so, by hand.
+      await new Promise<void>((resolve, reject) => {
+        const opening = factory.open('yaar', 1);
+        opening.onerror = () => reject(opening.error);
+        opening.onsuccess = () => {
+          const store = opening.result.transaction('outbox', 'readwrite').objectStore('outbox');
+          const all = store.getAll();
+          all.onsuccess = () => {
+            for (const entry of all.result as { sentAt?: string }[]) {
+              delete entry.sentAt;
+              store.put(entry);
+            }
+            store.transaction.oncomplete = () => {
+              opening.result.close();
+              resolve();
+            };
+          };
+        };
+      });
+      const reopened = await Outbox.open(factory);
+
+      expect(await reopened.cleanUp(jour('2026-11-05'))).toBe(0);
+      expect(await reopened.cleanUp(jour('2027-03-04'))).toBe(0);
+      expect(await reopened.cleanUp(jour('2027-03-05'))).toBe(1);
+    });
+
+    it('un refus reste tant que le gardien ne l’a pas vu ; vu, il s’efface', async () => {
+      const outbox = await Outbox.open(factory);
+      const refuse = await outbox.record(OUSMANE, troisMorts());
+      await outbox.markRefused(refuse.id, { kind: 'CatchUpWindowPassed' });
+
+      expect(await outbox.cleanUp(jour('2030-01-01'))).toBe(0);
+      expect(await outbox.refused(OUSMANE)).toHaveLength(1);
+      await outbox.acknowledgeRefusals([refuse.id]);
+      expect(await outbox.cleanUp(jour('2030-01-01'))).toBe(1);
+      expect(await outbox.refused(OUSMANE)).toHaveLength(0);
+    });
+
+    it('un événement en attente ou en doute ne s’efface jamais, quel que soit son âge, de quelque compte qu’il soit', async () => {
+      const outbox = await Outbox.open(factory);
+      const attente = await outbox.record(OUSMANE, troisMorts());
+      const doute = await outbox.record(AWA, troisMorts(2));
+      await outbox.markInDoubt([doute.id]);
+
+      expect(await outbox.cleanUp(jour('2036-11-05'))).toBe(0);
+      expect(await outbox.toSend(OUSMANE)).toHaveLength(1);
+      expect(await outbox.toSend(AWA)).toHaveLength(1);
+      expect([attente.id, doute.id].every(Boolean)).toBe(true);
+    });
   });
 });

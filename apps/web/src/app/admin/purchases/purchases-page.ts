@@ -12,7 +12,7 @@ import { Office } from '../office';
 import { amountWords, Purchases, type PurchaseProblem } from './purchases';
 
 /** Each state with its picture, its colour and its word: three channels (CdC « Un bureau pour ceux qui ne lisent pas »). */
-const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly tone: string; readonly words: string }> = {
+export const ORDER_STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly tone: string; readonly words: string }> = {
   Draft: { picto: 'pencil', tone: 'draft', words: 'Brouillon' },
   Announced: { picto: 'truck', tone: 'announced', words: 'Annoncée au gardien' },
   PartiallyReceived: { picto: 'received-bags', tone: 'partial', words: 'En partie reçue' },
@@ -22,7 +22,8 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
 };
 
 // « Achats » (Q.5): every order of the farm, with its supplier, its lot, its state and its money;
-// a draft is announced to the caretaker in one gesture. Online, like the rest of the office.
+// a draft is announced to the caretaker in one gesture, or its receptions declared (Q.15). Read
+// online; a payment waits in the office's queue until it leaves (P.7).
 @Component({
   selector: 'app-purchases-page',
   imports: [FiguresAge, OfficePending, Pictogram, RouterLink],
@@ -32,6 +33,7 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     <div class="entries">
       <a class="new-order" routerLink="nouvelle"><app-pictogram picto="truck" [decorative]="true" /> Nouvelle commande</a>
       <a class="expenses" routerLink="depenses"><app-pictogram picto="coin" [decorative]="true" /> Les dépenses</a>
+      <a class="to-receive-link" routerLink="a-recevoir"><app-pictogram picto="truck" [decorative]="true" /> À recevoir</a>
     </div>
     <app-figures-age [readAt]="purchases.readAt()" [stale]="purchases.unreachable()" />
     <app-office-pending [kinds]="['payment']" />
@@ -44,7 +46,7 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     <ul>
       @for (card of cards(); track card.order.id) {
         <li class="order" [class]="'tone-' + card.status.tone">
-          <a class="open" [routerLink]="card.order.status === 'Draft' ? card.order.id : null">
+          <a class="open" [routerLink]="card.order.status === 'Draft' ? card.order.id : [card.order.id, 'fiche']">
             <app-pictogram class="face" [picto]="card.face" [decorative]="true" />
             <span class="who">{{ card.supplier }}</span>
             <span class="lot">{{ card.lot }}</span>
@@ -56,9 +58,11 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
           </a>
           <div class="acts">
             @if (card.order.status === 'Draft') {
+              <!-- Q.15: one or the other — the whole order at once, or receptions declared one by one -->
               <button type="button" class="announce" [disabled]="announcing() === card.order.id" (click)="announce(card.order.id)">
-                <app-pictogram picto="truck" [decorative]="true" /> Annoncer au gardien
+                <app-pictogram picto="truck" [decorative]="true" /> Prévenir le gardien
               </button>
+              <a class="declare" [routerLink]="[card.order.id, 'fiche']" [queryParams]="{ receptions: 'declarer' }"><app-pictogram picto="received-bags" [decorative]="true" /> Déclarer des réceptions</a>
             }
             <a class="pay" [routerLink]="[card.order.id, 'payer']"><app-pictogram picto="coin" [decorative]="true" /> Payer</a>
           </div>
@@ -71,12 +75,14 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: 700 1.35rem var(--font-hand); color: var(--color-earth); }
     h1 app-pictogram { inline-size: 36px; block-size: 36px; }
     .entries { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-block-end: 14px; }
-    .expenses {
+    .expenses, .to-receive-link {
       display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 56px; text-decoration: none;
       border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-2); box-shadow: var(--shadow-hard); background: var(--color-paper); color: var(--color-ink); font: 700 1.05rem var(--font-hand);
     }
-    .expenses app-pictogram { inline-size: 26px; block-size: 26px; }
-    .expenses:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
+    .expenses app-pictogram, .to-receive-link app-pictogram { inline-size: 26px; block-size: 26px; }
+    /* « À recevoir » (Q.14), the whole width under the two entries */
+    .to-receive-link { grid-column: 1 / -1; }
+    .expenses:focus-visible, .to-receive-link:focus-visible { outline: 4px solid var(--color-blue); outline-offset: 2px; }
     .new-order {
       display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 56px; text-align: center;
       border: 3px solid var(--color-ink); border-radius: var(--radius-wobble-1); box-shadow: var(--shadow-hard);
@@ -107,12 +113,12 @@ const STATUS: Record<OrderStatusCode, { readonly picto: PictogramName; readonly 
     .tone-received, .tone-settled { border-inline-start-color: var(--color-pasture); }
     .tone-closed { border-inline-start-color: var(--color-muted); }
     .acts { display: flex; border-block-start: 2px dashed var(--color-card-edge); }
-    .announce, .pay {
+    .announce, .pay, .declare {
       flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-block-size: 52px;
       border: 0; background: var(--color-paper); color: var(--color-ink); font: 700 1rem var(--font-hand); text-decoration: none;
     }
-    .announce + .pay { border-inline-start: 2px dashed var(--color-card-edge); }
-    .announce app-pictogram, .pay app-pictogram { inline-size: 24px; block-size: 24px; }
+    .announce + .declare, .declare + .pay, .announce + .pay { border-inline-start: 2px dashed var(--color-card-edge); }
+    .announce app-pictogram, .pay app-pictogram, .declare app-pictogram { inline-size: 24px; block-size: 24px; }
     .pay:focus-visible { outline: 4px solid var(--color-blue); outline-offset: -4px; }
     .announce:disabled { opacity: 0.6; }
     .none, .refusal { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
@@ -139,7 +145,7 @@ export class PurchasesPage {
         supplier: supplier?.name ?? 'Fournisseur',
         face: (supplier?.face ?? 'paper') as PictogramName,
         lot: lot === undefined ? 'Bande close' : `${lot.siteName} · Jour ${lot.campaignDay}`,
-        status: STATUS[order.status],
+        status: ORDER_STATUS[order.status],
         money: moneyOf(order),
       };
     }),
